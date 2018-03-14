@@ -28,6 +28,6 @@ sanity:
 	ocamlfind query ounit
 
 test: native byte
-	ocamlbuild -use-ocamlfind -I src -I test -I lib -pkg oUnit test.byte
+	$(OCB) -I test -pkg oUnit test.byte
 
 .PHONY: all clean byte native profile debug sanity test
