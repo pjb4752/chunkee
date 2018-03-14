@@ -34,10 +34,9 @@ let is_list_close = is_char_of [')']
 
 let string_to_number s = Form.Number (float_of_string s)
 
-let rec remove_blank input =
-  match input with
-  | [] -> input
-  | x :: _ when not (is_blank x) -> input
+let rec remove_blank = function
+  | [] -> []
+  | x :: xs when not (is_blank x) -> x :: xs
   | _ :: xs -> remove_blank xs
 
 let read_form input terminal_fn test_fn =
