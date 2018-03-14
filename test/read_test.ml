@@ -23,4 +23,17 @@ let suite =
       (fun context ->
         assert_equal (Read.read "fat?") [(Form.Symbol "fat?")]
         );
+
+    "read list form">::
+      (fun context ->
+        assert_equal (Read.read "(+ 1 2)")
+        [(Form.List [(Form.Symbol "+"); (Form.Number 1.0); (Form.Number 2.0)])]
+        );
+
+    "read list form with extra spaces">::
+      (fun context ->
+        assert_equal (Read.read "(   + 1   2   )")
+        [(Form.List [(Form.Symbol "+"); (Form.Number 1.0); (Form.Number 2.0)])]
+        );
+
   ]

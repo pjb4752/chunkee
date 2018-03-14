@@ -29,8 +29,16 @@ let is_digit = is_char_of digits
 let is_string_delim = is_char_of ['"']
 let is_symbol_starting_char = is_char_of symbol_starting_chars
 let is_symbol_char = is_char_of symbol_chars
+let is_list_open = is_char_of ['(']
+let is_list_close = is_char_of [')']
 
 let string_to_number s = Form.Number (float_of_string s)
+
+let rec remove_blank input =
+  match input with
+  | [] -> input
+  | x :: _ when not (is_blank x) -> input
+  | _ :: xs -> remove_blank xs
 
 let read_form input terminal_fn test_fn =
   let rec read_form' input output =
@@ -46,27 +54,42 @@ let read_num input =
     let is_not_digit = (fun c -> not (is_digit c)) in
       read_form input terminal_fn is_not_digit
 
-let read_string input =
-  let rec read_string' input output =
-    match input with
-    | [] -> raise (SyntaxError "expecting '\"', none found")
-    | x :: xs when (is_string_delim x) -> (xs, Form.String output)
-    | x :: xs -> read_string' xs (append_char output x) in
-  read_string' (List.tl input) ""
-
 let read_symbol input =
   let terminal_fn i o = (i, Form.Symbol o) in
     let is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
       read_form input terminal_fn is_not_symbol_char
 
-let try_read input =
+let read_delimited input start delimiter terminal_fn input_fn =
+  let rec read_delimited' input output =
+    match input with
+    | [] -> raise (SyntaxError (Printf.sprintf "expecting '%c', none found" delimiter))
+    | x :: xs when x = delimiter -> (xs, terminal_fn output)
+    | x :: xs -> let (new_input, new_output) = input_fn input output in
+      read_delimited' new_input new_output in
+  read_delimited' input start
+
+let read_string input =
+  let terminal_fn = (fun out -> Form.String out) in
+    let input_fn = (fun (x :: xs) out -> (xs, append_char out x)) in
+      read_delimited (List.tl input) "" '"' terminal_fn input_fn
+
+let read_list read_fn input =
+  let terminal_fn = (fun out -> Form.List (List.rev out)) in
+    let input_fn = (fun i out ->
+      match i with
+      | x :: xs when (is_blank x) -> let new_i = remove_blank i in (new_i, out)
+      | x :: xs -> let (new_i, f) = read_fn i in (new_i, f :: out)) in
+    read_delimited (List.tl input) [] ')' terminal_fn input_fn
+
+let rec try_read input =
   let c = List.hd input in
     if is_digit c then read_num input
     else if is_string_delim c then read_string input
     else if is_symbol_starting_char c then read_symbol input
+    else if is_list_open c then read_list try_read input
     else raise (SyntaxError ("unrecognized form '" ^ (implode input) ^ "'"))
 
-let read_list input =
+let read_forms input =
   let rec read_list' input forms =
     match input with
     | [] -> List.rev forms
@@ -75,4 +98,4 @@ let read_list input =
       read_list' new_input (new_form :: forms) in
   read_list' input []
 
-let read s = read_list @@ explode s
+let read s = read_forms @@ explode s
