@@ -50,52 +50,54 @@ let read_form input terminal_fn test_fn =
 
 (* TODO: needs better handling of decimal points, preceding +/- *)
 let read_num input =
-  let terminal_fn i o = (i, string_to_number o) in
-    let is_not_digit = (fun c -> not (is_digit c)) in
-      read_form input terminal_fn is_not_digit
+  let terminal_fn i o = (i, string_to_number o)
+  and is_not_digit = (fun c -> not (is_digit c)) in
+  read_form input terminal_fn is_not_digit
 
 let read_symbol input =
-  let terminal_fn i o = (i, Form.Symbol o) in
-    let is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
-      read_form input terminal_fn is_not_symbol_char
+  let terminal_fn i o = (i, Form.Symbol o)
+  and is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
+  read_form input terminal_fn is_not_symbol_char
 
 let read_delimited input start delimiter terminal_fn input_fn =
   let rec read_delimited' input output =
     match input with
     | [] -> raise (SyntaxError (Printf.sprintf "expecting '%c', none found" delimiter))
     | x :: xs when x = delimiter -> (xs, terminal_fn output)
-    | x :: xs -> let (new_input, new_output) = input_fn input output in
-      read_delimited' new_input new_output in
+    | x :: xs ->
+        let (new_input, new_output) = input_fn input output in
+        read_delimited' new_input new_output in
   read_delimited' input start
 
 let read_string input =
-  let terminal_fn = (fun out -> Form.String out) in
-    let input_fn = (fun (x :: xs) out -> (xs, append_char out x)) in
-      read_delimited (List.tl input) "" '"' terminal_fn input_fn
+  let terminal_fn = (fun out -> Form.String out)
+  and input_fn = (fun (x :: xs) out -> (xs, append_char out x)) in
+  read_delimited (List.tl input) "" '"' terminal_fn input_fn
 
 let read_list read_fn input =
-  let terminal_fn = (fun out -> Form.List (List.rev out)) in
-    let input_fn = (fun i out ->
-      match i with
-      | x :: xs when (is_blank x) -> let new_i = remove_blank i in (new_i, out)
-      | x :: xs -> let (new_i, f) = read_fn i in (new_i, f :: out)) in
-    read_delimited (List.tl input) [] ')' terminal_fn input_fn
+  let terminal_fn = (fun out -> Form.List (List.rev out))
+  and input_fn = (fun i out ->
+    match i with
+    | x :: xs when (is_blank x) -> let new_i = remove_blank i in (new_i, out)
+    | x :: xs -> let (new_i, f) = read_fn i in (new_i, f :: out)) in
+  read_delimited (List.tl input) [] ')' terminal_fn input_fn
 
 let rec try_read input =
   let c = List.hd input in
-    if is_digit c then read_num input
-    else if is_string_delim c then read_string input
-    else if is_symbol_starting_char c then read_symbol input
-    else if is_list_open c then read_list try_read input
-    else raise (SyntaxError ("unrecognized form '" ^ (implode input) ^ "'"))
+  if is_digit c then read_num input
+  else if is_string_delim c then read_string input
+  else if is_symbol_starting_char c then read_symbol input
+  else if is_list_open c then read_list try_read input
+  else raise (SyntaxError ("unrecognized form '" ^ (implode input) ^ "'"))
 
 let read_forms input =
   let rec read_list' input forms =
     match input with
     | [] -> List.rev forms
     | x :: xs when is_blank x -> read_list' xs forms
-    | xs -> let (new_input, new_form) = try_read input in
-      read_list' new_input (new_form :: forms) in
+    | xs ->
+        let (new_input, new_form) = try_read input in
+        read_list' new_input (new_form :: forms) in
   read_list' input []
 
 let read s = read_forms @@ explode s
