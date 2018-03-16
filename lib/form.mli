@@ -1,7 +1,7 @@
-type form =
+type t =
   | Number of float
   | String of string
   | Symbol of string
-  | List of form list
+  | List of t list
 
-val to_string: form -> string
+val to_string: t -> string
