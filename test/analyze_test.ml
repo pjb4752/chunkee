@@ -46,4 +46,25 @@ let suite =
           (Result.is_error (List.hd c_result))
           true
         );
+
+    "analyze valid fn form">::
+      (fun context ->
+        let form = Form.List [
+          (Form.Symbol "fn"); (Form.List [Form.Symbol "a"]); (Form.Symbol "a")
+        ] in
+        assert_equal
+          (Analyze.analyze modul [form])
+          [Ok (Node.Fn ([Node.Param.from_string "a"], Node.SymLit "a"))]
+      );
+
+    "analyze invalid fn form">::
+      (fun context ->
+        let form = Form.List [
+          (Form.Symbol "fn"); (Form.Symbol "a")
+        ] in
+        let c_result = (Analyze.analyze modul [form]) in
+        assert_equal
+          (Result.is_error (List.hd c_result))
+          true
+      );
   ]
