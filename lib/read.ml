@@ -70,13 +70,17 @@ let read_delimited input start delimiter terminal_fn input_fn =
 
 let read_string input =
   let terminal_fn = (fun out -> Form.String out)
-  and input_fn = (fun (x :: xs) out -> (xs, append_char out x)) in
+  and input_fn i out =
+    match i with
+    | [] -> assert false
+    | x :: xs -> (xs, append_char out x) in
   read_delimited (List.tl input) "" '"' terminal_fn input_fn
 
 let read_list read_fn input =
   let terminal_fn = (fun out -> Form.List (List.rev out))
   and input_fn = (fun i out ->
     match i with
+    | [] -> assert false
     | x :: xs when (is_blank x) -> let new_i = remove_blank i in (new_i, out)
     | x :: xs -> let (new_i, f) = read_fn i in (new_i, f :: out)) in
   read_delimited (List.tl input) [] ')' terminal_fn input_fn
