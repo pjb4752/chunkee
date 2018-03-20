@@ -1,7 +1,9 @@
-val is_ok: ('a, 'b) result -> bool
+type ('a, 'b) t = ('a, 'b) result
 
-val is_error: ('a, 'b) result -> bool
+val is_ok: ('a, 'b) t -> bool
 
-val map: ('a -> 'b) -> ('a, 'c) result -> ('b, 'c) result
+val is_error: ('a, 'b) t -> bool
 
-val flat_map: ('a -> ('b, 'c) result) -> ('a, 'c) result -> ('b, 'c) result
+val return: 'a -> ('a, _) t
+
+val (>>=): ('a, 'b) t -> ('a -> ('c, 'b) t) -> ('c, 'b) t

@@ -1,4 +1,5 @@
 open Printf
+open Result
 
 module CompileError = struct
   type t = {
@@ -13,7 +14,8 @@ let analyze_def f_analyze = function
   | Form.Symbol raw_name :: raw_expr :: [] ->
       let name = Module.Var.Name.from_string raw_name
       and expr = f_analyze raw_expr in
-        Result.map (fun e -> Node.Def (name, e)) expr
+        expr >>= fun e ->
+        return (Node.Def (name, e))
   | _ -> Error { CompileError.message = "invalid DEF form" }
 
 let analyze_params params =
@@ -21,18 +23,18 @@ let analyze_params params =
     | Form.Symbol p -> Ok (Node.Param.from_string p)
     | _ -> Error { CompileError.message = "fn param not a symbol" } in
   let fold_fn param prior =
-    Result.flat_map (fun ps ->
-      Result.map (fun p -> p :: ps) (analyze_param param)
-    ) prior in
+    prior >>= fun ps ->
+    (analyze_param param) >>= fun p ->
+    return (p :: ps) in
   List.fold_right fold_fn params (Ok [])
 
 let analyze_fn f_analyze = function
   | Form.List raw_params :: raw_body :: [] ->
       let params = analyze_params raw_params
       and expr = f_analyze raw_body in
-        Result.flat_map (fun p ->
-          Result.map (fun e -> Node.Fn (p, e)) expr
-          ) params
+      params >>= fun p ->
+      expr >>= fun e ->
+      return (Node.Fn (p, e))
   | _ -> Error { CompileError.message = "invalid FN form" }
 
 let analyze_op f_analyze op (args: Form.t list) =
