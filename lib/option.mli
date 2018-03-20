@@ -1,9 +1,11 @@
-val is_some: 'a option -> bool
+type 'a t = 'a option
 
-val is_none: 'a option -> bool
+val is_some: 'a t -> bool
 
-val map: ('a -> 'b) -> 'a option -> 'b option
+val is_none: 'a t -> bool
 
-val flat_map: ('a -> b' option) -> a' option -> b' option
+val return: 'a -> 'a t
 
-val get_else: 'a option -> 'a -> 'a
+val (>>=): 'a t -> ('a -> 'b t) -> 'b t
+
+val get_else: 'a t -> 'a -> 'a
