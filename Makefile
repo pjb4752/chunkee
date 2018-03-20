@@ -7,7 +7,9 @@ BINARY=chunkee
 NATIVE=$(BINARY).native
 BYTE=$(BINARY).byte
 
-all: native byte # profile debug
+all: native # byte profile debug
+
+test: testbyte
 
 clean:
 	$(OCB) -clean
@@ -27,7 +29,7 @@ debug: sanity
 sanity:
 	ocamlfind query ounit
 
-test: native byte
+testbyte:
 	$(OCB) -I test -pkg oUnit test.byte
 
-.PHONY: all clean byte native profile debug sanity test
+.PHONY: all clean byte native profile debug sanity testbyte
