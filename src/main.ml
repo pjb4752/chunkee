@@ -1,5 +1,7 @@
+open Printf
+
 let print_list string_fn l =
-  List.iter (fun i -> string_fn i |> (Printf.printf "%s\n")) l
+  List.iter (fun i -> string_fn i |> (printf "%s\n")) l
 
 let print_forms = print_list Form.to_string
 let print_nodes nodes =
@@ -14,6 +16,6 @@ let main () =
   let repl_mod = Module.make (Module.Name.from_string "__repl__") in
   let rec loop () =
     let line = read_line () in
-    if line = "(quit)" then Printf.printf "Goodbye\n"
+    if line = "(quit)" then printf "Goodbye\n"
     else eval repl_mod line |> print_nodes |> loop in
   loop ()
