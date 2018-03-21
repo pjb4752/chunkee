@@ -61,6 +61,5 @@ let rec analyze_form = function
   | Form.String s -> Ok (Node.StrLit s)
   | Form.Symbol s -> Ok (Node.SymLit s)
   | Form.List l -> analyze_list analyze_form l
-  | f -> Error { CompileError.message = Form.to_string f }
 
 let analyze modul forms = List.map analyze_form forms
