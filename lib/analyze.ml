@@ -51,8 +51,8 @@ let analyze_op f_analyze op (args: Form.t list) =
   else if op = "if" then analyze_if f_analyze args
   else Error { CompileError.message = sprintf "no special form '%s'" op }
 
-let analyze_list analyze_fn = function
-  | Form.Symbol op :: args -> analyze_op analyze_fn op args
+let analyze_list f_analyze = function
+  | Form.Symbol op :: args -> analyze_op f_analyze op args
   | op :: args -> Error { CompileError.message = "functions unsupported" }
   | _ -> Error { CompileError.message = "unexpected ()" }
 
