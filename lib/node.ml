@@ -2,6 +2,16 @@ open Printf
 
 module Param = Id
 
+module Binding = struct
+  module Name = Id
+  type 'a t = {
+    name: Name.t;
+    expr: 'a;
+  }
+
+  let from_node name expr = { name; expr; }
+end
+
 type t =
   | NumLit of float
   | StrLit of string
@@ -9,6 +19,7 @@ type t =
   | Def of (Module.Var.Name.t * t)
   | Fn of (Param.t list * t)
   | If of (t * t * t)
+  | Let of (t Binding.t list * t)
 
 let rec to_string node =
   let string_of_def name expr =
@@ -20,6 +31,12 @@ let rec to_string node =
   let string_of_if test if_expr else_expr =
     let exprs = List.map to_string [test; if_expr; else_expr] in
     sprintf "If(%s)" (String.concat ", " exprs) in
+  let string_of_binding (binding: t Binding.t) =
+    let name = Binding.Name.to_string binding.name in
+    sprintf "Binding(%s,%s)" name (to_string binding.expr) in
+  let string_of_let bindings body =
+    let bindings = List.map string_of_binding bindings in
+    sprintf "Let(%s,%s)" (String.concat ", " bindings) (to_string body) in
   match node with
   | NumLit n -> sprintf "NumLit(%.2f)" n
   | StrLit s -> sprintf "StrLit(%s)" s
@@ -27,3 +44,4 @@ let rec to_string node =
   | Def (name, expr) -> string_of_def name expr
   | Fn (params, body) -> string_of_fn params body
   | If (test, if_expr, else_expr) -> string_of_if test if_expr else_expr
+  | Let (bindings, body) -> string_of_let bindings body

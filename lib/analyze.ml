@@ -1,5 +1,6 @@
 open Printf
 open Result
+open Extensions
 
 module CompileError = struct
   type t = {
@@ -45,10 +46,34 @@ let analyze_if f_analyze = function
       return (Node.If (t, i, e))
   | _ -> Error { CompileError.message = "invalid IF form" }
 
+let analyze_bindings f_analyze bindings =
+  let analyze_binding = function
+    | (Form.Symbol b, raw_expr) ->
+        let name = Node.Binding.Name.from_string b in
+        (f_analyze raw_expr) >>= fun e ->
+        return (Node.Binding.from_node name e)
+    | _ -> Error { CompileError.message = "invalid BINDING form" } in
+  let fold_fn binding prior =
+    prior >>= fun bs ->
+    (analyze_binding binding) >>= fun b ->
+    return (b :: bs) in
+  if (List.length bindings mod 2) = 0 then
+    List.fold_right fold_fn (List.as_pairs bindings) (Ok [])
+  else Error { CompileError.message = "invalid BINDING form" }
+
+let analyze_let f_analyze = function
+  | Form.List bindings :: body :: [] ->
+      let bindings = analyze_bindings f_analyze bindings in
+      bindings >>= fun bi ->
+      (f_analyze body) >>= fun b ->
+      return (Node.Let (bi, b))
+  | _ -> Error { CompileError.message = "invalid LET form" }
+
 let analyze_op f_analyze op (args: Form.t list) =
   if op = "def" then analyze_def f_analyze args
   else if op = "fn" then analyze_fn f_analyze args
   else if op = "if" then analyze_if f_analyze args
+  else if op = "let" then analyze_let f_analyze args
   else Error { CompileError.message = sprintf "no special form '%s'" op }
 
 let analyze_list f_analyze = function
