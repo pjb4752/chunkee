@@ -67,4 +67,27 @@ let suite =
           (Result.is_error (List.hd c_result))
           true
       );
+
+    "analyze valid if form">::
+      (fun context ->
+        let form = Form.List [
+          (Form.Symbol "if");
+            (Form.Symbol "a"); (Form.Symbol "b"); (Form.Symbol "c")
+        ] in
+        assert_equal
+          (Analyze.analyze modul [form])
+          [Ok (Node.If (Node.SymLit "a", Node.SymLit "b", Node.SymLit "c"))]
+      );
+
+    "analyze invalid if form">::
+      (fun context ->
+        let form = Form.List [
+          (Form.Symbol "if");
+            (Form.Symbol "a"); (Form.Symbol "b");
+        ] in
+        let c_result = (Analyze.analyze modul [form]) in
+        assert_equal
+          (Result.is_error (List.hd c_result))
+          true
+      );
   ]

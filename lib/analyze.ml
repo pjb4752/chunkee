@@ -37,9 +37,18 @@ let analyze_fn f_analyze = function
       return (Node.Fn (p, e))
   | _ -> Error { CompileError.message = "invalid FN form" }
 
+let analyze_if f_analyze = function
+  | raw_test :: raw_if :: raw_else :: [] ->
+      (f_analyze raw_test) >>= fun t ->
+      (f_analyze raw_if) >>= fun i ->
+      (f_analyze raw_else) >>= fun e ->
+      return (Node.If (t, i, e))
+  | _ -> Error { CompileError.message = "invalid IF form" }
+
 let analyze_op f_analyze op (args: Form.t list) =
   if op = "def" then analyze_def f_analyze args
   else if op = "fn" then analyze_fn f_analyze args
+  else if op = "if" then analyze_if f_analyze args
   else Error { CompileError.message = sprintf "no special form '%s'" op }
 
 let analyze_list analyze_fn = function
