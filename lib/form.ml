@@ -1,3 +1,5 @@
+open Printf
+
 type t =
   | Number of float
   | String of string
@@ -5,9 +7,9 @@ type t =
   | List of t list
 
 let rec to_string form =
-  let string_of_list l = String.concat ", " (List.map to_string l) in
+  let string_of_list l = String.concat " " (List.map to_string l) in
   match form with
-  | Number n -> "Number(" ^ string_of_float n ^ ")"
-  | String s -> "String(" ^ s ^ ")"
-  | Symbol s -> "Symbol(" ^ s ^ ")"
-  | List l -> "List(" ^ string_of_list l ^ ")"
+  | Number n -> sprintf "(number %.2f)" n
+  | String s -> sprintf "(string %s)" s
+  | Symbol s -> sprintf "(symbol %s)" s
+  | List l -> sprintf "(list %s)" (string_of_list l)
