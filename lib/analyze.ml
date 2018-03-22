@@ -69,16 +69,27 @@ let analyze_let f_analyze = function
       return (Node.Let (bi, b))
   | _ -> Error { CompileError.message = "invalid LET form" }
 
+let analyze_args f_analyze args =
+  let fold_fn arg prior =
+    prior >>= fun args ->
+    (f_analyze arg) >>= fun a ->
+    return (a :: args) in
+  List.fold_right fold_fn args (Ok [])
+
+let analyze_apply f_analyze fn args =
+  (analyze_args f_analyze args) >>= fun args ->
+  return (Node.Apply (Node.SymLit fn, args))
+
 let analyze_op f_analyze op (args: Form.t list) =
   if op = "def" then analyze_def f_analyze args
   else if op = "fn" then analyze_fn f_analyze args
   else if op = "if" then analyze_if f_analyze args
   else if op = "let" then analyze_let f_analyze args
-  else Error { CompileError.message = sprintf "no special form '%s'" op }
+  else analyze_apply f_analyze op args
 
 let analyze_list f_analyze = function
   | Form.Symbol op :: args -> analyze_op f_analyze op args
-  | op :: args -> Error { CompileError.message = "functions unsupported" }
+  | op :: args -> Error { CompileError.message = "no first-class functions" }
   | _ -> Error { CompileError.message = "unexpected ()" }
 
 let rec analyze_form = function

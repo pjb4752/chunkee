@@ -15,5 +15,6 @@ type t =
   | Fn of (Param.t list * t)
   | If of (t * t * t)
   | Let of (t Binding.t list * t)
+  | Apply of (t * t list)
 
 val to_string: t -> string

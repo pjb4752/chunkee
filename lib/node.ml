@@ -20,6 +20,7 @@ type t =
   | Fn of (Param.t list * t)
   | If of (t * t * t)
   | Let of (t Binding.t list * t)
+  | Apply of (t * t list)
 
 let rec to_string node =
   let string_of_def name expr =
@@ -37,6 +38,9 @@ let rec to_string node =
   let string_of_let bindings body =
     let bindings = List.map string_of_binding bindings in
     sprintf "Let(%s,%s)" (String.concat ", " bindings) (to_string body) in
+  let string_of_apply fn args =
+    let args = String.concat ", " (List.map to_string args) in
+    sprintf "Apply(%s, %s)" (to_string fn) args in
   match node with
   | NumLit n -> sprintf "NumLit(%.2f)" n
   | StrLit s -> sprintf "StrLit(%s)" s
@@ -45,3 +49,4 @@ let rec to_string node =
   | Fn (params, body) -> string_of_fn params body
   | If (test, if_expr, else_expr) -> string_of_if test if_expr else_expr
   | Let (bindings, body) -> string_of_let bindings body
+  | Apply (fn, args) -> string_of_apply fn args

@@ -117,4 +117,15 @@ let suite =
           (Result.is_error (List.hd c_result))
           true
       );
+
+    "analyze valid apply form">::
+      (fun context ->
+        let form = Form.List [
+          (Form.Symbol "+"); (Form.Symbol "a"); (Form.Symbol "b");
+        ] in
+        assert_equal
+          (Analyze.analyze modul [form])
+          [Ok (Node.Apply (Node.SymLit "+",
+            [Node.SymLit "a"; Node.SymLit "b"]))]
+      );
   ]
