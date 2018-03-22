@@ -29,7 +29,7 @@ let suite =
     "analyze valid def form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "def"); (Form.Symbol "x"); (Form.Number 55.0)
+          Form.Symbol "def"; Form.Symbol "x"; Form.Number 55.0
         ] in
         assert_equal
           (Analyze.analyze modul [form])
@@ -39,7 +39,7 @@ let suite =
     "analyze invalid def form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "def"); (Form.Symbol "x");
+          Form.Symbol "def"; Form.Symbol "x";
         ] in
         let c_result = (Analyze.analyze modul [form]) in
         assert_equal
@@ -50,7 +50,7 @@ let suite =
     "analyze valid fn form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "fn"); (Form.List [Form.Symbol "a"]); (Form.Symbol "a")
+          Form.Symbol "fn"; Form.List [Form.Symbol "a"]; Form.Symbol "a"
         ] in
         assert_equal
           (Analyze.analyze modul [form])
@@ -60,7 +60,7 @@ let suite =
     "analyze invalid fn form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "fn"); (Form.Symbol "a")
+          Form.Symbol "fn"; Form.Symbol "a"
         ] in
         let c_result = (Analyze.analyze modul [form]) in
         assert_equal
@@ -71,8 +71,8 @@ let suite =
     "analyze valid if form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "if");
-            (Form.Symbol "a"); (Form.Symbol "b"); (Form.Symbol "c")
+          Form.Symbol "if";
+            Form.Symbol "a"; Form.Symbol "b"; Form.Symbol "c"
         ] in
         assert_equal
           (Analyze.analyze modul [form])
@@ -82,8 +82,8 @@ let suite =
     "analyze invalid if form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "if");
-            (Form.Symbol "a"); (Form.Symbol "b");
+          Form.Symbol "if";
+            Form.Symbol "a"; Form.Symbol "b";
         ] in
         let c_result = (Analyze.analyze modul [form]) in
         assert_equal
@@ -94,9 +94,9 @@ let suite =
     "analyze valid let form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "let");
-            (Form.List [Form.Symbol "a"; Form.Number 5.0]);
-            (Form.Symbol "a");
+          Form.Symbol "let";
+            Form.List [Form.Symbol "a"; Form.Number 5.0];
+            Form.Symbol "a";
         ] in
         let name = Node.Binding.Name.from_string "a" in
         let binding = Node.Binding.from_node name (Node.NumLit 5.0) in
@@ -108,9 +108,9 @@ let suite =
     "analyze invalid let form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "let");
-            (Form.List [Form.Symbol "a"]);
-            (Form.Symbol "a");
+          Form.Symbol "let";
+            Form.List [Form.Symbol "a"];
+            Form.Symbol "a";
         ] in
         let c_result = (Analyze.analyze modul [form]) in
         assert_equal
@@ -121,7 +121,7 @@ let suite =
     "analyze valid apply form">::
       (fun context ->
         let form = Form.List [
-          (Form.Symbol "+"); (Form.Symbol "a"); (Form.Symbol "b");
+          Form.Symbol "+"; Form.Symbol "a"; Form.Symbol "b";
         ] in
         assert_equal
           (Analyze.analyze modul [form])
