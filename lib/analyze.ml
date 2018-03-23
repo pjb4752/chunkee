@@ -92,10 +92,8 @@ let analyze_list f_analyze = function
   | op :: args -> Error { CompileError.message = "no first-class functions" }
   | _ -> Error { CompileError.message = "unexpected ()" }
 
-let rec analyze_form = function
+let rec analyze = function
   | Form.Number n -> Ok (Node.NumLit n)
   | Form.String s -> Ok (Node.StrLit s)
   | Form.Symbol s -> Ok (Node.SymLit s)
-  | Form.List l -> analyze_list analyze_form l
-
-let analyze modul forms = List.map analyze_form forms
+  | Form.List l -> analyze_list analyze l
