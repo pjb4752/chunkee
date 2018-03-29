@@ -21,6 +21,8 @@ type t = {
 
 let make name = { name; vars = [] }
 
+let name { name; } = name
+
 let find_var modul var_name =
   List.find_opt (fun (v: Var.t) -> v.name = var_name) modul.vars
 
