@@ -1,6 +1,5 @@
 open Printf
 open Result
-open Stdlib
 
 let print_list string_fn l =
   List.iter (fun i -> string_fn i |> (printf "%s\n")) l
