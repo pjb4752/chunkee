@@ -7,25 +7,15 @@ let print_list string_fn l =
 
 let print_forms = print_list Form.to_string
 let print_nodes = print_list Node.to_string
-let print_module modul =
-  printf "%s\n" (Module.to_string modul)
-  (*if (List.length errors = 0) then ()*)
-  (*else*)
-    (*let errors = List.map Cmpl_err.to_string errors in*)
-    (*printf "%s\n" (String.concat "\n" errors)*)
+let print_module modul = printf "%s\n" (Module.to_string modul)
 
 let print_result modul nodes =
   let () = print_nodes nodes in
   print_module modul
 
-let read line =
-  Read.read line
-
-let analyze forms =
-  Analyze.analyze_all forms
-
-let define modul nodes =
-  Resolve.define_vars modul nodes
+let read = Read.read
+let analyze = Analyze.analyze_all
+let define = Resolve.define_vars
 
 let eval repl_mod line =
   (read line) >>= fun forms ->
