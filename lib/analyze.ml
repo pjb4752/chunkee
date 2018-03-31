@@ -1,3 +1,4 @@
+open Lex
 open Printf
 open Result
 open Extensions

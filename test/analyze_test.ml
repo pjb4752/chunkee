@@ -1,3 +1,4 @@
+open Lex
 open OUnit2
 
 let module_name = Module.Name.from_string "__test__"

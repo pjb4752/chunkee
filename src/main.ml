@@ -4,7 +4,7 @@ open Result
 let print_list string_fn l =
   List.iter (fun i -> string_fn i |> (printf "%s\n")) l
 
-let print_forms = print_list Form.to_string
+let print_forms = print_list Lex.Form.to_string
 let print_nodes = print_list Node.to_string
 let print_module modul = printf "%s\n" (Module.to_string modul)
 
@@ -12,12 +12,12 @@ let print_result modul nodes =
   let () = print_nodes nodes in
   print_module modul
 
-let read = Read.read
+let lex = Lex.lex
 let analyze = Analyze.analyze_all
 let define = Resolve.define_vars
 
 let eval repl_mod line =
-  (read line) >>= fun forms ->
+  (lex line) >>= fun forms ->
   (analyze forms) >>= fun nodes ->
   (define repl_mod nodes) >>= fun modul ->
   return (modul, nodes)
