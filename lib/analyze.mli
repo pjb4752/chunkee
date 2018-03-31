@@ -1,8 +1,3 @@
-module CompileError: sig
-  type t
+val analyze: Form.t -> (Node.t, Cmpl_err.t) result
 
-  val message: t -> string
-  val to_string: t -> string
-end
-
-val analyze: Form.t -> (Node.t, CompileError.t) result
+val analyze_all: Form.t list -> (Node.t list, Cmpl_err.t) result

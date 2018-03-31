@@ -103,4 +103,8 @@ let read_forms input =
         read_list' new_input (new_form :: forms) in
   read_list' input []
 
-let read s = read_forms @@ explode s
+let read_exn s = read_forms @@ explode s
+
+let read s =
+  try Ok (read_exn s)
+  with SyntaxError e -> Error(Cmpl_err.SyntaxError e)

@@ -1,8 +1,3 @@
-module NameError: sig
-  type t
+val define_var: Module.t -> Node.t -> (Module.t, Cmpl_err.t) result
 
-  val message: t -> string
-  val to_string: t -> string
-end
-
-val define_vars: Module.t -> Node.t -> (Module.t, NameError.t) result
+val define_vars: Module.t -> Node.t list -> (Module.t, Cmpl_err.t) result
