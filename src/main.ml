@@ -13,12 +13,12 @@ let print_result modul nodes =
   print_module modul
 
 let lex = Lex.lex
-let analyze = Analyze.analyze_all
+let parse = Parse.parse
 let define = Resolve.define_vars
 
 let eval repl_mod line =
   (lex line) >>= fun forms ->
-  (analyze forms) >>= fun nodes ->
+  (parse forms) >>= fun nodes ->
   (define repl_mod nodes) >>= fun modul ->
   return (modul, nodes)
 
