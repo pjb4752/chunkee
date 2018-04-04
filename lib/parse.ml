@@ -3,6 +3,8 @@ open Printf
 open Result
 open Extensions
 
+type t = string Node.t
+
 let parse_def f_parse = function
   | Form.Symbol raw_name :: raw_expr :: [] ->
       let name = Module.Var.Name.from_string raw_name

@@ -5,7 +5,7 @@ let print_list string_fn l =
   List.iter (fun i -> string_fn i |> (printf "%s\n")) l
 
 let print_forms = print_list Lex.Form.to_string
-let print_nodes = print_list Node.to_string
+let print_nodes = print_list (Node.to_string (fun s -> s))
 let print_module modul = printf "%s\n" (Module.to_string modul)
 
 let print_result modul nodes =

@@ -1,3 +1,7 @@
-val parse_form: Lex.Form.t -> (Node.t, Cmpl_err.t) result
+open Extensions
 
-val parse: Lex.Form.t list -> (Node.t list, Cmpl_err.t) result
+type t = string Node.t
+
+val parse_form: Lex.Form.t -> (t, Cmpl_err.t) result
+
+val parse: Lex.Form.t list -> (t list, Cmpl_err.t) result
