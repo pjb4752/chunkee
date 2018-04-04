@@ -6,9 +6,9 @@ module List = struct
     | _ -> false
 
   let rec as_pairs = function
-      | [] -> []
-      | f :: n :: tl -> (f, n) :: as_pairs tl
-      | _ -> assert false
+    | [] -> []
+    | f :: n :: tl -> (f, n) :: as_pairs tl
+    | _ -> assert false
 end
 
 module Map = struct
