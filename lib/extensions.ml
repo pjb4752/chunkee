@@ -5,6 +5,11 @@ module List = struct
     | [] -> true
     | _ -> false
 
+  let hd_else l e =
+    match l with
+    | [] -> e
+    | hd :: _ -> hd
+
   let rec as_pairs = function
     | [] -> []
     | f :: n :: tl -> (f, n) :: as_pairs tl

@@ -7,6 +7,8 @@ module Binding: sig
   val from_node: Name.t -> 'a -> 'a t
 
   val to_string: 'a t -> ('a -> string) -> string
+
+  val values: 'a t -> Name.t * 'a
 end
 
 type 'a t =
