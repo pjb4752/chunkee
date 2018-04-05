@@ -2,9 +2,6 @@ open Lex
 open Parse
 open OUnit2
 
-let module_name = Module.Name.from_string "__test__"
-let modul = Module.make module_name
-
 let assert_true value = assert_equal value true
 
 let suite =
