@@ -34,7 +34,7 @@ let to_string str_of_a node =
       sprintf "(def %s %s)" name (to_string' expr) in
     let string_of_fn params body =
       let params = String.concat " " (List.map Param.to_string params) in
-      sprintf "(fn (params %s)) %s)" params (to_string' body) in
+      sprintf "(fn (params %s) %s)" params (to_string' body) in
     let string_of_if test if_expr else_expr =
       let exprs = List.map to_string' [test; if_expr; else_expr] in
       sprintf "(if %s)" (String.concat " " exprs) in
