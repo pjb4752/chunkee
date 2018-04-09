@@ -121,4 +121,24 @@ let suite =
           (emit (Node.Apply (fn, args)))
           "a(1.000000, \"hi\")"
       );
+
+    "emit apply expression with complex arguments">::
+      (fun context ->
+        let tst = Node.SymLit (Name.Local "is_true")
+        and iff = Node.SymLit (Name.Local "a")
+        and els = Node.SymLit (Name.Local "b")
+        and fn = Node.SymLit (Name.Local "a") in
+        let args = [Node.If (tst, iff, els); Node.StrLit "hi"] in
+        assert_equal
+          (emit (Node.Apply (fn, args)))
+          (String.concat "\n" [
+            "local __var1";
+            "if is_true then";
+            "__var1 = a";
+            "else";
+            "__var1 = b";
+            "end";
+            "a(__var1, \"hi\")";
+          ])
+      );
   ]

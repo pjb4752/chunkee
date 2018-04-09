@@ -143,12 +143,26 @@ let emit_let recur_fn state bindings body =
     sprintf "%send" (State.indent state);
   ]
 
-(*TODO emit complex arg exprs*)
+let emit_args recur_fn state args =
+  let fold_fn (args, emitted, state) arg =
+    let expr = recur_fn state arg in
+    if is_simple arg then
+      ((expr :: args), emitted, state)
+    else
+      let next_state = State.new_var state in
+      let arg = State.var next_state in
+      ((arg :: args), (expr :: emitted), next_state)
+  and initial = ([], [], state) in
+  let (args, emitted, _) = List.fold_left fold_fn initial args in
+  (args, emitted)
+
+(* TODO emit code for nested complex fn application *)
 let emit_apply recur_fn state fn args =
   let fn = recur_fn state fn
-  and args = List.map (recur_fn state) args in
-  let args = String.concat ", " args in
-  sprintf "%s(%s)" fn args
+  and (args, emitted) = emit_args recur_fn state args in
+  let args = String.concat ", " (List.rev args) in
+  let fn_call = sprintf "%s(%s)" fn args in
+  String.concat "\n" (List.rev (fn_call :: emitted))
 
 let rec emit_node state = function
   | Node.NumLit n -> emit_num n
