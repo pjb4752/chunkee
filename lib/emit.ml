@@ -78,12 +78,30 @@ let emit_fn recur_fn state params body =
     sprintf "%send" (State.indent state);
   ]
 
-(*TODO handle complex tst expr*)
+let emit_simple_test recur_fn state test =
+  let test = recur_fn state test
+  and indent = State.indent state in
+  sprintf "%sif %s then" indent test
+
+let emit_complex_test recur_fn state test =
+  let next_var = State.var (State.new_var state) in
+  let indent = State.indent state in
+  String.concat "\n" [
+    recur_fn state test;
+    sprintf "%sif %s then" indent next_var;
+  ]
+
+let emit_test recur_fn state test =
+  if is_simple test then
+    emit_simple_test recur_fn state test
+  else
+    emit_complex_test recur_fn state test
+
 let emit_if recur_fn state tst iff els =
   let state = State.new_var state in
   String.concat "\n" [
     sprintf "%slocal %s" (State.indent state) (State.var state);
-    sprintf "%sif %s then" (State.indent state) (recur_fn state tst);
+    emit_test recur_fn state tst;
     emit_expr recur_fn state iff;
     sprintf "%selse" (State.indent state);
     emit_expr recur_fn state els;

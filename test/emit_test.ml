@@ -70,6 +70,32 @@ let suite =
           ])
       );
 
+    "emit if expression with complex test expression">::
+      (fun context ->
+        let outer_tst = Node.SymLit (Name.Local "is_true")
+        and outer_iff = Node.StrLit "hi"
+        and outer_els = Node.StrLit "bye" in
+        let tst = Node.If (outer_tst, outer_iff, outer_els)
+        and iff = Node.SymLit (Name.Local "a")
+        and els = Node.SymLit (Name.Local "b") in
+        assert_equal
+          (emit (Node.If (tst, iff, els)))
+          (String.concat "\n" [
+            "local __var1";
+            "local __var2";
+            "if is_true then";
+            "__var2 = \"hi\"";
+            "else";
+            "__var2 = \"bye\"";
+            "end";
+            "if __var2 then";
+            "__var1 = a";
+            "else";
+            "__var1 = b";
+            "end";
+          ])
+      );
+
     "emit let expression">::
       (fun context ->
         let name = Node.Binding.Name.from_string "b1"
