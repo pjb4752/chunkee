@@ -30,13 +30,25 @@ let resolve_module_name modul name =
   if Module.var_exists modul name then Some name
   else None
 
-let resolve_name modul scopes name =
+let resolve_global_name table name =
+  let name = Module.Var.Name.from_string name in
+  match Table.find_module table Stdlib.global_path with
+  | Some m ->
+      if Module.var_exists m name then Some name
+      else None
+  | None -> None
+
+let resolve_name table modul scopes name =
   if List.exists (Scope.mem name) scopes then
     Ok (Node.SymLit (Name.Local name))
   else
     match resolve_module_name modul name with
     | Some name -> Ok (Node.SymLit (Name.Module name))
-    | _ -> Error (Cmpl_err.NameError (sprintf "%s is undefined" name))
+    | None -> begin
+      match resolve_global_name table name with
+      | Some name -> Ok (Node.SymLit (Name.Module name))
+      | _ -> Error (Cmpl_err.NameError (sprintf "%s is undefined" name))
+    end
 
 let resolve_def recur_fn scopes name expr =
   (recur_fn scopes expr) >>= fun n ->
@@ -94,11 +106,11 @@ let resolve_apply recur_fn scopes fn args =
   (recur_fn scopes fn) >>= fun f ->
   return (Node.Apply (f, List.rev a))
 
-let resolve_node modul node =
+let resolve_node table modul node =
   let rec resolve' scopes = function
     | Node.NumLit n -> Ok (Node.NumLit n)
     | Node.StrLit s -> Ok (Node.StrLit s)
-    | Node.SymLit name -> resolve_name modul scopes name
+    | Node.SymLit name -> resolve_name table modul scopes name
     | Node.Def (name, expr) -> resolve_def resolve' scopes name expr
     | Node.Fn (params, body) -> resolve_fn resolve' scopes params body
     | Node.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
@@ -106,9 +118,9 @@ let resolve_node modul node =
     | Node.Apply (fn, args) -> resolve_apply resolve' scopes fn args in
   resolve' [] node
 
-let resolve modul nodes =
+let resolve table modul nodes =
   let fold_fn node nodes =
     nodes >>= fun ns ->
-    (resolve_node modul node) >>= fun n ->
+    (resolve_node table modul node) >>= fun n ->
     return (n :: ns) in
   List.fold_right fold_fn nodes (Ok [])
