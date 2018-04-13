@@ -21,8 +21,7 @@ let print_resolved = print_list (Node.to_string (fun n -> Name.to_string n))
 let print_emitted = print_list (fun s -> s)
 
 let print_result table nodes =
-  let () = print_resolved nodes in
-  print_table table
+  print_resolved nodes
 
 let lex = Lex.lex
 let parse = Parse.parse
@@ -47,7 +46,6 @@ let main () =
     let line = read_line () in
     if line = "(quit)" then printf "Goodbye\n"
     else begin
-      let () = print_table table in
       match eval table modul line with
       | Ok (table, modul, resolved)->
           let () = print_result table resolved in
