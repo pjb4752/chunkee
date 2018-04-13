@@ -22,7 +22,7 @@ let find_module tree paths =
     tree >>= fun t ->
     (match_fn t paths) >>= fun m ->
     return m in
-  find' (Some tree) (Module.Path.to_list paths)
+  find' (Some tree) (Module.Qual_name.to_list paths)
 
 let insert_module tree modul =
   let rec insert' tree paths modul =
@@ -31,7 +31,7 @@ let insert_module tree modul =
     | Node children ->
         match paths with
         | [] ->
-            let name = Module.name modul in
+            let name = Module.short_name modul in
             if Children.mem name children then assert false
             else Children.add name (Leaf modul) children
         | p :: ps ->
@@ -53,7 +53,7 @@ let update_module tree modul =
     | Node children ->
         match paths with
         | [] ->
-            let name = Module.name modul in
+            let name = Module.short_name modul in
             if leaf_exists children name then
               Children.add name (Leaf modul) children
             else assert false

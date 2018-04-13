@@ -32,7 +32,7 @@ let resolve_module_name modul name =
 
 let resolve_global_name table name =
   let name = Module.Var.Name.from_string name in
-  match Table.find_module table Stdlib.global_path with
+  match Table.find_module table Stdlib.global_name with
   | Some m ->
       if Module.var_exists m name then Some name
       else None

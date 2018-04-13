@@ -6,7 +6,7 @@ let repl_path0 = Module.Name.from_string "__repl__"
 let repl_path = Module.Path.from_list [repl_path0]
 
 let repl_name = Module.Name.from_string "main"
-let repl_module = Module.make repl_path repl_name
+let repl_module = Module.from_parts repl_path repl_name
 
 let print_list string_fn l =
   List.iter (fun i -> string_fn i |> (printf "%s\n")) l

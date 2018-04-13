@@ -8,7 +8,15 @@ module Path: sig
   val to_list: t -> Name.t list
 end
 
-type t
+module Qual_name: sig
+  type t
+
+  val make: Path.t -> Name.t -> t
+
+  val to_string: t -> string
+
+  val to_list: t -> Name.t list
+end
 
 module Var: sig
   module Name = Id
@@ -19,18 +27,26 @@ module Var: sig
   val to_string: t -> string
 end
 
-val make: Path.t -> Name.t -> t
+type t
 
-val name: t -> Name.t
+val from_name: Qual_name.t -> t
 
-val full_path: t -> Path.t
+val from_parts: Path.t -> Name.t -> t
+
+val short_name: t -> Name.t
+
+val qual_name: t -> Qual_name.t
 
 val path_list: t -> Name.t list
+
+val qual_name_list: t -> Name.t list
 
 val find_var: t -> Var.Name.t -> Var.t option
 
 val var_exists: t -> Var.Name.t -> bool
 
 val add_var: t -> Var.t -> t
+
+val make_var: t -> string -> t
 
 val to_string: t -> string

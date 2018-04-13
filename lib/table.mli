@@ -4,7 +4,7 @@ type t =
   | Node of t Children.t
   | Leaf of Module.t
 
-val find_module: t -> Module.Path.t -> Module.t option
+val find_module: t -> Module.Qual_name.t -> Module.t option
 
 val insert_module: t -> Module.t -> t
 

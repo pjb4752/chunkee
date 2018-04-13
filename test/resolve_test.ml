@@ -15,7 +15,7 @@ let var0 = Module.Var.make name0
 let var1 = Module.Var.make name1
 
 let name = Module.Name.from_string "core"
-let m0 = Module.make path name
+let m0 = Module.from_parts path name
 let m1 = Module.add_var m0 var0
 let m2 = Module.add_var m1 var1
 
