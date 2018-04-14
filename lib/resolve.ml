@@ -11,8 +11,7 @@ let ifndef_var modul var_name =
     let str_name = Module.Var.Name.to_string var_name in
     Error (Cmpl_err.NameError (sprintf "var %s already defined" str_name))
   else
-    let var = Module.Var.make var_name in
-    Ok (Module.add_var modul var)
+    Ok (Module.make_var modul var_name)
 
 let define_var modul = function
   | Node.Def (name, _) -> ifndef_var modul name

@@ -22,7 +22,9 @@ module Var: sig
   module Name = Id
   type t
 
-  val make: Name.t -> t
+  val from_tuple: Qual_name.t * Name.t -> t
+
+  val to_tuple: t -> Qual_name.t * Name.t
 
   val to_string: t -> string
 end
@@ -47,6 +49,6 @@ val var_exists: t -> Var.Name.t -> bool
 
 val add_var: t -> Var.t -> t
 
-val make_var: t -> string -> t
+val make_var: t -> Var.Name.t -> t
 
 val to_string: t -> string

@@ -11,13 +11,10 @@ let name0 = Module.Var.Name.from_string "name0"
 let name1 = Module.Var.Name.from_string "name1"
 let name2 = Module.Var.Name.from_string "name2"
 
-let var0 = Module.Var.make name0
-let var1 = Module.Var.make name1
-
 let name = Module.Name.from_string "core"
 let m0 = Module.from_parts path name
-let m1 = Module.add_var m0 var0
-let m2 = Module.add_var m1 var1
+let m1 = Module.make_var m0 name0
+let m2 = Module.make_var m1 name1
 
 let s_sym0 = Node.SymLit "name0"
 let s_sym1 = Node.SymLit "name1"

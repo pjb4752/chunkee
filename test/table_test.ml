@@ -47,7 +47,7 @@ let suite =
       (fun context ->
         let name = Module.Var.Name.from_string "hi" in
         let t0 = insert_module with_stdlib module0 in
-        let m1 = Module.add_var module0 (Module.Var.make name) in
+        let m1 = Module.make_var module0 name in
         let table = update_module t0 m1 in
         let name = Module.qual_name m1 in
         let found = find_module table name in
