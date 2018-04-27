@@ -37,17 +37,19 @@ module Var = struct
 
   type t = {
     m_name: Qual_name.t;
-    name: Name.t
+    name: Name.t;
+    tipe: Type.t
   }
 
-  let from_tuple (m_name, name) = { m_name; name; }
+  let from_tuple (m_name, name, tipe) = { m_name; name; tipe; }
 
-  let to_tuple { m_name; name; } = (m_name, name)
+  let to_tuple { m_name; name; tipe; } = (m_name, name, tipe)
 
-  let from_string m_name name = from_tuple (m_name, Name.from_string name)
-
-  let to_string { m_name; name; } =
-    sprintf "(var %s/%s)" (Qual_name.to_string m_name) (Name.to_string name)
+  let to_string { m_name; name; tipe } =
+    let m_name = Qual_name.to_string m_name
+    and name = Name.to_string name
+    and tipe = Type.to_string tipe in
+    sprintf "(var [%s/%s %s])" m_name name tipe
 end
 
 
@@ -74,12 +76,9 @@ let find_var modul var_name =
 let var_exists modul var_name =
   Option.is_some @@ find_var modul var_name
 
-let add_var modul var =
+let define_var modul name tipe =
+  let var = Var.from_tuple (qual_name modul, name, tipe) in
   { modul with vars = var :: modul.vars }
-
-let make_var modul name =
-  let var = Var.from_tuple (qual_name modul, name) in
-  add_var modul var
 
 let to_string { name; vars; } =
   let vars = String.concat " " (List.map Var.to_string vars)

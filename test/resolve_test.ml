@@ -11,10 +11,12 @@ let name0 = Module.Var.Name.from_string "name0"
 let name1 = Module.Var.Name.from_string "name1"
 let name2 = Module.Var.Name.from_string "name2"
 
+let type0 = Type.Str
+
 let name = Module.Name.from_string "core"
 let m0 = Module.from_parts path name
-let m1 = Module.make_var m0 name0
-let m2 = Module.make_var m1 name1
+let m1 = Module.define_var m0 name0 type0
+let m2 = Module.define_var m1 name1 type0
 
 let s_sym0 = Node.SymLit "name0"
 let s_sym1 = Node.SymLit "name1"
@@ -56,9 +58,12 @@ let suite =
 
     "resolve symbol literal in def">::
       (fun context ->
+        let name = Node.VarDef.Name.from_string "name2"
+        and t = Node.VarDef.Type.from_string "num" in
+        let var = Node.VarDef.from_parts name t in
         assert_equal
-          (resolve_node t1 m2 (Node.Def (name2, s_sym0)))
-          (Ok (Node.Def (name2, n_sym0)))
+          (resolve_node t1 m2 (Node.Def (var, s_sym0)))
+          (Ok (Node.Def (var, n_sym0)))
       );
 
     "resolve local symbol literal in fn">::

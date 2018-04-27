@@ -1,6 +1,6 @@
-let make_var modul name =
+let make_var modul (name, t) =
   let name = Module.Var.Name.from_string name in
-  Module.make_var modul name
+  Module.define_var modul name t
 
 let make_module root name vars =
   let name = Module.Name.from_string name in
@@ -10,14 +10,16 @@ let make_module root name vars =
 
 let root = Module.Name.from_string "core"
 
+let math_fntype = Type.Fn ([Type.Num; Type.Num], Type.Num)
+
 let common_module =
   let name = "common"
   and vars = [
-    "+";
-    "-";
-    "*";
-    "/";
-    "print";
+    ("+", math_fntype);
+    ("-", math_fntype);
+    ("*", math_fntype);
+    ("/", math_fntype);
+    ("print", Type.Fn([Type.Str], Type.Unit));
   ] in
   make_module root name vars
 

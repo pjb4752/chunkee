@@ -30,10 +30,12 @@ let suite =
 
     "emit def expression">::
       (fun context ->
-        let name = Module.Var.Name.from_string "hi"
+        let name = Node.VarDef.Name.from_string "hi"
+        and t = Node.VarDef.Type.from_string "num" in
+        let var = Node.VarDef.from_parts name t
         and expr = Node.NumLit 5.0 in
         assert_equal
-          (emit (Node.Def (name, expr)))
+          (emit (Node.Def (var, expr)))
           "local hi = 5.000000"
       );
 

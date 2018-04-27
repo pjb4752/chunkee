@@ -1,5 +1,17 @@
 module Param = Id
 
+module VarDef: sig
+  module Name = Id
+  module Type = Id
+  type t
+
+  val from_parts: Name.t -> Type.t -> t
+
+  val to_tuple: t -> Name.t * Type.t
+
+  val to_string: t -> string
+end
+
 module Binding: sig
   module Name = Id
   type 'a t
@@ -15,7 +27,7 @@ type 'a t =
   | NumLit of float
   | StrLit of string
   | SymLit of 'a
-  | Def of (Module.Var.Name.t * 'a t)
+  | Def of (VarDef.t * 'a t)
   | Fn of (Param.t list * 'a t)
   | If of ('a t * 'a t * 'a t)
   | Let of ('a t Binding.t list * 'a t)

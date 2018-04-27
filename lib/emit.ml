@@ -54,9 +54,10 @@ let emit_sym = function
   | Name.Literal l -> l
   | Name.Module m -> Module.Var.Name.to_string m
 
-let emit_def recur_fn state name expr =
+let emit_def recur_fn state var expr =
   let state = State.new_var state
-  and name = Module.Var.Name.to_string name in
+  and (name, _) = Node.VarDef.to_tuple var in
+  let name = Node.VarDef.Name.to_string name in
   if is_simple expr then
     sprintf "local %s = %s" name (recur_fn state expr)
   else
@@ -168,7 +169,7 @@ let rec emit_node state = function
   | Node.NumLit n -> emit_num n
   | Node.StrLit s -> emit_str s
   | Node.SymLit s -> emit_sym s
-  | Node.Def (name, expr) -> emit_def emit_node state name expr
+  | Node.Def (var, expr) -> emit_def emit_node state var expr
   | Node.Fn (params, body) -> emit_fn emit_node state params body
   | Node.If (tst, iff, els) -> emit_if emit_node state tst iff els
   | Node.Let (bindings, body) -> emit_let emit_node state bindings body

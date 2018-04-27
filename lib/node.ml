@@ -2,6 +2,25 @@ open Printf
 
 module Param = Id
 
+module VarDef = struct
+  module Name = Id
+  module Type = Id
+
+  type t = {
+    name: Name.t;
+    tipe: Type.t;
+  }
+
+  let from_parts name tipe = { name; tipe; }
+
+  let to_tuple { name; tipe; } = (name, tipe)
+
+  let to_string { name; tipe; } =
+    let name = Name.to_string name
+    and tipe = Type.to_string tipe in
+    sprintf "(%s %s)" name tipe
+end
+
 module Binding = struct
   module Name = Id
   type 'a t = {
@@ -21,7 +40,7 @@ type 'a t =
   | NumLit of float
   | StrLit of string
   | SymLit of 'a
-  | Def of (Module.Var.Name.t * 'a t)
+  | Def of (VarDef.t * 'a t)
   | Fn of (Param.t list * 'a t)
   | If of ('a t * 'a t * 'a t)
   | Let of ('a t Binding.t list * 'a t)
@@ -29,9 +48,9 @@ type 'a t =
 
 let to_string str_of_a node =
   let rec to_string' node =
-    let string_of_def name expr =
-      let name = Module.Var.Name.to_string name in
-      sprintf "(def %s %s)" name (to_string' expr) in
+    let string_of_def var expr =
+      let var = VarDef.to_string var in
+      sprintf "(def %s %s)" var (to_string' expr) in
     let string_of_fn params body =
       let params = String.concat " " (List.map Param.to_string params) in
       sprintf "(fn (params %s) %s)" params (to_string' body) in
@@ -50,7 +69,7 @@ let to_string str_of_a node =
     | NumLit n -> sprintf "(numlit %.2f)" n
     | StrLit s -> sprintf "(strlit %s)" s
     | SymLit a -> sprintf "(symlit %s)" (str_of_a a)
-    | Def (name, expr) -> string_of_def name expr
+    | Def (var, expr) -> string_of_def var expr
     | Fn (params, body) -> string_of_fn params body
     | If (test, if_expr, else_expr) -> string_of_if test if_expr else_expr
     | Let (bindings, body) -> string_of_let bindings body

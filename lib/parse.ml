@@ -5,12 +5,18 @@ open Extensions
 
 type t = string Node.t
 
+let parse_var = function
+  | Form.List (Form.Symbol n :: Form.Symbol t :: []) -> Ok (n, t)
+  | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
+
 let parse_def f_parse = function
-  | Form.Symbol raw_name :: raw_expr :: [] ->
-      let name = Module.Var.Name.from_string raw_name
-      and expr = f_parse raw_expr in
-        expr >>= fun e ->
-        return (Node.Def (name, e))
+  | raw_def :: raw_expr :: [] ->
+      (parse_var raw_def) >>= fun (n, t) ->
+      (f_parse raw_expr) >>= fun e ->
+      let n = Node.VarDef.Name.from_string n
+      and t = Node.VarDef.Type.from_string t in
+      let var = Node.VarDef.from_parts n t in
+      return (Node.Def (var, e))
   | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
 
 let parse_params params =

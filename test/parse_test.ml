@@ -30,11 +30,15 @@ let suite =
     "parse valid def form">::
       (fun context ->
         let form = Form.List [
-          Form.Symbol "def"; Form.Symbol "x"; Form.Number 55.0
-        ] in
+          Form.Symbol "def";
+          Form.List [Form.Symbol "x"; Form.Symbol "num"];
+          Form.Number 55.0
+        ]
+        and name = Node.VarDef.Name.from_string "x"
+        and t = Node.VarDef.Type.from_string "num" in
         assert_equal
           (parse_form form)
-          (Ok (Node.Def (Module.Var.Name.from_string "x", Node.NumLit 55.0)))
+          (Ok (Node.Def (Node.VarDef.from_parts name t, Node.NumLit 55.0)))
         );
 
     "parse invalid def form">::

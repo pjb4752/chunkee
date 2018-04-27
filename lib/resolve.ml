@@ -6,15 +6,20 @@ type t = Name.t Node.t
 
 module Scope = Set.Make(String)
 
-let ifndef_var modul var_name =
-  if Module.var_exists modul var_name then
-    let str_name = Module.Var.Name.to_string var_name in
-    Error (Cmpl_err.NameError (sprintf "var %s already defined" str_name))
+let ifndef_var modul vardef =
+  let (name, t) = Node.VarDef.to_tuple vardef in
+  let name_s = Node.VarDef.Name.to_string name in
+  let name = Module.Var.Name.from_string name_s in
+  if Module.var_exists modul name then
+    Error (Cmpl_err.NameError (sprintf "var %s already defined" name_s))
   else
-    Ok (Module.make_var modul var_name)
+    let type_s = Node.VarDef.Type.to_string t in
+    match Type.from_string type_s with
+    | Some t -> Ok (Module.define_var modul name t)
+    | None -> Error (Cmpl_err.NameError (sprintf "unknown type %s" type_s))
 
 let define_var modul = function
-  | Node.Def (name, _) -> ifndef_var modul name
+  | Node.Def (var, _) -> ifndef_var modul var
   | _ -> Ok (modul)
 
 let define_vars modul nodes =
