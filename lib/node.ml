@@ -4,7 +4,23 @@ module Param = Id
 
 module VarDef = struct
   module Name = Id
-  module Type = Id
+
+  module Type = struct
+    type t =
+      | StrType of string
+      | FnType of t list
+
+    let from_string s = StrType s
+
+    let from_list l = FnType l
+
+    let rec to_string t =
+      let string_of_fn l =
+        sprintf "(%s)" (String.concat " " (List.map to_string l)) in
+      match t with
+      | StrType s -> s
+      | FnType l -> string_of_fn l
+  end
 
   type t = {
     name: Name.t;

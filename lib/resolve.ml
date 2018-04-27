@@ -13,10 +13,11 @@ let ifndef_var modul vardef =
   if Module.var_exists modul name then
     Error (Cmpl_err.NameError (sprintf "var %s already defined" name_s))
   else
-    let type_s = Node.VarDef.Type.to_string t in
-    match Type.from_string type_s with
+    match Type.from_node t with
     | Some t -> Ok (Module.define_var modul name t)
-    | None -> Error (Cmpl_err.NameError (sprintf "unknown type %s" type_s))
+    | None ->
+      let type_s = Node.VarDef.Type.to_string t in
+      Error (Cmpl_err.NameError (sprintf "unknown type %s" type_s))
 
 let define_var modul = function
   | Node.Def (var, _) -> ifndef_var modul var

@@ -41,6 +41,25 @@ let suite =
           (Ok (Node.Def (Node.VarDef.from_parts name t, Node.NumLit 55.0)))
         );
 
+    "parse valid def form with fn type">::
+      (fun context ->
+        let form = Form.List [
+          Form.Symbol "def";
+          Form.List [
+            Form.Symbol "x";
+            Form.List [Form.Symbol "num"; Form.Symbol "str"]
+          ];
+          Form.Number 55.0
+        ]
+        and name = Node.VarDef.Name.from_string "x"
+        and t0 = Node.VarDef.Type.from_string "num"
+        and t1 = Node.VarDef.Type.from_string "str" in
+        let t = Node.VarDef.Type.from_list [t0; t1] in
+        assert_equal
+          (parse_form form)
+          (Ok (Node.Def (Node.VarDef.from_parts name t, Node.NumLit 55.0)))
+        );
+
     "parse invalid def form">::
       (fun context ->
         let form = Form.List [

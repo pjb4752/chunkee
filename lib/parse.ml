@@ -5,16 +5,31 @@ open Extensions
 
 type t = string Node.t
 
+let rec parse_type = function
+  | Form.Symbol t -> Ok (Node.VarDef.Type.from_string t)
+  | Form.List ts -> begin
+    let fold_fn t ts =
+      ts >>= fun ts ->
+      (parse_type t) >>= fun t ->
+      return (t :: ts) in
+   match List.fold_right fold_fn ts (Ok []) with
+   | Error e -> Error e
+   | Ok [] -> Error (Cmpl_err.ParseError "invalid TYPE form")
+   | Ok ts -> Ok (Node.VarDef.Type.from_list ts)
+  end
+  | _ -> Error (Cmpl_err.ParseError "invalid TYPE form")
+
 let parse_var = function
-  | Form.List (Form.Symbol n :: Form.Symbol t :: []) -> Ok (n, t)
+  | Form.List (Form.Symbol n :: t :: []) -> begin
+    (parse_type t) >>= fun t ->
+      let n = Node.VarDef.Name.from_string n in return (n, t)
+  end
   | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
 
 let parse_def f_parse = function
   | raw_def :: raw_expr :: [] ->
       (parse_var raw_def) >>= fun (n, t) ->
       (f_parse raw_expr) >>= fun e ->
-      let n = Node.VarDef.Name.from_string n
-      and t = Node.VarDef.Type.from_string t in
       let var = Node.VarDef.from_parts n t in
       return (Node.Def (var, e))
   | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
