@@ -1,5 +1,4 @@
 type t =
-  | Literal of string
   | Local of string
   | Module of Module.Var.Name.t
 

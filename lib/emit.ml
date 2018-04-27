@@ -51,7 +51,6 @@ let emit_str s =
 
 let emit_sym = function
   | Name.Local s -> s
-  | Name.Literal l -> l
   | Name.Module m -> Module.Var.Name.to_string m
 
 let emit_def recur_fn state var expr =
