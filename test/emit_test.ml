@@ -41,7 +41,9 @@ let suite =
 
     "emit fn expression">::
       (fun context ->
-        let param0 = Node.Param.from_string "p1" in
+        let name0 = Node.VarDef.Name.from_string "p1"
+        and type0 = Node.VarDef.Type.from_string "num" in
+        let param0 = Node.VarDef.from_parts name0 type0 in
         let params = [param0]
         and body = Node.SymLit (Name.Local "p1") in
         assert_equal

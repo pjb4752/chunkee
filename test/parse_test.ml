@@ -31,7 +31,7 @@ let suite =
       (fun context ->
         let form = Form.List [
           Form.Symbol "def";
-          Form.List [Form.Symbol "x"; Form.Symbol "num"];
+          Form.Vec [Form.Symbol "x"; Form.Symbol "num"];
           Form.Number 55.0
         ]
         and name = Node.VarDef.Name.from_string "x"
@@ -45,9 +45,9 @@ let suite =
       (fun context ->
         let form = Form.List [
           Form.Symbol "def";
-          Form.List [
+          Form.Vec [
             Form.Symbol "x";
-            Form.List [Form.Symbol "num"; Form.Symbol "str"]
+            Form.Vec [Form.Symbol "num"; Form.Symbol "str"]
           ];
           Form.Number 55.0
         ]
@@ -71,11 +71,18 @@ let suite =
     "parse valid fn form">::
       (fun context ->
         let form = Form.List [
-          Form.Symbol "fn"; Form.List [Form.Symbol "a"]; Form.Symbol "a"
-        ] in
+          Form.Symbol "fn";
+          Form.Vec [
+            Form.Vec [Form.Symbol "a"; Form.Symbol "num"];
+          ];
+          Form.Symbol "a"
+        ]
+        and name0 = Node.VarDef.Name.from_string "a"
+        and type0 = Node.VarDef.Type.from_string "num" in
+        let param0 = Node.VarDef.from_parts name0 type0 in
         assert_equal
           (parse_form form)
-          (Ok (Node.Fn ([Node.Param.from_string "a"], Node.SymLit "a")))
+          (Ok (Node.Fn ([param0], Node.SymLit "a")))
       );
 
     "parse invalid fn form">::

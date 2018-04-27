@@ -1,5 +1,3 @@
-module Param = Id
-
 module VarDef: sig
   module Name = Id
 
@@ -40,7 +38,7 @@ type 'a t =
   | StrLit of string
   | SymLit of 'a
   | Def of (VarDef.t * 'a t)
-  | Fn of (Param.t list * 'a t)
+  | Fn of (VarDef.t list * 'a t)
   | If of ('a t * 'a t * 'a t)
   | Let of ('a t Binding.t list * 'a t)
   | Apply of ('a t * 'a t list)

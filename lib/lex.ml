@@ -8,6 +8,7 @@ module Form = struct
     | String of string
     | Symbol of string
     | List of t list
+    | Vec of t list
 
   let rec to_string form =
     let string_of_list l = String.concat " " (List.map to_string l) in
@@ -16,6 +17,7 @@ module Form = struct
     | String s -> sprintf "(string %s)" s
     | Symbol s -> sprintf "(symbol %s)" s
     | List l -> sprintf "(list %s)" (string_of_list l)
+    | Vec v -> sprintf "(vec %s)" (string_of_list v)
 end
 
 let whitespace = [' '; '\t'; '\n']
@@ -49,6 +51,8 @@ let is_symbol_starting_char = is_char_of symbol_starting_chars
 let is_symbol_char = is_char_of symbol_chars
 let is_list_open = is_char_of ['(']
 let is_list_close = is_char_of [')']
+let is_vec_open = is_char_of ['[']
+let is_vec_close = is_char_of [']']
 
 let string_to_number s = Form.Number (float_of_string s)
 
@@ -103,12 +107,23 @@ let lex_list lex_fn input =
     | x :: xs -> let (new_i, f) = lex_fn i in (new_i, f :: out)) in
   lex_delimited (List.tl input) [] ')' terminal_fn input_fn
 
+(*TODO share code with lex_list*)
+let lex_vec lex_fn input =
+  let terminal_fn = (fun out -> Form.Vec (List.rev out))
+  and input_fn = (fun i out ->
+    match i with
+    | [] -> assert false
+    | x :: xs when (is_blank x) -> let new_i = remove_blank i in (new_i, out)
+    | x :: xs -> let (new_i, f) = lex_fn i in (new_i, f ::out)) in
+  lex_delimited (List.tl input) [] ']' terminal_fn input_fn
+
 let rec try_lex input =
   let c = List.hd input in
   if is_digit c then lex_num input
   else if is_string_delim c then lex_string input
   else if is_symbol_starting_char c then lex_symbol input
   else if is_list_open c then lex_list try_lex input
+  else if is_vec_open c then lex_vec try_lex input
   else raise (SyntaxError ("unrecognized form '" ^ (implode input) ^ "'"))
 
 let lex_forms input =

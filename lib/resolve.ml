@@ -60,7 +60,10 @@ let resolve_def recur_fn scopes name expr =
   return (Node.Def (name, n))
 
 let resolve_fn recur_fn scopes params body =
-  let param_names = List.map Node.Param.to_string params in
+  let map_fn var_def =
+    let (name, _) = Node.VarDef.to_tuple var_def in
+    Node.VarDef.Name.to_string name in
+  let param_names = List.map map_fn params in
   let fn_scope = Scope.of_list param_names in
   let scopes = fn_scope :: scopes in
   (recur_fn scopes body) >>= fun n ->

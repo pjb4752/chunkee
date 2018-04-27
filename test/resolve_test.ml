@@ -68,7 +68,9 @@ let suite =
 
     "resolve local symbol literal in fn">::
       (fun context ->
-        let param0 = Node.Param.from_string "p1" in
+        let name0 = Node.VarDef.Name.from_string "p1"
+        and type0 = Node.VarDef.Type.from_string "num" in
+        let param0 = Node.VarDef.from_parts name0 type0 in
         let params = [param0] in
         assert_equal
           (resolve_node t1 m2 (Node.Fn (params, Node.SymLit "p1")))
@@ -77,7 +79,9 @@ let suite =
 
     "resolve local symbol that shadows module var in fn">::
       (fun context ->
-        let param0 = Node.Param.from_string "name0" in
+        let name0 = Node.VarDef.Name.from_string "name0"
+        and type0 = Node.VarDef.Type.from_string "num" in
+        let param0 = Node.VarDef.from_parts name0 type0 in
         let params = [param0] in
         assert_equal
           (resolve_node t1 m2 (Node.Fn (params, Node.SymLit "name0")))

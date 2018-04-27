@@ -16,7 +16,7 @@ module VarDef = struct
 
     let rec to_string t =
       let string_of_fn l =
-        sprintf "(%s)" (String.concat " " (List.map to_string l)) in
+        sprintf "[%s]" (String.concat " " (List.map to_string l)) in
       match t with
       | StrType s -> s
       | FnType l -> string_of_fn l
@@ -34,7 +34,7 @@ module VarDef = struct
   let to_string { name; tipe; } =
     let name = Name.to_string name
     and tipe = Type.to_string tipe in
-    sprintf "(%s %s)" name tipe
+    sprintf "[%s %s]" name tipe
 end
 
 module Binding = struct
@@ -57,7 +57,7 @@ type 'a t =
   | StrLit of string
   | SymLit of 'a
   | Def of (VarDef.t * 'a t)
-  | Fn of (Param.t list * 'a t)
+  | Fn of (VarDef.t list * 'a t)
   | If of ('a t * 'a t * 'a t)
   | Let of ('a t Binding.t list * 'a t)
   | Apply of ('a t * 'a t list)
@@ -68,7 +68,7 @@ let to_string str_of_a node =
       let var = VarDef.to_string var in
       sprintf "(def %s %s)" var (to_string' expr) in
     let string_of_fn params body =
-      let params = String.concat " " (List.map Param.to_string params) in
+      let params = String.concat " " (List.map VarDef.to_string params) in
       sprintf "(fn (params %s) %s)" params (to_string' body) in
     let string_of_if test if_expr else_expr =
       let exprs = List.map to_string' [test; if_expr; else_expr] in

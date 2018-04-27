@@ -7,7 +7,7 @@ type t = string Node.t
 
 let rec parse_type = function
   | Form.Symbol t -> Ok (Node.VarDef.Type.from_string t)
-  | Form.List ts -> begin
+  | Form.Vec ts -> begin
     let fold_fn t ts =
       ts >>= fun ts ->
       (parse_type t) >>= fun t ->
@@ -19,33 +19,31 @@ let rec parse_type = function
   end
   | _ -> Error (Cmpl_err.ParseError "invalid TYPE form")
 
-let parse_var = function
-  | Form.List (Form.Symbol n :: t :: []) -> begin
+let parse_var_def = function
+  | Form.Vec (Form.Symbol n :: t :: []) -> begin
     (parse_type t) >>= fun t ->
       let n = Node.VarDef.Name.from_string n in return (n, t)
   end
-  | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
+  | _ -> Error (Cmpl_err.ParseError "invalid VAR form")
 
 let parse_def f_parse = function
   | raw_def :: raw_expr :: [] ->
-      (parse_var raw_def) >>= fun (n, t) ->
+      (parse_var_def raw_def) >>= fun (n, t) ->
       (f_parse raw_expr) >>= fun e ->
       let var = Node.VarDef.from_parts n t in
       return (Node.Def (var, e))
   | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
 
 let parse_params params =
-  let parse_param = function
-    | Form.Symbol p -> Ok (Node.Param.from_string p)
-    | _ -> Error (Cmpl_err.ParseError "fn param not a symbol") in
   let fold_fn param prior =
     prior >>= fun ps ->
-    (parse_param param) >>= fun p ->
+    (parse_var_def param) >>= fun (n, t) ->
+    let p = Node.VarDef.from_parts n t in
     return (p :: ps) in
   List.fold_right fold_fn params (Ok [])
 
 let parse_fn f_parse = function
-  | Form.List raw_params :: raw_body :: [] ->
+  | Form.Vec raw_params :: raw_body :: [] ->
       let params = parse_params raw_params
       and expr = f_parse raw_body in
       params >>= fun p ->
@@ -112,6 +110,7 @@ let rec parse_form = function
   | Form.String s -> Ok (Node.StrLit s)
   | Form.Symbol s -> Ok (Node.SymLit s)
   | Form.List l -> parse_list parse_form l
+  | Form.Vec v -> assert false
 
 let parse forms =
   let fold_fn form forms =

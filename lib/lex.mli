@@ -6,6 +6,7 @@ module Form : sig
     | String of string
     | Symbol of string
     | List of t list
+    | Vec of t list
 
   val to_string: t -> string
 end

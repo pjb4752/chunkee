@@ -68,7 +68,10 @@ let emit_def recur_fn state var expr =
 
 let emit_fn recur_fn state params body =
   let state = State.new_var state in
-  let params = List.map Node.Param.to_string params in
+  let map_fn var_def =
+    let (name, _) = Node.VarDef.to_tuple var_def in
+    Node.VarDef.Name.to_string name in
+  let params = List.map map_fn params in
   let params = String.concat ", " params in
   String.concat "\n" [
     sprintf "%sfunction(%s)" (State.indent state) params;
