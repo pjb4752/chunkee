@@ -13,6 +13,8 @@ module Qual_name: sig
 
   val make: Path.t -> Name.t -> t
 
+  val short_name: t -> Name.t
+
   val to_string: t -> string
 
   val to_list: t -> Name.t list
@@ -37,9 +39,9 @@ val from_parts: Path.t -> Name.t -> t
 
 val short_name: t -> Name.t
 
-val qual_name: t -> Qual_name.t
-
 val path_list: t -> Name.t list
+
+val qual_name: t -> Qual_name.t
 
 val qual_name_list: t -> Name.t list
 

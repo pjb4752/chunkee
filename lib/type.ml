@@ -17,16 +17,17 @@ let type_of_str s =
   else if s = "list" then Some List
   else None
 
+(*TODO add tests for this*)
 let rec from_node = function
   | Node.VarDef.Type.StrType s -> type_of_str s
   | Node.VarDef.Type.FnType f ->
-    let fold_fn t ts =
+    let fold_fn ts t =
       (from_node t) >>= fun t ->
       ts >>= fun ts ->
       return (t :: ts) in
-    match List.fold_right fold_fn f (Some []) with
+    match List.fold_left fold_fn (Some []) f with
     | Some [] -> assert false
-    | Some (rt :: pt) -> Some (Fn (pt, rt))
+    | Some (rt :: pt) -> Some (Fn (List.rev pt, rt))
     | None -> None
 
 let rec to_string t =
@@ -35,9 +36,9 @@ let rec to_string t =
     let types = List.map to_string types in
     sprintf "[%s]" (String.concat " " types) in
   match t with
-  | Unit -> "Unit"
-  | Num -> "Number"
-  | Str -> "String"
-  | Bool -> "Bool"
-  | List -> "List"
+  | Unit -> "unit"
+  | Num -> "num"
+  | Str -> "str"
+  | Bool -> "bool"
+  | List -> "list"
   | Fn (pt, rt) -> string_of_fn pt rt

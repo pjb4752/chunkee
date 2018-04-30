@@ -15,11 +15,13 @@ let math_fntype = Type.Fn ([Type.Num; Type.Num], Type.Num)
 let common_module =
   let name = "common"
   and vars = [
+    ("true", Type.Bool);
+    ("false", Type.Bool);
+    ("print", Type.Fn ([Type.Str], Type.Unit));
     ("+", math_fntype);
     ("-", math_fntype);
     ("*", math_fntype);
     ("/", math_fntype);
-    ("print", Type.Fn([Type.Str], Type.Unit));
   ] in
   make_module root name vars
 

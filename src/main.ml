@@ -17,11 +17,15 @@ let print_module modul = printf "%s\n" (Module.to_string modul)
 let print_table table =
   printf "%s\n" (Table.to_string table)
 
-let print_resolved = print_list (Node.to_string (fun n -> Name.to_string n))
+let string_of_resolved = Node.to_string Name.to_string
+
+let print_resolved = print_list string_of_resolved
+let print_typechecked = print_list (fun (n, t) ->
+  sprintf "%s:%s" (string_of_resolved n) (Type.to_string t))
 let print_emitted = print_list (fun s -> s)
 
 let print_result table nodes =
-  print_resolved nodes
+  print_typechecked nodes
 
 let lex = Lex.lex
 let parse = Parse.parse
@@ -31,6 +35,7 @@ let resolve table modul nodes =
   match Resolve.resolve table modul nodes with
   | Ok resolved -> Ok (table, resolved)
   | Error e -> Error e
+let typecheck = Typecheck.check
 let emit = Emit.emit
 
 let eval table modul line =
@@ -38,7 +43,8 @@ let eval table modul line =
   (parse forms) >>= fun nodes ->
   (define modul nodes) >>= fun modul ->
   (resolve table modul nodes) >>= fun (table, resolved) ->
-  return (table, modul, resolved)
+  (typecheck table modul resolved) >>= fun typechecked ->
+  return (table, modul, typechecked)
 
 let main () =
   let rec loop table modul =
@@ -47,9 +53,9 @@ let main () =
     if line = "(quit)" then printf "Goodbye\n"
     else begin
       match eval table modul line with
-      | Ok (table, modul, resolved)->
-          let () = print_result table resolved in
-          let () = print_emitted (emit resolved) in
+      | Ok (table, modul, typechecked)->
+          let () = print_result table typechecked in
+          let () = print_emitted (emit typechecked) in
           loop table modul
       | Error e ->
           let () = printf "%s\n" (Cmpl_err.to_string e) in

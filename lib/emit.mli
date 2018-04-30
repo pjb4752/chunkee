@@ -6,4 +6,4 @@ end
 
 val emit_node: State.t -> Resolve.t -> string
 
-val emit: Resolve.t list -> string list
+val emit: Typecheck.t list -> string list

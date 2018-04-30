@@ -51,7 +51,7 @@ let emit_str s =
 
 let emit_sym = function
   | Name.Local s -> s
-  | Name.Module m -> Module.Var.Name.to_string m
+  | Name.Module (_, vn) -> Module.Var.Name.to_string vn
 
 let emit_def recur_fn state var expr =
   let state = State.new_var state
@@ -179,4 +179,4 @@ let rec emit_node state = function
 
 let emit nodes =
   let state = State.make () in
-  List.map (emit_node state) nodes
+  List.map (fun n -> emit_node state (fst n)) nodes

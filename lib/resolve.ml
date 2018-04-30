@@ -39,25 +39,29 @@ let resolve_global_name table name =
   let name = Module.Var.Name.from_string name in
   match Table.find_module table Stdlib.global_name with
   | Some m ->
-      if Module.var_exists m name then Some name
+      if Module.var_exists m name then Some (m, name)
       else None
   | None -> None
 
 let resolve_name table modul scopes name =
+  let make_symlit modul m_name =
+    let qual_name = Module.qual_name modul in
+    let name = Name.Module (qual_name, m_name) in
+    Ok (Node.SymLit name) in
   if List.exists (Scope.mem name) scopes then
     Ok (Node.SymLit (Name.Local name))
   else
     match resolve_module_name modul name with
-    | Some name -> Ok (Node.SymLit (Name.Module name))
+    | Some name -> make_symlit modul name
     | None -> begin
       match resolve_global_name table name with
-      | Some name -> Ok (Node.SymLit (Name.Module name))
+      | Some (m, name) -> make_symlit m name
       | _ -> Error (Cmpl_err.NameError (sprintf "%s is undefined" name))
     end
 
-let resolve_def recur_fn scopes name expr =
+let resolve_def recur_fn scopes var expr =
   (recur_fn scopes expr) >>= fun n ->
-  return (Node.Def (name, n))
+  return (Node.Def (var, n))
 
 let resolve_fn recur_fn scopes params body =
   let map_fn var_def =
@@ -80,6 +84,7 @@ let resolve_binding recur_fn scopes binding =
   match recur_fn scopes expr with
   | Error e -> Error e
   | Ok expr -> begin
+    (*TODO we should always create new scope for each binding*)
     let binding = Node.Binding.from_node name expr in
     let current_scope = List.hd_else scopes Scope.empty in
     let name = Node.Binding.Name.to_string name in
@@ -119,7 +124,7 @@ let resolve_node table modul node =
     | Node.NumLit n -> Ok (Node.NumLit n)
     | Node.StrLit s -> Ok (Node.StrLit s)
     | Node.SymLit name -> resolve_name table modul scopes name
-    | Node.Def (name, expr) -> resolve_def resolve' scopes name expr
+    | Node.Def (var, expr) -> resolve_def resolve' scopes var expr
     | Node.Fn (params, body) -> resolve_fn resolve' scopes params body
     | Node.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
     | Node.Let (bindings, body) -> resolve_let resolve' scopes bindings body

@@ -17,12 +17,13 @@ let name = Module.Name.from_string "core"
 let m0 = Module.from_parts path name
 let m1 = Module.define_var m0 name0 type0
 let m2 = Module.define_var m1 name1 type0
+let qual_name = Module.qual_name m2
 
 let s_sym0 = Node.SymLit "name0"
 let s_sym1 = Node.SymLit "name1"
 
-let n_sym0 = Node.SymLit (Name.Module name0)
-let n_sym1 = Node.SymLit (Name.Module name1)
+let n_sym0 = Node.SymLit (Name.Module (qual_name, name0))
+let n_sym1 = Node.SymLit (Name.Module (qual_name, name1))
 
 let t0 = Table.with_stdlib
 let t1 = Table.insert_module t0 m2
@@ -47,7 +48,7 @@ let suite =
       (fun context ->
         assert_equal
           (resolve_node t1 m2 (Node.SymLit "name0"))
-          (Ok (Node.SymLit (Name.Module name0)))
+          (Ok (Node.SymLit (Name.Module (qual_name, name0))))
       );
 
     "resolve undefined symbol literal">::
