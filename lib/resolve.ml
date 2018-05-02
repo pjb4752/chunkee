@@ -30,6 +30,9 @@ let define_vars modul nodes =
     return m in
   List.fold_right fold_fn nodes (Ok modul)
 
+let undefined_name_error n =
+  Error (Cmpl_err.NameError (sprintf "%s is undefined" n))
+
 let resolve_module_name modul name =
   let name = Module.Var.Name.from_string name in
   if Module.var_exists modul name then Some name
@@ -43,21 +46,53 @@ let resolve_global_name table name =
       else None
   | None -> None
 
+let make_symlit modul m_name =
+  let qual_name = Module.qual_name modul in
+  let name = Name.Module (qual_name, m_name) in
+  Ok (Node.SymLit name)
+
+let is_qualified name =
+  String.contains name '.'
+
+let resolve_qualified_name table modul name =
+  let bad_name_error n =
+    Error (Cmpl_err.NameError (sprintf "unknown name format %s" n)) in
+  let unknown_modul_error n =
+    Error (Cmpl_err.NameError (sprintf "unknown module %s" n)) in
+  match String.split_on_char '/' name with
+  | module_name :: var_name :: [] -> begin
+    let parts = String.split_on_char '.' module_name in
+    let parts = List.map (Module.Name.from_string) parts in
+    match List.rev parts with
+    | name :: path_parts -> begin
+      let path = Module.Path.from_list path_parts in
+      let qual_name = Module.Qual_name.make path name in
+      match Table.find_module table qual_name with
+      | Some m -> begin
+        match resolve_module_name m var_name with
+        | Some name -> make_symlit m name
+        | None -> undefined_name_error var_name
+      end
+      | None -> unknown_modul_error (Module.Qual_name.to_string qual_name)
+    end
+    | _ -> bad_name_error name
+  end
+  | _ -> bad_name_error name
+
+let resolve_unqualified_name table modul name =
+  match resolve_module_name modul name with
+  | Some name -> make_symlit modul name
+  | None -> begin
+    match resolve_global_name table name with
+    | Some (m, name) -> make_symlit m name
+    | _ -> undefined_name_error name
+  end
+
 let resolve_name table modul scopes name =
-  let make_symlit modul m_name =
-    let qual_name = Module.qual_name modul in
-    let name = Name.Module (qual_name, m_name) in
-    Ok (Node.SymLit name) in
   if List.exists (Scope.mem name) scopes then
     Ok (Node.SymLit (Name.Local name))
-  else
-    match resolve_module_name modul name with
-    | Some name -> make_symlit modul name
-    | None -> begin
-      match resolve_global_name table name with
-      | Some (m, name) -> make_symlit m name
-      | _ -> Error (Cmpl_err.NameError (sprintf "%s is undefined" name))
-    end
+  else if is_qualified name then resolve_qualified_name table modul name
+  else resolve_unqualified_name table modul name
 
 let resolve_def recur_fn scopes var expr =
   (recur_fn scopes expr) >>= fun n ->

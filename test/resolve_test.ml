@@ -51,6 +51,18 @@ let suite =
           (Ok (Node.SymLit (Name.Module (qual_name, name0))))
       );
 
+    "resolve symbol literal of qualified name">::
+      (fun context ->
+        let parts = List.map Module.Name.from_string ["core"] in
+        let path = Module.Path.from_list parts
+        and name = Module.Name.from_string "list" in
+        let qual_name = Module.Qual_name.make path name in
+        let var_name = Module.Var.Name.from_string "empty" in
+        assert_equal
+          (resolve_node t1 m2 (Node.SymLit "core.list/empty"))
+          (Ok (Node.SymLit (Name.Module (qual_name, var_name))))
+      );
+
     "resolve undefined symbol literal">::
       (fun context ->
         let resolved = resolve_node t1 m2 (Node.SymLit "hooie") in
