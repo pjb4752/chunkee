@@ -3,6 +3,7 @@ open Printf
 
 type t =
   | Unit
+  | Any
   | Num
   | Str
   | Bool
@@ -11,6 +12,7 @@ type t =
 
 let type_of_str s =
   if s = "unit" then Some Unit
+  else if s = "any" then Some Any
   else if s = "num" then Some Num
   else if s = "str" then Some Str
   else if s = "bool" then Some Bool
@@ -37,6 +39,7 @@ let rec to_string t =
     sprintf "[%s]" (String.concat " " types) in
   match t with
   | Unit -> "unit"
+  | Any -> "any"
   | Num -> "num"
   | Str -> "str"
   | Bool -> "bool"

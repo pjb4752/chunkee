@@ -5,6 +5,12 @@ type t = Resolve.t * Type.t
 
 module Scope = Map.Make(String)
 
+let is_compatible this that =
+  this = that || this == Type.Any
+
+let are_compatible this that =
+  List.for_all2 is_compatible this that
+
 let find_type t =
   match Type.from_node t with
   | Some t -> Ok t
@@ -42,14 +48,11 @@ let chk_def recur_fn modul scopes var expr =
   | Some v -> v
   | None -> assert false in
   let expr_type = (recur_fn scopes expr) >>= fun e -> return e
-  and (_, _, var_type) = Module.Var.to_tuple var in
+  and (_, _, t_exp) = Module.Var.to_tuple var in
   match expr_type with
   | Error e -> Error e
-  | Ok t when t = var_type -> Ok t
-  | Ok t ->
-    let () = printf "%s\n" (Type.to_string var_type) in
-    let () = printf "%s\n" (Type.to_string t) in
-      Error (Cmpl_err.TypeError ("def-expr did not evaluate to given type"))
+  | Ok t_act when is_compatible t_exp t_act -> Ok t_exp
+  | _ -> Error (Cmpl_err.TypeError ("def-expr did not evaluate to given type"))
 
 let process_params params =
   let fold_fn p ps =
@@ -82,6 +85,7 @@ let chk_if_tst recur_fn scopes tst =
 
 let cmp_if_expr iff els =
   if iff = els then Ok iff
+  else if iff = Type.Any || els = Type.Any then Ok Type.Any
   else Error (Cmpl_err.TypeError ("if-else-expr must evaluate to same type"))
 
 let chk_if recur_fn scopes tst iff els =
@@ -113,9 +117,9 @@ let chk_let recur_fn scopes bindings body =
   (recur_fn s body) >>= fun b ->
   return b
 
-let cmp_fn_types f_type p_types =
+let cmp_fn_types f_type p_act =
   match f_type with
-  | Type.Fn (pt, rt) when p_types = pt -> Ok rt
+  | Type.Fn (p_exp, rt) when are_compatible p_exp p_act -> Ok rt
   | Type.Fn _ ->
       Error (Cmpl_err.TypeError "argument types do not match expected types")
   | _ -> Error (Cmpl_err.TypeError "cannot apply non-fn type")

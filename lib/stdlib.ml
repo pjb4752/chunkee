@@ -25,9 +25,22 @@ let common_module =
   ] in
   make_module root name vars
 
+let list_module =
+  let name = "list"
+  and vars = [
+    ("empty", Type.Fn ([], Type.List));
+    ("cons", Type.Fn ([Type.List; Type.Any], Type.List));
+    ("empty?", Type.Fn ([Type.List], Type.Bool));
+    ("head", Type.Fn ([Type.List], Type.Any));
+    ("tail", Type.Fn ([Type.List], Type.List));
+    ("nth", Type.Fn ([Type.List; Type.Num], Type.Any));
+  ] in
+  make_module root name vars
+
 let modules =
   [
     common_module;
+    list_module;
   ]
 
 let global_name = Module.qual_name common_module

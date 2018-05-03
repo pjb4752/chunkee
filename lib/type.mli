@@ -1,5 +1,6 @@
 type t =
   | Unit
+  | Any
   | Num
   | Str
   | Bool
