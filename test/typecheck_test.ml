@@ -54,7 +54,7 @@ let suite =
     "finding type of def form">::
       (fun context ->
         let name = Node.VarDef.Name.from_string "name1"
-        and t = Node.VarDef.Type.from_string "num" in
+        and t = Node.TypeDef.from_string "num" in
         let var = Node.VarDef.from_parts name t in
         assert_equal
           (check_node t1 mfinal (Node.Def (var, Node.NumLit 55.0)))
@@ -64,7 +64,7 @@ let suite =
     "finding type of fn form">::
       (fun context ->
         let name0 = Node.VarDef.Name.from_string "p1"
-        and type0 = Node.VarDef.Type.from_string "num" in
+        and type0 = Node.TypeDef.from_string "num" in
         let param0 = Node.VarDef.from_parts name0 type0 in
         let params = [param0] in
         assert_equal
@@ -128,6 +128,14 @@ let suite =
         let args = [Node.NumLit 55.0] in
         assert_equal
           (check_node t1 mfinal (Node.Apply (n_sym4, args)))
+          (Ok Type.Num)
+      );
+
+    "finding type of cast form">::
+      (fun context ->
+        let typedef = Node.TypeDef.from_string "num" in
+        assert_equal
+          (check_node t1 mfinal (Node.Cast (typedef, n_sym0)))
           (Ok Type.Num)
       );
   ]

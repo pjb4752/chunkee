@@ -31,7 +31,7 @@ let suite =
     "emit def expression">::
       (fun context ->
         let name = Node.VarDef.Name.from_string "hi"
-        and t = Node.VarDef.Type.from_string "num" in
+        and t = Node.TypeDef.from_string "num" in
         let var = Node.VarDef.from_parts name t
         and expr = Node.NumLit 5.0 in
         assert_equal
@@ -42,7 +42,7 @@ let suite =
     "emit fn expression">::
       (fun context ->
         let name0 = Node.VarDef.Name.from_string "p1"
-        and type0 = Node.VarDef.Type.from_string "num" in
+        and type0 = Node.TypeDef.from_string "num" in
         let param0 = Node.VarDef.from_parts name0 type0 in
         let params = [param0]
         and body = Node.SymLit (Name.Local "p1") in
@@ -145,4 +145,14 @@ let suite =
             "a(__var1, \"hi\")";
           ])
       );
+
+    "emit cast expression">::
+      (fun context ->
+        let typedef = Node.TypeDef.from_string "num" in
+        let expr = Node.StrLit "hello" in
+        assert_equal
+          (emit (Node.Cast (typedef, expr)))
+          "\"hello\""
+      )
+
   ]

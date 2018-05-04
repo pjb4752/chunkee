@@ -1,23 +1,23 @@
+module TypeDef: sig
+  type t =
+    | StrType of string
+    | FnType of t list
+
+  val from_string: string -> t
+
+  val from_list: t list -> t
+
+  val to_string: t -> string
+end
+
 module VarDef: sig
   module Name = Id
 
-  module Type: sig
-    type t =
-      | StrType of string
-      | FnType of t list
-
-    val from_string: string -> t
-
-    val from_list: t list -> t
-
-    val to_string: t -> string
-  end
-
   type t
 
-  val from_parts: Name.t -> Type.t -> t
+  val from_parts: Name.t -> TypeDef.t -> t
 
-  val to_tuple: t -> Name.t * Type.t
+  val to_tuple: t -> Name.t * TypeDef.t
 
   val to_string: t -> string
 end
@@ -43,5 +43,6 @@ type 'a t =
   | If of ('a t * 'a t * 'a t)
   | Let of ('a t Binding.t list * 'a t)
   | Apply of ('a t * 'a t list)
+  | Cast of (TypeDef.t * 'a t)
 
 val to_string: ('a -> string) -> 'a t -> string

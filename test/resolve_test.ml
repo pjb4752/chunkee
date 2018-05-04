@@ -72,7 +72,7 @@ let suite =
     "resolve symbol literal in def">::
       (fun context ->
         let name = Node.VarDef.Name.from_string "name2"
-        and t = Node.VarDef.Type.from_string "num" in
+        and t = Node.TypeDef.from_string "num" in
         let var = Node.VarDef.from_parts name t in
         assert_equal
           (resolve_node t1 m2 (Node.Def (var, s_sym0)))
@@ -82,7 +82,7 @@ let suite =
     "resolve local symbol literal in fn">::
       (fun context ->
         let name0 = Node.VarDef.Name.from_string "p1"
-        and type0 = Node.VarDef.Type.from_string "num" in
+        and type0 = Node.TypeDef.from_string "num" in
         let param0 = Node.VarDef.from_parts name0 type0 in
         let params = [param0] in
         assert_equal
@@ -93,7 +93,7 @@ let suite =
     "resolve local symbol that shadows module var in fn">::
       (fun context ->
         let name0 = Node.VarDef.Name.from_string "name0"
-        and type0 = Node.VarDef.Type.from_string "num" in
+        and type0 = Node.TypeDef.from_string "num" in
         let param0 = Node.VarDef.from_parts name0 type0 in
         let params = [param0] in
         assert_equal
@@ -137,4 +137,13 @@ let suite =
           (resolve_node t1 m2 (Node.Apply (s_sym0, [s_sym1])))
           (Ok (Node.Apply (n_sym0, [n_sym1])))
       );
+
+    "resolve symbol literals in cast">::
+      (fun context ->
+        let typedef = Node.TypeDef.from_string "num" in
+        assert_equal
+          (resolve_node t1 m2 (Node.Cast (typedef, s_sym1)))
+          (Ok (Node.Cast (typedef, n_sym1)))
+      );
+
   ]

@@ -35,7 +35,7 @@ let suite =
           Form.Number 55.0
         ]
         and name = Node.VarDef.Name.from_string "x"
-        and t = Node.VarDef.Type.from_string "num" in
+        and t = Node.TypeDef.from_string "num" in
         assert_equal
           (parse_form form)
           (Ok (Node.Def (Node.VarDef.from_parts name t, Node.NumLit 55.0)))
@@ -52,9 +52,9 @@ let suite =
           Form.Number 55.0
         ]
         and name = Node.VarDef.Name.from_string "x"
-        and t0 = Node.VarDef.Type.from_string "num"
-        and t1 = Node.VarDef.Type.from_string "str" in
-        let t = Node.VarDef.Type.from_list [t0; t1] in
+        and t0 = Node.TypeDef.from_string "num"
+        and t1 = Node.TypeDef.from_string "str" in
+        let t = Node.TypeDef.from_list [t0; t1] in
         assert_equal
           (parse_form form)
           (Ok (Node.Def (Node.VarDef.from_parts name t, Node.NumLit 55.0)))
@@ -78,7 +78,7 @@ let suite =
           Form.Symbol "a"
         ]
         and name0 = Node.VarDef.Name.from_string "a"
-        and type0 = Node.VarDef.Type.from_string "num" in
+        and type0 = Node.TypeDef.from_string "num" in
         let param0 = Node.VarDef.from_parts name0 type0 in
         assert_equal
           (parse_form form)
@@ -146,5 +146,15 @@ let suite =
           (parse_form form)
           (Ok (Node.Apply (Node.SymLit "+",
             [Node.SymLit "a"; Node.SymLit "b"])))
+      );
+
+    "parse valid cast form">::
+      (fun context ->
+        let form = Form.List [
+          Form.Symbol "cast"; Form.Symbol "num"; Form.Symbol "a"
+        ] in
+        assert_equal
+          (parse_form form)
+          (Ok (Node.Cast (Node.TypeDef.from_string "num" , Node.SymLit "a")))
       );
   ]

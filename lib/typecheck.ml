@@ -15,7 +15,7 @@ let find_type t =
   match Type.from_node t with
   | Some t -> Ok t
   | None ->
-    let t = Node.VarDef.Type.to_string t in
+    let t = Node.TypeDef.to_string t in
     Error (Cmpl_err.TypeError (sprintf "type %s not found" t))
 
 let chk_local_name scopes name =
@@ -135,6 +135,11 @@ let chk_apply recur_fn scopes fn args =
   (cmp_fn_types f ts) >>= fun rt ->
   return rt
 
+let chk_cast recur_fn scopes tdef expr =
+  (find_type tdef) >>= fun t ->
+  (recur_fn scopes expr) >>= fun e ->
+  return t
+
 let check_node table modul node =
   let rec check' scopes = function
     | Node.NumLit _ -> Ok Type.Num
@@ -144,7 +149,8 @@ let check_node table modul node =
     | Node.Fn (params, body) -> chk_fn check' scopes params body
     | Node.If (tst, iff, els) -> chk_if check' scopes tst iff els
     | Node.Let (bindings, body) -> chk_let check' scopes bindings body
-    | Node.Apply (fn, args) -> chk_apply check' scopes fn args in
+    | Node.Apply (fn, args) -> chk_apply check' scopes fn args
+    | Node.Cast (tdef, expr) -> chk_cast check' scopes tdef expr in
   check' [] node
 
 let check table modul nodes =

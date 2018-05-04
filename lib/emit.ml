@@ -167,6 +167,9 @@ let emit_apply recur_fn state fn args =
   let fn_call = sprintf "%s(%s)" fn args in
   String.concat "\n" (List.rev (fn_call :: emitted))
 
+let emit_cast recur_fn state tdef expr =
+  recur_fn state expr
+
 let rec emit_node state = function
   | Node.NumLit n -> emit_num n
   | Node.StrLit s -> emit_str s
@@ -176,6 +179,7 @@ let rec emit_node state = function
   | Node.If (tst, iff, els) -> emit_if emit_node state tst iff els
   | Node.Let (bindings, body) -> emit_let emit_node state bindings body
   | Node.Apply (fn, args) -> emit_apply emit_node state fn args
+  | Node.Cast (tdef, expr) -> emit_cast emit_node state tdef expr
 
 let emit nodes =
   let state = State.make () in

@@ -16,7 +16,7 @@ let ifndef_var modul vardef =
     match Type.from_node t with
     | Some t -> Ok (Module.define_var modul name t)
     | None ->
-      let type_s = Node.VarDef.Type.to_string t in
+      let type_s = Node.TypeDef.to_string t in
       Error (Cmpl_err.NameError (sprintf "unknown type %s" type_s))
 
 let define_var modul = function
@@ -154,6 +154,10 @@ let resolve_apply recur_fn scopes fn args =
   (recur_fn scopes fn) >>= fun f ->
   return (Node.Apply (f, List.rev a))
 
+let resolve_cast recur_fn scopes tdef expr =
+  (recur_fn scopes expr) >>= fun e ->
+  return (Node.Cast (tdef, e))
+
 let resolve_node table modul node =
   let rec resolve' scopes = function
     | Node.NumLit n -> Ok (Node.NumLit n)
@@ -163,7 +167,8 @@ let resolve_node table modul node =
     | Node.Fn (params, body) -> resolve_fn resolve' scopes params body
     | Node.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
     | Node.Let (bindings, body) -> resolve_let resolve' scopes bindings body
-    | Node.Apply (fn, args) -> resolve_apply resolve' scopes fn args in
+    | Node.Apply (fn, args) -> resolve_apply resolve' scopes fn args
+    | Node.Cast (tdef, expr) -> resolve_cast resolve' scopes tdef expr in
   resolve' [] node
 
 let resolve table modul nodes =

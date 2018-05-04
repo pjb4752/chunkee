@@ -6,7 +6,7 @@ open Extensions
 type t = string Node.t
 
 let rec parse_type = function
-  | Form.Symbol t -> Ok (Node.VarDef.Type.from_string t)
+  | Form.Symbol t -> Ok (Node.TypeDef.from_string t)
   | Form.Vec ts -> begin
     let fold_fn t ts =
       ts >>= fun ts ->
@@ -15,7 +15,7 @@ let rec parse_type = function
    match List.fold_right fold_fn ts (Ok []) with
    | Error e -> Error e
    | Ok [] -> Error (Cmpl_err.ParseError "invalid TYPE form")
-   | Ok ts -> Ok (Node.VarDef.Type.from_list ts)
+   | Ok ts -> Ok (Node.TypeDef.from_list ts)
   end
   | _ -> Error (Cmpl_err.ParseError "invalid TYPE form")
 
@@ -82,6 +82,14 @@ let parse_let f_parse = function
       return (Node.Let (bi, b))
   | _ -> Error (Cmpl_err.ParseError "invalid LET form")
 
+let parse_cast f_parse = function
+  | raw_type :: expr :: [] -> begin
+    (parse_type raw_type) >>= fun t ->
+    (f_parse expr) >>= fun e ->
+    return (Node.Cast (t, e))
+  end
+  | _ -> Error (Cmpl_err.ParseError "invalid CAST form")
+
 let parse_args f_parse args =
   let fold_fn arg prior =
     prior >>= fun args ->
@@ -98,6 +106,7 @@ let parse_op f_parse op (args: Form.t list) =
   else if op = "fn" then parse_fn f_parse args
   else if op = "if" then parse_if f_parse args
   else if op = "let" then parse_let f_parse args
+  else if op = "cast" then parse_cast f_parse args
   else parse_apply f_parse op args
 
 let parse_list f_parse = function

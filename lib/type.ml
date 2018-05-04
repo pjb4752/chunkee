@@ -21,8 +21,8 @@ let type_of_str s =
 
 (*TODO add tests for this*)
 let rec from_node = function
-  | Node.VarDef.Type.StrType s -> type_of_str s
-  | Node.VarDef.Type.FnType f ->
+  | Node.TypeDef.StrType s -> type_of_str s
+  | Node.TypeDef.FnType f ->
     let fold_fn ts t =
       (from_node t) >>= fun t ->
       ts >>= fun ts ->
