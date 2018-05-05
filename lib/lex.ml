@@ -98,24 +98,21 @@ let lex_string input =
     | x :: xs -> (xs, append_char out x) in
   lex_delimited (List.tl input) "" '"' terminal_fn input_fn
 
-let lex_list lex_fn input =
-  let terminal_fn = (fun out -> Form.List (List.rev out))
-  and input_fn = (fun i out ->
+let lex_collection lex_fn input terminal_fn terminal_char =
+  let input_fn = (fun i out ->
     match i with
     | [] -> assert false
     | x :: xs when (is_blank x) -> let new_i = remove_blank i in (new_i, out)
     | x :: xs -> let (new_i, f) = lex_fn i in (new_i, f :: out)) in
-  lex_delimited (List.tl input) [] ')' terminal_fn input_fn
+  lex_delimited (List.tl input) [] terminal_char terminal_fn input_fn
 
-(*TODO share code with lex_list*)
+let lex_list lex_fn input =
+  let terminal_fn = (fun out -> Form.List (List.rev out)) in
+  lex_collection lex_fn input terminal_fn ')'
+
 let lex_vec lex_fn input =
-  let terminal_fn = (fun out -> Form.Vec (List.rev out))
-  and input_fn = (fun i out ->
-    match i with
-    | [] -> assert false
-    | x :: xs when (is_blank x) -> let new_i = remove_blank i in (new_i, out)
-    | x :: xs -> let (new_i, f) = lex_fn i in (new_i, f ::out)) in
-  lex_delimited (List.tl input) [] ']' terminal_fn input_fn
+  let terminal_fn = (fun out -> Form.Vec (List.rev out)) in
+  lex_collection lex_fn input terminal_fn ']'
 
 let rec try_lex input =
   let c = List.hd input in
