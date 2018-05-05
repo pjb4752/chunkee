@@ -160,6 +160,7 @@ let emit_args recur_fn state args =
   (args, emitted)
 
 (* TODO emit code for nested complex fn application *)
+(* TODO emit code for application of anonymous functions *)
 let emit_apply recur_fn state fn args =
   let fn = recur_fn state fn
   and (args, emitted) = emit_args recur_fn state args in

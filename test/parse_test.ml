@@ -148,6 +148,25 @@ let suite =
             [Node.SymLit "a"; Node.SymLit "b"])))
       );
 
+    "parse apply form of anonymous function">::
+      (fun context ->
+        let fn = Form.List [
+          Form.Symbol "fn";
+          Form.Vec [
+            Form.Vec [Form.Symbol "a"; Form.Symbol "num"];
+          ];
+          Form.Symbol "a"
+        ] in
+        let form = Form.List [fn; Form.Number 5.0]
+        and name0 = Node.VarDef.Name.from_string "a"
+        and type0 = Node.TypeDef.from_string "num" in
+        let param0 = Node.VarDef.from_parts name0 type0 in
+        let fn_node = Node.Fn ([param0], Node.SymLit "a") in
+        assert_equal
+          (parse_form form)
+          (Ok (Node.Apply (fn_node, [Node.NumLit 5.0])))
+      );
+
     "parse valid cast form">::
       (fun context ->
         let form = Form.List [

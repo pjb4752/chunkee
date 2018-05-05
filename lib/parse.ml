@@ -97,9 +97,22 @@ let parse_args f_parse args =
     return (a :: args) in
   List.fold_right fold_fn args (Ok [])
 
-let parse_apply f_parse fn args =
+let parse_num_apply f_parse num args =
+  (parse_args f_parse args) >>= fun args ->
+  return (Node.Apply (Node.NumLit num, args))
+
+let parse_str_apply f_parse str args =
+  (parse_args f_parse args) >>= fun args ->
+  return (Node.Apply (Node.StrLit str, args))
+
+let parse_sym_apply f_parse fn args =
   (parse_args f_parse args) >>= fun args ->
   return (Node.Apply (Node.SymLit fn, args))
+
+let parse_fn_apply f_parse fn args =
+  (f_parse (Form.List fn)) >>= fun fn ->
+  (parse_args f_parse args) >>= fun args ->
+  return (Node.Apply (fn, args))
 
 let parse_op f_parse op (args: Form.t list) =
   if op = "def" then parse_def f_parse args
@@ -107,19 +120,21 @@ let parse_op f_parse op (args: Form.t list) =
   else if op = "if" then parse_if f_parse args
   else if op = "let" then parse_let f_parse args
   else if op = "cast" then parse_cast f_parse args
-  else parse_apply f_parse op args
+  else parse_sym_apply f_parse op args
 
 let parse_list f_parse = function
+  | Form.Number n :: args -> parse_num_apply f_parse n args
+  | Form.String s :: args -> parse_str_apply f_parse s args
   | Form.Symbol op :: args -> parse_op f_parse op args
-  | op :: args -> Error (Cmpl_err.ParseError "no first-class functions")
-  | _ -> Error (Cmpl_err.ParseError "unexpected ()")
+  | Form.List expr :: args -> parse_fn_apply f_parse expr args
+  | _ -> Error (Cmpl_err.ParseError "unrecognized form")
 
 let rec parse_form = function
   | Form.Number n -> Ok (Node.NumLit n)
   | Form.String s -> Ok (Node.StrLit s)
   | Form.Symbol s -> Ok (Node.SymLit s)
   | Form.List l -> parse_list parse_form l
-  | Form.Vec v -> assert false
+  | _ -> Error (Cmpl_err.ParseError "unrecognized form")
 
 let parse forms =
   let fold_fn form forms =
