@@ -126,7 +126,7 @@ let emit_complex_binding recur_fn state name expr =
   ]
 
 let emit_binding recur_fn state binding =
-  let (name, expr) = Node.Binding.values binding in
+  let (name, expr) = Node.Binding.to_tuple binding in
   if is_simple expr then
     emit_simple_binding recur_fn state name expr
   else

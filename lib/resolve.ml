@@ -115,7 +115,7 @@ let resolve_if recur_fn scopes tst iff els =
   return (Node.If (t, i, e))
 
 let resolve_binding recur_fn scopes binding =
-  let (name, expr) = Node.Binding.values binding in
+  let (name, expr) = Node.Binding.to_tuple binding in
   match recur_fn scopes expr with
   | Error e -> Error e
   | Ok expr -> begin

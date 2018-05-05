@@ -30,8 +30,7 @@ module Binding: sig
 
   val to_string: 'a t -> ('a -> string) -> string
 
-  (*TODO should be called to_tuple*)
-  val values: 'a t -> Name.t * 'a
+  val to_tuple: 'a t -> Name.t * 'a
 end
 
 type 'a t =

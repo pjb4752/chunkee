@@ -47,7 +47,7 @@ module Binding = struct
   let to_string { name; expr; } expr_fn =
     sprintf "(%s %s)" (Name.to_string name) (expr_fn expr)
 
-  let values { name; expr; } = (name, expr)
+  let to_tuple { name; expr; } = (name, expr)
 end
 
 type 'a t =

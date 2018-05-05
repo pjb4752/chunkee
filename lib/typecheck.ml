@@ -96,7 +96,7 @@ let chk_if recur_fn scopes tst iff els =
   return r
 
 let chk_binding recur_fn scopes binding =
-  let (name, expr) = Node.Binding.values binding in
+  let (name, expr) = Node.Binding.to_tuple binding in
   match recur_fn scopes expr with
   | Error e -> Error e
   | Ok t -> begin
