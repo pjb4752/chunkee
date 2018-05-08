@@ -3,20 +3,17 @@ open Printf
 module State = struct
   let var_prefix = "__var"
   let fn_prefix = "__fn"
-  let tab_size = 2
 
   type t = {
     var_id: int;
-    indent_size: int;
   }
 
-  let make () = { var_id = 0; indent_size = 0 }
+  let make () = { var_id = 0; }
 
   let var { var_id; } = sprintf "%s%d" var_prefix var_id
 
-  let new_var state = { state with var_id = state.var_id + 1 }
+  let new_var state = { var_id = state.var_id + 1 }
 
-  let indent { indent_size; } = String.make indent_size ' '
 end
 
 let is_simple = function
@@ -24,17 +21,15 @@ let is_simple = function
   | _ -> true
 
 let emit_simple recur_fn state expr =
-  let indent = State.indent state
-  and var = State.var state in
-  sprintf "%s%s = %s" indent var (recur_fn state expr)
+  let var = State.var state in
+  sprintf "%s = %s" var (recur_fn state expr)
 
 let emit_complex recur_fn state expr =
   let next_var = State.var (State.new_var state)
-  and indent = State.indent state
   and var = State.var state in
   String.concat "\n" [
     recur_fn state expr;
-    sprintf "%s%s = %s" indent var next_var
+    sprintf "%s = %s" var next_var
   ]
 
 let emit_expr recur_fn state expr =
@@ -74,24 +69,21 @@ let emit_fn recur_fn state params body =
   let params = List.map map_fn params in
   let params = String.concat ", " params in
   String.concat "\n" [
-    sprintf "%sfunction(%s)" (State.indent state) params;
-    sprintf "%slocal %s" (State.indent state) (State.var state);
+    sprintf "function(%s)" params;
+    sprintf "local %s" (State.var state);
     emit_expr recur_fn state body;
-    sprintf "%sreturn %s" (State.indent state) (State.var state);
-    sprintf "%send" (State.indent state);
+    sprintf "return %s" (State.var state);
+    sprintf "end";
   ]
 
 let emit_simple_test recur_fn state test =
-  let test = recur_fn state test
-  and indent = State.indent state in
-  sprintf "%sif %s then" indent test
+  sprintf "if %s then" (recur_fn state test)
 
 let emit_complex_test recur_fn state test =
   let next_var = State.var (State.new_var state) in
-  let indent = State.indent state in
   String.concat "\n" [
     recur_fn state test;
-    sprintf "%sif %s then" indent next_var;
+    sprintf "if %s then" next_var;
   ]
 
 let emit_test recur_fn state test =
@@ -103,26 +95,24 @@ let emit_test recur_fn state test =
 let emit_if recur_fn state tst iff els =
   let state = State.new_var state in
   String.concat "\n" [
-    sprintf "%slocal %s" (State.indent state) (State.var state);
+    sprintf "local %s" (State.var state);
     emit_test recur_fn state tst;
     emit_expr recur_fn state iff;
-    sprintf "%selse" (State.indent state);
+    sprintf "else";
     emit_expr recur_fn state els;
-    sprintf "%send" (State.indent state)
+    sprintf "end"
   ]
 
 let emit_simple_binding recur_fn state name expr =
-  let indent = State.indent state
-  and name = Node.Binding.Name.to_string name in
-  sprintf "%slocal %s = %s" indent name (recur_fn state expr)
+  let name = Node.Binding.Name.to_string name in
+  sprintf "local %s = %s" name (recur_fn state expr)
 
 let emit_complex_binding recur_fn state name expr =
-  let indent = State.indent state
-  and next_state = State.new_var state
+  let next_state = State.new_var state
   and name = Node.Binding.Name.to_string name in
   String.concat "\n" [
     recur_fn state expr;
-    sprintf "%slocal %s = %s" indent name (State.var next_state)
+    sprintf "local %s = %s" name (State.var next_state)
   ]
 
 let emit_binding recur_fn state binding =
@@ -139,11 +129,11 @@ let emit_bindings recur_fn state bindings =
 let emit_let recur_fn state bindings body =
   let state = State.new_var state in
   String.concat "\n" [
-    sprintf "%slocal %s" (State.indent state) (State.var state);
-    sprintf "%sdo" (State.indent state);
+    sprintf "local %s" (State.var state);
+    sprintf "do";
     emit_bindings recur_fn state bindings;
     emit_expr recur_fn state body;
-    sprintf "%send" (State.indent state);
+    sprintf "end";
   ]
 
 let emit_args recur_fn state args =
