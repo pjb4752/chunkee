@@ -20,6 +20,10 @@ let is_simple = function
   | Node.If _ | Node.Let _ -> false
   | _ -> true
 
+let is_fn_lit = function
+  | Node.Fn _ -> true
+  | _ -> false
+
 let emit_simple recur_fn state expr =
   let var = State.var state in
   sprintf "%s = %s" var (recur_fn state expr)
@@ -149,14 +153,35 @@ let emit_args recur_fn state args =
   let (args, emitted, _) = List.fold_left fold_fn initial args in
   (args, emitted)
 
-(* TODO emit code for nested complex fn application *)
-(* TODO emit code for application of anonymous functions *)
-let emit_apply recur_fn state fn args =
-  let fn = recur_fn state fn
-  and (args, emitted) = emit_args recur_fn state args in
+let emit_fn_call recur_fn state fn args =
+  let (args, emitted) = emit_args recur_fn state args in
   let args = String.concat ", " (List.rev args) in
   let fn_call = sprintf "%s(%s)" fn args in
-  String.concat "\n" (List.rev (fn_call :: emitted))
+  List.rev (fn_call :: emitted)
+
+let emit_fn_expr_apply recur_fn state fn args =
+  let state = State.new_var state in
+  let var = State.var state in
+  let fn_def = recur_fn state fn in
+  let fn_def = sprintf "%s = %s" var fn_def in
+  let fn_call = emit_fn_call recur_fn state var args in
+  String.concat "\n" (fn_def :: fn_call)
+
+let emit_simple_fn_apply recur_fn state fn args =
+  let fn = recur_fn state fn in
+  String.concat "\n" (emit_fn_call recur_fn state fn args)
+
+let emit_complex_fn_apply recur_fn state fn args =
+  let next_var = State.var (State.new_var state) in
+  let fn_def = recur_fn state fn in
+  let fn_call = emit_fn_call recur_fn state next_var args in
+  String.concat "\n" (fn_def :: fn_call)
+
+(* TODO emit code for nested complex fn application *)
+let emit_apply recur_fn state fn args =
+  if is_fn_lit fn then emit_fn_expr_apply recur_fn state fn args
+  else if is_simple fn then emit_simple_fn_apply recur_fn state fn args
+  else emit_complex_fn_apply recur_fn state fn args
 
 let emit_cast recur_fn state tdef expr =
   recur_fn state expr

@@ -146,6 +146,46 @@ let suite =
           ])
       );
 
+    "emit apply expression with anonymous function">::
+      (fun context ->
+        let name0 = Node.VarDef.Name.from_string "p1"
+        and type0 = Node.TypeDef.from_string "num" in
+        let param0 = Node.VarDef.from_parts name0 type0 in
+        let params = [param0]
+        and body = Node.SymLit (Name.Local "p1") in
+        let fn = Node.Fn (params, body)
+        and args = [Node.NumLit 5.0] in
+        assert_equal
+          (emit (Node.Apply (fn, args)))
+          (String.concat "\n" [
+            "__var1 = function(p1)";
+            "local __var2";
+            "__var2 = p1";
+            "return __var2";
+            "end";
+            "__var1(5.000000)";
+          ])
+      );
+
+    "emit apply expression with complex fn expression">::
+      (fun context ->
+        let tst = Node.SymLit (Name.Local "is_true")
+        and iff = Node.SymLit (Name.Local "a")
+        and els = Node.SymLit (Name.Local "b")
+        and args = [Node.StrLit "hi"] in
+        assert_equal
+          (emit (Node.Apply (Node.If (tst, iff, els), args)))
+          (String.concat "\n" [
+            "local __var1";
+            "if is_true then";
+            "__var1 = a";
+            "else";
+            "__var1 = b";
+            "end";
+            "__var1(\"hi\")";
+          ])
+      );
+
     "emit cast expression">::
       (fun context ->
         let typedef = Node.TypeDef.from_string "num" in
