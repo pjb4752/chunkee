@@ -1,5 +1,6 @@
-open Lex
-open Parse
+open Chunkee
+open Chunkee.Lex
+open Chunkee.Parse
 open OUnit2
 
 let assert_true value = assert_equal value true

@@ -1,4 +1,5 @@
-open Lex
+open Chunkee
+open Chunkee.Lex
 open OUnit2
 
 let suite =

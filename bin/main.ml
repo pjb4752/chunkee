@@ -1,42 +1,41 @@
 open Printf
-open Result
-open Table
+open Chunkee.Result
 
-let repl_path0 = Module.Name.from_string "__repl__"
-let repl_path = Module.Path.from_list [repl_path0]
+let repl_path0 = Chunkee.Module.Name.from_string "__repl__"
+let repl_path = Chunkee.Module.Path.from_list [repl_path0]
 
-let repl_name = Module.Name.from_string "main"
-let repl_module = Module.from_parts repl_path repl_name
+let repl_name = Chunkee.Module.Name.from_string "main"
+let repl_module = Chunkee.Module.from_parts repl_path repl_name
 
 let print_list string_fn l =
   List.iter (fun i -> string_fn i |> (printf "%s\n")) l
 
-let print_forms = print_list Lex.Form.to_string
-let print_nodes = print_list (Node.to_string (fun s -> s))
-let print_module modul = printf "%s\n" (Module.to_string modul)
+let print_forms = print_list Chunkee.Lex.Form.to_string
+let print_nodes = print_list (Chunkee.Node.to_string (fun s -> s))
+let print_module modul = printf "%s\n" (Chunkee.Module.to_string modul)
 let print_table table =
-  printf "%s\n" (Table.to_string table)
+  printf "%s\n" (Chunkee.Table.to_string table)
 
-let string_of_resolved = Node.to_string Name.to_string
+let string_of_resolved = Chunkee.Node.to_string Chunkee.Name.to_string
 
 let print_resolved = print_list string_of_resolved
 let print_typechecked = print_list (fun (n, t) ->
-  sprintf "%s:%s" (string_of_resolved n) (Type.to_string t))
+  sprintf "%s:%s" (string_of_resolved n) (Chunkee.Type.to_string t))
 let print_emitted = print_list (fun s -> s)
 
 let print_result table nodes =
   print_typechecked nodes
 
-let lex = Lex.lex
-let parse = Parse.parse
-let define = Resolve.define_vars
+let lex = Chunkee.Lex.lex
+let parse = Chunkee.Parse.parse
+let define = Chunkee.Resolve.define_vars
 let resolve table modul nodes =
-  let table = Table.update_module table modul in
-  match Resolve.resolve table modul nodes with
+  let table = Chunkee.Table.update_module table modul in
+  match Chunkee.Resolve.resolve table modul nodes with
   | Ok resolved -> Ok (table, resolved)
   | Error e -> Error e
-let typecheck = Typecheck.check
-let emit = Emit.emit
+let typecheck = Chunkee.Typecheck.check
+let emit = Chunkee.Emit.emit
 
 let eval table modul line =
   (lex line) >>= fun forms ->
@@ -58,9 +57,11 @@ let main () =
           let () = print_emitted (emit typechecked) in
           loop table modul
       | Error e ->
-          let () = printf "%s\n" (Cmpl_err.to_string e) in
+          let () = printf "%s\n" (Chunkee.Cmpl_err.to_string e) in
           loop table modul
     end in
-  let table = Table.with_stdlib in
-  let table = Table.insert_module table repl_module in
+  let table = Chunkee.Table.with_stdlib in
+  let table = Chunkee.Table.insert_module table repl_module in
   loop table repl_module
+
+let () = main ()

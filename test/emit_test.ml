@@ -1,6 +1,7 @@
-open Emit
+open Chunkee
+open Chunkee.Emit
+open Chunkee.Resolve
 open OUnit2
-open Resolve
 
 let state = State.make ()
 let emit = emit_node state

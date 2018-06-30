@@ -1,5 +1,6 @@
+open Chunkee
+open Chunkee.Typecheck
 open OUnit2
-open Typecheck
 
 let root = Module.Name.from_string "__test__"
 let path = Module.Path.from_list [root]

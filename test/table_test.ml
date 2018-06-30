@@ -1,5 +1,6 @@
+open Chunkee
+open Chunkee.Table
 open OUnit2
-open Table
 
 let path0 = Module.Name.from_string "path0"
 let path1 = Module.Name.from_string "path1"

@@ -1,0 +1,11 @@
+opam-version: "1.2"
+name: "chunkee"
+version: "0.0.1"
+maintainer: "pjb4752 <pjb4752@gmail.com>"
+authors: "pjb4752 <pjb4752@gmail.com>"
+homepage: "https://github.com/pjb4752/chunkee"
+bug-reports: "https://github.com/pjb4752/chunkee/issues"
+dev-repo: "https://github.com/pjb4752/chunkee.git"
+build: [
+  ["jbuilder" "build" "--only" "chunkee" "--root" "." "-j" jobs "@install"]
+]
