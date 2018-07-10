@@ -1,5 +1,5 @@
 open Printf
-open Chunkee.Result
+open Thwack.Result
 
 let repl_path0 = Chunkee.Module.Name.from_string "__repl__"
 let repl_path = Chunkee.Module.Path.from_list [repl_path0]

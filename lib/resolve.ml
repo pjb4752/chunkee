@@ -1,6 +1,6 @@
-open Extensions
 open Printf
-open Result
+open Thwack.Extensions
+open Thwack.Result
 
 type t = Name.t Node.t
 

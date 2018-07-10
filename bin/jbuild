@@ -1,6 +1,6 @@
 (executables
  ((names (main))
-  (libraries (chunkee))))
+  (libraries (chunkee thwack))))
 
 (install
  ((section bin)

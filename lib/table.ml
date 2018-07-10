@@ -1,5 +1,5 @@
-open Extensions
-open Option
+open Thwack.Extensions
+open Thwack.Option
 open Printf
 
 module Children = Map.Make(Module.Name)

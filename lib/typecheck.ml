@@ -1,5 +1,5 @@
 open Printf
-open Result
+open Thwack.Result
 
 type t = Resolve.t * Type.t
 

@@ -1,6 +1,6 @@
 (executables
   ((names (tests))
-   (libraries (chunkee ounit))))
+   (libraries (chunkee ounit thwack))))
 
 (alias
   ((name runtest)

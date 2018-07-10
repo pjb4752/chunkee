@@ -1,7 +1,7 @@
 open Lex
 open Printf
-open Result
-open Extensions
+open Thwack.Result
+open Thwack.Extensions
 
 type t = string Node.t
 

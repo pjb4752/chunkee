@@ -66,7 +66,7 @@ let suite =
         let form = Form.List [
           Form.Symbol "def"; Form.Symbol "x";
         ] in
-        assert_true (Result.is_error (parse_form form))
+        assert_true (Thwack.Result.is_error (parse_form form))
         );
 
     "parse valid fn form">::
@@ -91,7 +91,7 @@ let suite =
         let form = Form.List [
           Form.Symbol "fn"; Form.Symbol "a"
         ] in
-        assert_true (Result.is_error (parse_form form))
+        assert_true (Thwack.Result.is_error (parse_form form))
       );
 
     "parse valid if form">::
@@ -111,7 +111,7 @@ let suite =
           Form.Symbol "if";
             Form.Symbol "a"; Form.Symbol "b";
         ] in
-        assert_true (Result.is_error (parse_form form))
+        assert_true (Thwack.Result.is_error (parse_form form))
       );
 
     "parse valid let form">::
@@ -135,7 +135,7 @@ let suite =
             Form.List [Form.Symbol "a"];
             Form.Symbol "a";
         ] in
-        assert_true (Result.is_error (parse_form form))
+        assert_true (Thwack.Result.is_error (parse_form form))
       );
 
     "parse valid apply form">::

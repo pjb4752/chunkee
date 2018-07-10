@@ -1,4 +1,4 @@
-open Option
+open Thwack.Option
 open Printf
 
 module Name = Id
@@ -74,7 +74,7 @@ let find_var { vars; } var_name =
   List.find_opt (fun (v: Var.t) -> v.name = var_name) vars
 
 let var_exists modul var_name =
-  Option.is_some @@ find_var modul var_name
+  Thwack.Option.is_some @@ find_var modul var_name
 
 let define_var modul name tipe =
   let var = Var.from_tuple (qual_name modul, name, tipe) in
