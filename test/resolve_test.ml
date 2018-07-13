@@ -26,8 +26,8 @@ let s_sym1 = Node.SymLit "name1"
 let n_sym0 = Node.SymLit (Name.Module (qual_name, name0))
 let n_sym1 = Node.SymLit (Name.Module (qual_name, name1))
 
-let t0 = Table.with_stdlib
-let t1 = Table.insert_module t0 m2
+let t0 = Symbol_table.with_stdlib
+let t1 = Symbol_table.insert_module t0 m2
 
 let suite =
   "Resolve suite">::: [

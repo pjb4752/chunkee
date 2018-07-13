@@ -28,7 +28,7 @@ let chk_local_name scopes name =
   end
 
 let chk_module_name table qual_name var_name =
-  match Table.find_module table qual_name with
+  match Symbol_table.find_module table qual_name with
   | None -> assert false
   | Some m -> begin
     match Module.find_var m var_name with

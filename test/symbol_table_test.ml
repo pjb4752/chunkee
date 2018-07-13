@@ -1,5 +1,5 @@
 open Chunkee
-open Chunkee.Table
+open Chunkee.Symbol_table
 open OUnit2
 
 let path0 = Module.Name.from_string "path0"
@@ -14,7 +14,7 @@ let module0 = Module.from_parts path name0
 let module1 = Module.from_parts path name1
 
 let suite =
-  "Table suite">::: [
+  "Symbol_table suite">::: [
     "finding a nested module">::
       (fun context ->
         let empty = Children.empty in

@@ -40,7 +40,7 @@ let resolve_module_name modul name =
 
 let resolve_global_name table name =
   let name = Module.Var.Name.from_string name in
-  match Table.find_module table Stdlib.global_name with
+  match Symbol_table.find_module table Stdlib.global_name with
   | Some m ->
       if Module.var_exists m name then Some (m, name)
       else None
@@ -67,7 +67,7 @@ let resolve_qualified_name table modul name =
     | name :: path_parts -> begin
       let path = Module.Path.from_list path_parts in
       let qual_name = Module.Qual_name.make path name in
-      match Table.find_module table qual_name with
+      match Symbol_table.find_module table qual_name with
       | Some m -> begin
         match resolve_module_name m var_name with
         | Some name -> make_symlit m name

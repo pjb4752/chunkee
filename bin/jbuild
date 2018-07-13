@@ -1,7 +1,0 @@
-(executables
- ((names (main))
-  (libraries (chunkee thwack))))
-
-(install
- ((section bin)
-  (files ((main.exe as chunkee)))))

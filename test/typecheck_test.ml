@@ -26,8 +26,8 @@ let n_sym2 = Node.SymLit (Name.Module (qual_name, name2))
 let n_sym3 = Node.SymLit (Name.Module (qual_name, name3))
 let n_sym4 = Node.SymLit (Name.Module (qual_name, name4))
 
-let t0 = Table.with_stdlib
-let t1 = Table.insert_module t0 mfinal
+let t0 = Symbol_table.with_stdlib
+let t1 = Symbol_table.insert_module t0 mfinal
 
 let suite =
   "Typecheck suite">::: [
