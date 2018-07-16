@@ -26,7 +26,7 @@ let n_sym2 = Node.SymLit (Name.Module (qual_name, name2))
 let n_sym3 = Node.SymLit (Name.Module (qual_name, name3))
 let n_sym4 = Node.SymLit (Name.Module (qual_name, name4))
 
-let t0 = Symbol_table.with_stdlib
+let t0 = Symbol_table.with_pervasive Test_data.pervasive
 let t1 = Symbol_table.insert_module t0 mfinal
 
 let suite =
@@ -101,7 +101,7 @@ let suite =
         and binding1 = Node.Binding.from_node name1 expr1 in
         let bindings = [binding0; binding1] in
         let fn_name = Module.Var.Name.from_string "+"
-        and qual_name = Stdlib.global_name in
+        and qual_name = Test_data.pervasive_name in
         let name = Name.Module (qual_name, fn_name) in
         let expr =
           Node.Apply (Node.SymLit name, [
@@ -116,7 +116,7 @@ let suite =
     "finding type of apply form">::
       (fun context ->
         let fn_name = Module.Var.Name.from_string "+"
-        and qual_name = Stdlib.global_name in
+        and qual_name = Test_data.pervasive_name in
         let name = Name.Module (qual_name, fn_name) in
         let args = [Node.NumLit 55.0; Node.NumLit 10.0] in
         assert_equal

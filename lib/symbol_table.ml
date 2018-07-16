@@ -79,13 +79,16 @@ module Lib_tree = struct
 end
 
 type t = {
-  pervasive: Module.t;
+  pervasive: Pervasive.t;
   libraries: Lib_tree.t
 }
 
 let with_pervasive pervasive =
-  let libraries = Lib_tree.insert_module Lib_tree.empty pervasive in
+  let { Pervasive.modul } = pervasive in
+  let libraries = Lib_tree.insert_module Lib_tree.empty modul in
   { pervasive; libraries }
+
+let pervasive_module { pervasive } = pervasive.modul
 
 let find_module { libraries } name =
   Lib_tree.find_module libraries name

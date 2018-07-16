@@ -38,13 +38,11 @@ let resolve_module_name modul name =
   if Module.var_exists modul name then Some name
   else None
 
-let resolve_global_name table name =
+let resolve_pervasive_name table name =
   let name = Module.Var.Name.from_string name in
-  match Symbol_table.find_module table Stdlib.global_name with
-  | Some m ->
-      if Module.var_exists m name then Some (m, name)
-      else None
-  | None -> None
+  let pervasive = Symbol_table.pervasive_module table in
+  if Module.var_exists pervasive name then Some (pervasive, name)
+  else None
 
 let make_symlit modul m_name =
   let qual_name = Module.qual_name modul in
@@ -83,7 +81,7 @@ let resolve_unqualified_name table modul name =
   match resolve_module_name modul name with
   | Some name -> make_symlit modul name
   | None -> begin
-    match resolve_global_name table name with
+    match resolve_pervasive_name table name with
     | Some (m, name) -> make_symlit m name
     | _ -> undefined_name_error name
   end

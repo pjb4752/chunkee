@@ -26,7 +26,7 @@ let s_sym1 = Node.SymLit "name1"
 let n_sym0 = Node.SymLit (Name.Module (qual_name, name0))
 let n_sym1 = Node.SymLit (Name.Module (qual_name, name1))
 
-let t0 = Symbol_table.with_stdlib
+let t0 = Test_data.stdlib
 let t1 = Symbol_table.insert_module t0 m2
 
 let suite =
@@ -54,13 +54,13 @@ let suite =
 
     "resolve symbol literal of qualified name">::
       (fun context ->
-        let parts = List.map Module.Name.from_string ["core"] in
+        let parts = List.map Module.Name.from_string ["test"] in
         let path = Module.Path.from_list parts
-        and name = Module.Name.from_string "list" in
+        and name = Module.Name.from_string "pervasive" in
         let qual_name = Module.Qual_name.make path name in
-        let var_name = Module.Var.Name.from_string "empty" in
+        let var_name = Module.Var.Name.from_string "true" in
         assert_equal
-          (resolve_node t1 m2 (Node.SymLit "core.list/empty"))
+          (resolve_node t1 m2 (Node.SymLit "test.pervasive/true"))
           (Ok (Node.SymLit (Name.Module (qual_name, var_name))))
       );
 

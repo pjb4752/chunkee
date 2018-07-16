@@ -8,7 +8,9 @@ end
 
 type t
 
-val with_pervasive: Module.t -> t
+val with_pervasive: Pervasive.t -> t
+
+val pervasive_module: t -> Module.t
 
 val find_module: t -> Module.Qual_name.t -> Module.t option
 
