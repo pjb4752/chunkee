@@ -20,7 +20,6 @@ let pervasive_name = C.Module.qual_name pervasive_module
 
 let pervasive = {
   C.Pervasive.modul = pervasive_module;
-  C.Pervasive.operators = []
 }
 
 let stdlib = C.Symbol_table.with_pervasive pervasive

@@ -1,7 +1,9 @@
 open Printf
 open Thwack.Result
 
-type t = Resolve.t * Type.t
+type node_t = Resolve.Resolve.node_t
+
+type t = Resolve.Resolve.node_t * Type.t
 
 module Scope = Map.Make(String)
 
