@@ -118,7 +118,7 @@ let suite =
       (fun context ->
         let form = Form.List [
           Form.Symbol "let";
-            Form.List [Form.Symbol "a"; Form.Number 5.0];
+            Form.Vec [Form.Symbol "a"; Form.Number 5.0];
             Form.Symbol "a";
         ] in
         let name = Node.Binding.Name.from_string "a" in

@@ -75,7 +75,7 @@ let parse_bindings f_parse bindings =
   else Error (Cmpl_err.ParseError "invalid BINDING form")
 
 let parse_let f_parse = function
-  | Form.List bindings :: body :: [] ->
+  | Form.Vec bindings :: body :: [] ->
       let bindings = parse_bindings f_parse bindings in
       bindings >>= fun bi ->
       (f_parse body) >>= fun b ->
