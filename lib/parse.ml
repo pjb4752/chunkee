@@ -3,7 +3,7 @@ open Printf
 open Thwack.Result
 open Thwack.Extensions
 
-type t = string Node.t
+type t = (string, Node.TypeDef.t) Node.t
 
 let rec parse_type = function
   | Form.Symbol t -> Ok (Node.TypeDef.from_string t)
@@ -21,10 +21,28 @@ let rec parse_type = function
 
 let parse_var_def = function
   | Form.Vec (Form.Symbol n :: t :: []) -> begin
-    (parse_type t) >>= fun t ->
-      let n = Node.VarDef.Name.from_string n in return (n, t)
+      (parse_type t) >>= fun t ->
+        let n = Node.VarDef.Name.from_string n in return (n, t)
   end
   | _ -> Error (Cmpl_err.ParseError "invalid VAR form")
+
+let parse_rec_fields f_parse fields =
+  let fold_fn (n, t) prior =
+    prior >>= fun fs ->
+      (parse_var_def (Form.Vec ([n; t]))) >>= fun (n, t) ->
+      let field = Node.VarDef.from_parts n t in
+      return (field :: fs) in
+  if (List.length fields mod 2) = 0 then
+    List.fold_right fold_fn (List.as_pairs fields) (Ok [])
+  else Error (Cmpl_err.ParseError "invalid FIELDS form")
+
+let parse_rec f_parse = function
+  | Form.Symbol name :: Form.Vec fields :: [] ->
+      let name = Node.Name.from_string name in
+      let fields = parse_rec_fields f_parse fields in
+      fields >>= fun fs ->
+      return (Node.Rec (name, fs))
+  | _ -> Error (Cmpl_err.ParseError "invalid RECORD form")
 
 let parse_def f_parse = function
   | raw_def :: raw_expr :: [] ->
@@ -115,7 +133,8 @@ let parse_fn_apply f_parse fn args =
   return (Node.Apply (fn, args))
 
 let parse_op f_parse op (args: Form.t list) =
-  if op = "def" then parse_def f_parse args
+  if op = "defrec" then parse_rec f_parse args
+  else if op = "def" then parse_def f_parse args
   else if op = "fn" then parse_fn f_parse args
   else if op = "if" then parse_if f_parse args
   else if op = "let" then parse_let f_parse args

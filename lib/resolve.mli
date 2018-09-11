@@ -1,13 +1,13 @@
 module Define : sig
   type t = (Module.t, Cmpl_err.t) result
 
-  val define_var: Module.t -> Parse.t -> t
+  val node_define: Module.t -> Parse.t -> t
 
-  val define_vars: Module.t -> Parse.t list -> t
+  val define: Module.t -> Parse.t list -> t
 end
 
 module Resolve : sig
-  type node_t = Name.t Node.t
+  type node_t = (Name.t, Type.t) Node.t
 
   type s = (node_t, Cmpl_err.t) result
   type t = (node_t list, Cmpl_err.t) result

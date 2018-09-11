@@ -2,7 +2,6 @@ open Printf
 open Thwack.Extensions
 open Thwack.Result
 
-type t = Name.t Node.t
 module Scope = Set.Make(String)
 
 module Define = struct
@@ -21,20 +20,27 @@ module Define = struct
         let type_s = Node.TypeDef.to_string t in
         Error (Cmpl_err.NameError (sprintf "unknown type %s" type_s))
 
-  let define_var modul = function
-    | Node.Def (var, _) -> ifndef_var modul var
-    | _ -> Ok (modul)
+  let ifndef_rec modul tname =
+    if Module.type_exists modul tname then
+      let name_s = Type.Name.to_string tname in
+      Error (Cmpl_err.NameError (sprintf "type %s already defined" name_s)) else Ok (Module.define_type modul tname)
 
-  let define_vars modul nodes =
+  let node_define modul = function
+    | Node.Def (var, _) -> ifndef_var modul var
+    | Node.Rec (name, _) -> ifndef_rec modul name
+    | _ -> Ok modul
+
+  let define modul nodes =
     let fold_fn node modul =
       modul >>= fun m ->
-      (define_var m node) >>= fun m ->
+      let new_modul = node_define m node in
+      new_modul >>= fun m ->
       return m in
     List.fold_right fold_fn nodes (Ok modul)
 end
 
 module Resolve = struct
-  type node_t = Name.t Node.t
+  type node_t = (Name.t, Type.t) Node.t
 
   type s = (node_t, Cmpl_err.t) result
   type t = (node_t list, Cmpl_err.t) result
@@ -100,19 +106,43 @@ module Resolve = struct
     else if is_qualified name then resolve_qualified_name table modul name
     else resolve_unqualified_name table modul name
 
+  let resolve_type tipe = Ok Type.Num
+
+  let resolve_rec recur_fn scopes name fields =
+    let fold_fn field fields =
+      fields >>= fun fields ->
+      let (name, tipe) = Node.VarDef.to_tuple field in
+      (resolve_type tipe) >>= fun t ->
+      let field = Node.VarDef.from_parts name t in
+      return (field :: fields) in
+    let fields = List.fold_right fold_fn fields (Ok []) in
+    fields >>= fun fields ->
+    return (Node.Rec (name, fields))
+
   let resolve_def recur_fn scopes var expr =
+    let (name, tipe) = Node.VarDef.to_tuple var in
+    (resolve_type tipe) >>= fun t ->
     (recur_fn scopes expr) >>= fun n ->
+    let var = Node.VarDef.from_parts name t in
     return (Node.Def (var, n))
 
   let resolve_fn recur_fn scopes params body =
-    let map_fn var_def =
-      let (name, _) = Node.VarDef.to_tuple var_def in
+    let fold_fn var vars =
+      vars >>= fun vars ->
+      let (name, tipe) = Node.VarDef.to_tuple var in
+      (resolve_type tipe) >>= fun t ->
+      let var = Node.VarDef.from_parts name t in
+      return (var :: vars) in
+    let map_fn var =
+      let (name, _) = Node.VarDef.to_tuple var in
       Node.VarDef.Name.to_string name in
-    let param_names = List.map map_fn params in
-    let fn_scope = Scope.of_list param_names in
-    let scopes = fn_scope :: scopes in
+    let vars = List.fold_right fold_fn params (Ok []) in
+    vars >>= fun v ->
+      let param_names = List.map map_fn v in
+      let fn_scope = Scope.of_list param_names in
+      let scopes = fn_scope :: scopes in
     (recur_fn scopes body) >>= fun n ->
-    return (Node.Fn (params, n))
+    return (Node.Fn (v, n))
 
   let resolve_if recur_fn scopes tst iff els =
     (recur_fn scopes tst) >>= fun t ->
@@ -161,14 +191,16 @@ module Resolve = struct
     return (Node.Apply (f, List.rev a))
 
   let resolve_cast recur_fn scopes tdef expr =
+    (resolve_type tdef) >>= fun t ->
     (recur_fn scopes expr) >>= fun e ->
-    return (Node.Cast (tdef, e))
+    return (Node.Cast (t, e))
 
   let resolve_node table modul node =
     let rec resolve' scopes = function
       | Node.NumLit n -> Ok (Node.NumLit n)
       | Node.StrLit s -> Ok (Node.StrLit s)
       | Node.SymLit name -> resolve_name table modul scopes name
+      | Node.Rec (name, fields) -> resolve_rec resolve' scopes name fields
       | Node.Def (var, expr) -> resolve_def resolve' scopes var expr
       | Node.Fn (params, body) -> resolve_fn resolve' scopes params body
       | Node.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els

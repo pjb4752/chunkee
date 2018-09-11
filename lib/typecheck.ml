@@ -3,7 +3,9 @@ open Thwack.Result
 
 type node_t = Resolve.Resolve.node_t
 
-type t = Resolve.Resolve.node_t * Type.t
+type n = Resolve.Resolve.node_t * Type.t
+type s = (Type.t, Cmpl_err.t) result
+type t = (n list, Cmpl_err.t) result
 
 module Scope = Map.Make(String)
 
@@ -44,13 +46,12 @@ let chk_name table modul scopes = function
   | Name.Local n -> chk_local_name scopes n
   | Name.Module (qn, vn) -> chk_module_name table qn vn
 
+let chk_rec recur_fn modul scopes name fields =
+  Ok (Type.Rec name)
+
 let chk_def recur_fn modul scopes var expr =
-  let (name, _) = Node.VarDef.to_tuple var in
-  let var = match Module.find_var modul name with
-  | Some v -> v
-  | None -> assert false in
-  let expr_type = (recur_fn scopes expr) >>= fun e -> return e
-  and (_, _, t_exp) = Module.Var.to_tuple var in
+  let (name, t_exp) = Node.VarDef.to_tuple var in
+  let expr_type = (recur_fn scopes expr) >>= fun e -> return e in
   match expr_type with
   | Error e -> Error e
   | Ok t_act when is_compatible t_exp t_act -> Ok t_exp
@@ -58,11 +59,10 @@ let chk_def recur_fn modul scopes var expr =
 
 let process_params params =
   let fold_fn p ps =
-    let (name, t) = Node.VarDef.to_tuple p in
+    let (name, tipe) = Node.VarDef.to_tuple p in
     let name = Node.VarDef.Name.to_string name in
     ps >>= fun ps ->
-    (find_type t) >>= fun t ->
-    return ((name, t) :: ps) in
+    return ((name, tipe) :: ps) in
   match List.fold_right fold_fn params (Ok []) with
   | Error e -> Error e
   | Ok ps ->
@@ -137,22 +137,22 @@ let chk_apply recur_fn scopes fn args =
   (cmp_fn_types f ts) >>= fun rt ->
   return rt
 
-let chk_cast recur_fn scopes tdef expr =
-  (find_type tdef) >>= fun t ->
+let chk_cast recur_fn scopes tipe expr =
   (recur_fn scopes expr) >>= fun e ->
-  return t
+  return tipe
 
 let check_node table modul node =
   let rec check' scopes = function
     | Node.NumLit _ -> Ok Type.Num
     | Node.StrLit _ -> Ok Type.Str
     | Node.SymLit name -> chk_name table modul scopes name
+    | Node.Rec (name, fields) -> chk_rec check' modul scopes name fields
     | Node.Def (var, expr) -> chk_def check' modul scopes var expr
     | Node.Fn (params, body) -> chk_fn check' scopes params body
     | Node.If (tst, iff, els) -> chk_if check' scopes tst iff els
     | Node.Let (bindings, body) -> chk_let check' scopes bindings body
     | Node.Apply (fn, args) -> chk_apply check' scopes fn args
-    | Node.Cast (tdef, expr) -> chk_cast check' scopes tdef expr in
+    | Node.Cast (tipe, expr) -> chk_cast check' scopes tipe expr in
   check' [] node
 
 let check table modul nodes =

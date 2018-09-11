@@ -56,9 +56,10 @@ end
 type t = {
   name: Qual_name.t;
   vars: Var.t list;
+  types: Type.Name.t list;
 }
 
-let from_name name = { name; vars = [] }
+let from_name name = { name; vars = []; types = [] }
 
 let from_parts path name = from_name (Qual_name.make path name)
 
@@ -76,11 +77,21 @@ let find_var { vars; } var_name =
 let var_exists modul var_name =
   Thwack.Option.is_some @@ find_var modul var_name
 
+let find_type { types; } type_name =
+  List.find_opt ((=) type_name) types
+
+let type_exists modul type_name =
+  Thwack.Option.is_some @@ find_type modul type_name
+
 let define_var modul name tipe =
   let var = Var.from_tuple (qual_name modul, name, tipe) in
   { modul with vars = var :: modul.vars }
 
-let to_string { name; vars; } =
-  let vars = List.map Var.to_string vars
+let define_type modul type_name =
+  { modul with types = type_name :: modul.types }
+
+let to_string { name; vars; types } =
+  let vars = String.concat " " (List.map Var.to_string vars)
+  and types = String.concat " " (List.map Type.Name.to_string types)
   and name = Qual_name.to_string name in
-  sprintf "(module %s (%s))" name (String.concat " " vars)
+  sprintf "(module %s (vars (%s)) (types (%s))" name vars types

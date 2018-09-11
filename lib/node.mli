@@ -1,3 +1,5 @@
+module Name = Id
+
 module TypeDef: sig
   type t =
     | StrType of string
@@ -13,13 +15,13 @@ end
 module VarDef: sig
   module Name = Id
 
-  type t
+  type 'b t
 
-  val from_parts: Name.t -> TypeDef.t -> t
+  val from_parts: Name.t -> 'b -> 'b t
 
-  val to_tuple: t -> Name.t * TypeDef.t
+  val to_tuple: 'b t -> Name.t * 'b
 
-  val to_string: t -> string
+  val to_string: ('b -> string) -> 'b t -> string
 end
 
 module Binding: sig
@@ -33,15 +35,16 @@ module Binding: sig
   val to_tuple: 'a t -> Name.t * 'a
 end
 
-type 'a t =
+type ('a, 'b) t =
   | NumLit of float
   | StrLit of string
   | SymLit of 'a
-  | Def of (VarDef.t * 'a t)
-  | Fn of (VarDef.t list * 'a t)
-  | If of ('a t * 'a t * 'a t)
-  | Let of ('a t Binding.t list * 'a t)
-  | Apply of ('a t * 'a t list)
-  | Cast of (TypeDef.t * 'a t)
+  | Rec of (Name.t * 'b VarDef.t list)
+  | Def of ('b VarDef.t * ('a, 'b) t)
+  | Fn of ('b VarDef.t list * ('a, 'b) t)
+  | If of (('a, 'b) t * ('a, 'b) t * ('a, 'b) t)
+  | Let of (('a, 'b) t Binding.t list * ('a, 'b) t)
+  | Apply of (('a, 'b) t * ('a, 'b) t list)
+  | Cast of ('b * ('a, 'b) t)
 
-val to_string: ('a -> string) -> 'a t -> string
+val to_string: ('a -> string) -> ('b -> string) -> ('a, 'b) t -> string

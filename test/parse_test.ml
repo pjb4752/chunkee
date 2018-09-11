@@ -28,6 +28,22 @@ let suite =
           (Ok (Node.SymLit "foofoo"))
         );
 
+    "parse valid rec form">::
+      (fun context ->
+        let form = Form.List [
+          Form.Symbol "defrec";
+          Form.Symbol "hello";
+          Form.Vec [Form.Symbol "x"; Form.Symbol "num"];
+        ] in
+        let name = Node.Name.from_string "hello" in
+        let varname = Node.VarDef.Name.from_string "x" in
+        let vartype = Node.TypeDef.from_string "num" in
+        let vardef = Node.VarDef.from_parts varname vartype in
+        assert_equal
+          (parse_form form)
+          (Ok (Node.Rec (name, [vardef])))
+      );
+
     "parse valid def form">::
       (fun context ->
         let form = Form.List [

@@ -49,6 +49,12 @@ val find_var: t -> Var.Name.t -> Var.t option
 
 val var_exists: t -> Var.Name.t -> bool
 
+val find_type: t -> Type.Name.t -> Type.Name.t option
+
+val type_exists: t -> Type.Name.t -> bool
+
 val define_var: t -> Var.Name.t -> Type.t -> t
+
+val define_type: t -> Type.Name.t -> t
 
 val to_string: t -> string

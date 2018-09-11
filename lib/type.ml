@@ -1,6 +1,8 @@
 open Thwack.Option
 open Printf
 
+module Name = Id
+
 type t =
   | Unit
   | Any
@@ -8,6 +10,7 @@ type t =
   | Str
   | Bool
   | List
+  | Rec of Name.t
   | Fn of t list * t
 
 let type_of_str s =
@@ -32,6 +35,11 @@ let rec from_node = function
     | Some (rt :: pt) -> Some (Fn (List.rev pt, rt))
     | None -> None
 
+let has_name t name =
+  match t with
+  | Rec n -> n = name
+  | _ -> false
+
 let rec to_string t =
   let string_of_fn pt rt =
     let types = List.append pt [rt] in
@@ -44,4 +52,5 @@ let rec to_string t =
   | Str -> "str"
   | Bool -> "bool"
   | List -> "list"
+  | Rec name -> Name.to_string name
   | Fn (pt, rt) -> string_of_fn pt rt
