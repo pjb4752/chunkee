@@ -24,19 +24,6 @@ let type_of_str s =
 
 let find_builtin s = type_of_str s
 
-(*TODO add tests for this*)
-let rec from_node = function
-  | Node.TypeDef.StrType s -> type_of_str s
-  | Node.TypeDef.FnType f ->
-    let fold_fn ts t =
-      (from_node t) >>= fun t ->
-      ts >>= fun ts ->
-      return (t :: ts) in
-    match List.fold_left fold_fn (Some []) f with
-    | Some [] -> assert false
-    | Some (rt :: pt) -> Some (Fn (List.rev pt, rt))
-    | None -> None
-
 let rec to_string t =
   let string_of_rec m_name name =
     sprintf "(rec %s/%s)" (Mod_name.to_string m_name) (Name.to_string name) in

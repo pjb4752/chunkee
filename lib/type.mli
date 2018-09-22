@@ -13,6 +13,4 @@ type t =
 
 val find_builtin: string -> t option
 
-val from_node: Node.TypeDef.t -> t option
-
 val to_string: t -> string

@@ -15,13 +15,6 @@ let is_compatible this that =
 let are_compatible this that =
   List.for_all2 is_compatible this that
 
-let find_type t =
-  match Type.from_node t with
-  | Some t -> Ok t
-  | None ->
-    let t = Node.TypeDef.to_string t in
-    Error (Cmpl_err.TypeError (sprintf "type %s not found" t))
-
 let chk_local_name scopes name =
   match List.find_opt (Scope.mem name) scopes with
   | None -> assert false
