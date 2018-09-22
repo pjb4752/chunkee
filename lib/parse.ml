@@ -45,11 +45,10 @@ let parse_rec f_parse = function
   | _ -> Error (Cmpl_err.ParseError "invalid RECORD form")
 
 let parse_def f_parse = function
-  | raw_def :: raw_expr :: [] ->
-      (parse_var_def raw_def) >>= fun (n, t) ->
-      (f_parse raw_expr) >>= fun e ->
-      let var = Node.VarDef.from_parts n t in
-      return (Node.Def (var, e))
+  | Form.Symbol name :: expr :: [] ->
+      (f_parse expr) >>= fun expr ->
+      let name = Node.Name.from_string name in
+      return (Node.Def (name, expr))
   | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
 
 let parse_params params =

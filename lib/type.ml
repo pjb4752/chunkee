@@ -10,7 +10,7 @@ type t =
   | Str
   | Bool
   | List
-  | Rec of Name.t
+  | Rec of Mod_name.t * Name.t
   | Fn of t list * t
 
 let type_of_str s =
@@ -21,6 +21,8 @@ let type_of_str s =
   else if s = "bool" then Some Bool
   else if s = "list" then Some List
   else None
+
+let find_builtin s = type_of_str s
 
 (*TODO add tests for this*)
 let rec from_node = function
@@ -35,12 +37,9 @@ let rec from_node = function
     | Some (rt :: pt) -> Some (Fn (List.rev pt, rt))
     | None -> None
 
-let has_name t name =
-  match t with
-  | Rec n -> n = name
-  | _ -> false
-
 let rec to_string t =
+  let string_of_rec m_name name =
+    sprintf "(rec %s/%s)" (Mod_name.to_string m_name) (Name.to_string name) in
   let string_of_fn pt rt =
     let types = List.append pt [rt] in
     let types = List.map to_string types in
@@ -52,5 +51,5 @@ let rec to_string t =
   | Str -> "str"
   | Bool -> "bool"
   | List -> "list"
-  | Rec name -> Name.to_string name
+  | Rec (m_name, name) -> string_of_rec m_name name
   | Fn (pt, rt) -> string_of_fn pt rt

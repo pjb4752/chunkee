@@ -1,60 +1,27 @@
-module Name = Id
-
-module Path: sig
-  type t
-
-  val from_list: Name.t list -> t
-
-  val to_list: t -> Name.t list
-end
-
-module Qual_name: sig
-  type t
-
-  val make: Path.t -> Name.t -> t
-
-  val short_name: t -> Name.t
-
-  val to_string: t -> string
-
-  val to_list: t -> Name.t list
-end
-
-module Var: sig
-  module Name = Id
-  type t
-
-  val from_tuple: Qual_name.t * Name.t * Type.t -> t
-
-  val to_tuple: t -> Qual_name.t * Name.t * Type.t
-
-  val to_string: t -> string
-end
-
 type t
 
-val from_name: Qual_name.t -> t
+val from_name: Mod_name.t -> t
 
-val from_parts: Path.t -> Name.t -> t
+val from_parts: Mod_name.Path.t -> Mod_name.Name.t -> t
 
-val short_name: t -> Name.t
+val name: t -> Mod_name.t
 
-val path_list: t -> Name.t list
+val short_name: t -> Mod_name.Name.t
 
-val qual_name: t -> Qual_name.t
-
-val qual_name_list: t -> Name.t list
+val path_list: t -> Mod_name.Name.t list
 
 val find_var: t -> Var.Name.t -> Var.t option
 
 val var_exists: t -> Var.Name.t -> bool
 
-val find_type: t -> Type.Name.t -> Type.Name.t option
+val find_type: t -> Type.Name.t -> Type.t option
 
 val type_exists: t -> Type.Name.t -> bool
 
+val declare_var: t -> Var.Name.t -> t
+
 val define_var: t -> Var.Name.t -> Type.t -> t
 
-val define_type: t -> Type.Name.t -> t
+val define_type: t -> Type.t -> t
 
 val to_string: t -> string

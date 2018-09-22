@@ -7,11 +7,12 @@ type t =
   | Str
   | Bool
   | List
-  | Rec of Name.t
+  | Rec of Mod_name.t * Name.t
   | Fn of t list * t
 
-val from_node: Node.TypeDef.t -> t option
 
-val has_name: t -> Name.t -> bool
+val find_builtin: string -> t option
+
+val from_node: Node.TypeDef.t -> t option
 
 val to_string: t -> string

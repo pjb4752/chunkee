@@ -7,7 +7,7 @@ module Define : sig
 end
 
 module Resolve : sig
-  type node_t = (Name.t, Type.t) Node.t
+  type node_t = (Name.Var.t, Type.t) Node.t
 
   type s = (node_t, Cmpl_err.t) result
   type t = (node_t list, Cmpl_err.t) result

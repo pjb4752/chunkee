@@ -1,5 +1,16 @@
-type t =
-  | Local of string
-  | Module of Module.Qual_name.t * Module.Var.Name.t
+module V = Var
+module T = Type
 
-val to_string: t -> string
+module Var : sig
+  type t =
+    | Local of string
+    | Module of Mod_name.t * V.Name.t
+
+  val to_string: t -> string
+end
+
+module Type : sig
+  type t =
+    | Builtin of string
+    | UserDef of Mod_name.t * T.Name.t
+end

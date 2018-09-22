@@ -57,7 +57,7 @@ type ('a, 'b) t =
   | StrLit of string
   | SymLit of 'a
   | Rec of (Name.t * 'b VarDef.t list)
-  | Def of ('b VarDef.t * ('a, 'b) t)
+  | Def of (Name.t * ('a, 'b) t)
   | Fn of ('b VarDef.t list * ('a, 'b) t)
   | If of (('a, 'b) t * ('a, 'b) t * ('a, 'b) t)
   | Let of (('a, 'b) t Binding.t list * ('a, 'b) t)
@@ -65,14 +65,15 @@ type ('a, 'b) t =
   | Cast of ('b * ('a, 'b) t)
 
 let to_string str_of_a str_of_b node =
-  let vardef_to_string = VarDef.to_string str_of_b in let rec to_string' node =
+  let vardef_to_string = VarDef.to_string str_of_b in
+  let rec to_string' node =
     let string_of_rec name fdefs =
       let fdefs = List.map vardef_to_string fdefs in
       let fdefs = String.concat " " fdefs in
-      sprintf "(defrec %s [%s])" (Name.to_string name) fdefs in
-    let string_of_def vdef expr =
-      let vdef = vardef_to_string vdef in
-      sprintf "(def %s %s)" vdef (to_string' expr) in
+      sprintf "(defrec %s (fields %s))" (Name.to_string name) fdefs in
+    let string_of_def name expr =
+      let name = Name.to_string name in
+      sprintf "(def %s %s)" name (to_string' expr) in
     let string_of_fn params body =
       let params = String.concat " " (List.map vardef_to_string params) in
       sprintf "(fn (params %s) %s)" params (to_string' body) in
@@ -95,7 +96,7 @@ let to_string str_of_a str_of_b node =
     | StrLit s -> sprintf "(strlit %s)" s
     | SymLit a -> sprintf "(symlit %s)" (str_of_a a)
     | Rec (name, fdefs) -> string_of_rec name fdefs
-    | Def (vdef, expr) -> string_of_def vdef expr
+    | Def (name, expr) -> string_of_def name expr
     | Fn (params, body) -> string_of_fn params body
     | If (test, if_expr, else_expr) -> string_of_if test if_expr else_expr
     | Let (bindings, body) -> string_of_let bindings body

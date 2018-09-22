@@ -3,7 +3,7 @@ open Thwack.Option
 open Printf
 
 module Lib_tree = struct
-  module Children = Map.Make(Module.Name)
+  module Children = Map.Make(Mod_name.Name)
 
   type t =
     | Node of t Children.t
@@ -29,7 +29,7 @@ module Lib_tree = struct
       tree >>= fun t ->
       (match_fn t paths) >>= fun m ->
       return m in
-    find' (Some tree) (Module.Qual_name.to_list paths)
+    find' (Some tree) (Mod_name.to_list paths)
 
   let insert_module tree modul =
     let rec insert' tree paths modul =
@@ -70,7 +70,7 @@ module Lib_tree = struct
 
   let rec to_string tree =
     let fold_fn k v prior =
-      let name = Module.Name.to_string k in
+      let name = Mod_name.Name.to_string k in
       sprintf "(%s %s)" name (to_string v) :: prior in
     let string_of_children children = Children.fold fold_fn children [] in
     match tree with

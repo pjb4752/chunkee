@@ -40,7 +40,7 @@ type ('a, 'b) t =
   | StrLit of string
   | SymLit of 'a
   | Rec of (Name.t * 'b VarDef.t list)
-  | Def of ('b VarDef.t * ('a, 'b) t)
+  | Def of (Name.t * ('a, 'b) t)
   | Fn of ('b VarDef.t list * ('a, 'b) t)
   | If of (('a, 'b) t * ('a, 'b) t * ('a, 'b) t)
   | Let of (('a, 'b) t Binding.t list * ('a, 'b) t)

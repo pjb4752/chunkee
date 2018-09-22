@@ -7,26 +7,24 @@ module Scope = Set.Make(String)
 module Define = struct
   type t = (Module.t, Cmpl_err.t) result
 
-  let ifndef_var modul vardef =
-    let (name, t) = Node.VarDef.to_tuple vardef in
-    let name_s = Node.VarDef.Name.to_string name in
-    let name = Module.Var.Name.from_string name_s in
+  let ifndef_var modul name =
+    let name_s = Node.Name.to_string name in
+    let name = Var.Name.from_string name_s in
     if Module.var_exists modul name then
       Error (Cmpl_err.NameError (sprintf "var %s already defined" name_s))
     else
-      match Type.from_node t with
-      | Some t -> Ok (Module.define_var modul name t)
-      | None ->
-        let type_s = Node.TypeDef.to_string t in
-        Error (Cmpl_err.NameError (sprintf "unknown type %s" type_s))
+      Ok (Module.declare_var modul name)
 
   let ifndef_rec modul tname =
     if Module.type_exists modul tname then
       let name_s = Type.Name.to_string tname in
-      Error (Cmpl_err.NameError (sprintf "type %s already defined" name_s)) else Ok (Module.define_type modul tname)
+      Error (Cmpl_err.NameError (sprintf "type %s already defined" name_s))
+    else
+      let m_name = Module.name modul in
+      Ok (Module.define_type modul (Type.Rec (m_name, tname)))
 
   let node_define modul = function
-    | Node.Def (var, _) -> ifndef_var modul var
+    | Node.Def (name, _) -> ifndef_var modul name
     | Node.Rec (name, _) -> ifndef_rec modul name
     | _ -> Ok modul
 
@@ -40,7 +38,7 @@ module Define = struct
 end
 
 module Resolve = struct
-  type node_t = (Name.t, Type.t) Node.t
+  type node_t = (Name.Var.t, Type.t) Node.t
 
   type s = (node_t, Cmpl_err.t) result
   type t = (node_t list, Cmpl_err.t) result
@@ -49,22 +47,22 @@ module Resolve = struct
     Error (Cmpl_err.NameError (sprintf "%s is undefined" n))
 
   let resolve_module_name modul name =
-    let name = Module.Var.Name.from_string name in
+    let name = Var.Name.from_string name in
     if Module.var_exists modul name then Some name
     else None
 
   let resolve_pervasive_name table name =
-    let name = Module.Var.Name.from_string name in
+    let name = Var.Name.from_string name in
     let pervasive = Symbol_table.pervasive_module table in
     if Module.var_exists pervasive name then Some (pervasive, name)
     else None
 
-  let make_symlit modul m_name =
-    let qual_name = Module.qual_name modul in
-    let name = Name.Module (qual_name, m_name) in
-    Ok (Node.SymLit name)
-
   let is_qualified name = String.contains name '.'
+
+  let make_symlit modul m_name =
+    let mod_name = Module.name modul in
+    let name = Name.Var.Module (mod_name, m_name) in
+    Ok (Node.SymLit name)
 
   let resolve_qualified_name table modul name =
     let bad_name_error n =
@@ -74,18 +72,18 @@ module Resolve = struct
     match String.split_on_char '/' name with
     | module_name :: var_name :: [] -> begin
       let parts = String.split_on_char '.' module_name in
-      let parts = List.map (Module.Name.from_string) parts in
+      let parts = List.map (Mod_name.Name.from_string) parts in
       match List.rev parts with
       | name :: path_parts -> begin
-        let path = Module.Path.from_list path_parts in
-        let qual_name = Module.Qual_name.make path name in
-        match Symbol_table.find_module table qual_name with
+        let path = Mod_name.Path.from_list path_parts in
+        let mod_name = Mod_name.make path name in
+        match Symbol_table.find_module table mod_name with
         | Some m -> begin
           match resolve_module_name m var_name with
           | Some name -> make_symlit m name
           | None -> undefined_name_error var_name
         end
-        | None -> unknown_modul_error (Module.Qual_name.to_string qual_name)
+        | None -> unknown_modul_error (Mod_name.to_string mod_name)
       end
       | _ -> bad_name_error name
     end
@@ -102,35 +100,74 @@ module Resolve = struct
 
   let resolve_name table modul scopes name =
     if List.exists (Scope.mem name) scopes then
-      Ok (Node.SymLit (Name.Local name))
+      Ok (Node.SymLit (Name.Var.Local name))
     else if is_qualified name then resolve_qualified_name table modul name
     else resolve_unqualified_name table modul name
 
-  let resolve_type tipe = Ok Type.Num
+  let resolve_module_type modul tipe =
+    let name = Type.Name.from_string tipe in
+    Module.find_type modul name
 
-  let resolve_rec recur_fn scopes name fields =
+  let resolve_qualified_type table modul tipe =
+    let bad_name_error n =
+      Error (Cmpl_err.NameError (sprintf "unknown name format %s" n)) in
+    let unknown_modul_error n =
+      Error (Cmpl_err.NameError (sprintf "unknown module %s" n)) in
+    match String.split_on_char '/' tipe with
+    | module_name :: type_name :: [] -> begin
+      let parts = String.split_on_char '.' module_name in
+      let parts = List.map (Mod_name.Name.from_string) parts in
+      match List.rev parts with
+      | name :: path_parts -> begin
+        let path = Mod_name.Path.from_list path_parts in
+        let mod_name = Mod_name.make path name in
+        match Symbol_table.find_module table mod_name with
+        | Some m -> begin
+          match resolve_module_type m type_name with
+          | Some tipe -> Ok tipe
+          | None -> undefined_name_error type_name
+        end
+        | None -> unknown_modul_error (Mod_name.to_string mod_name)
+      end
+      | _ -> bad_name_error tipe
+    end
+    | _ -> bad_name_error tipe
+
+  let resolve_unqualified_type modul tipe =
+    match Type.find_builtin tipe with
+    | Some tipe -> Ok tipe
+    | None -> begin
+      match resolve_module_type modul tipe with
+      | Some tipe -> Ok tipe
+      | None -> undefined_name_error tipe
+    end
+
+  let resolve_type table modul = function
+    | Node.TypeDef.StrType t when is_qualified t ->
+        resolve_qualified_type table modul t
+    | Node.TypeDef.StrType t -> resolve_unqualified_type modul t
+    | Node.TypeDef.FnType ts -> Ok (Type.Num)
+
+  let resolve_rec table modul scopes name fields =
     let fold_fn field fields =
       fields >>= fun fields ->
       let (name, tipe) = Node.VarDef.to_tuple field in
-      (resolve_type tipe) >>= fun t ->
+      (resolve_type table modul tipe) >>= fun t ->
       let field = Node.VarDef.from_parts name t in
       return (field :: fields) in
     let fields = List.fold_right fold_fn fields (Ok []) in
     fields >>= fun fields ->
     return (Node.Rec (name, fields))
 
-  let resolve_def recur_fn scopes var expr =
-    let (name, tipe) = Node.VarDef.to_tuple var in
-    (resolve_type tipe) >>= fun t ->
-    (recur_fn scopes expr) >>= fun n ->
-    let var = Node.VarDef.from_parts name t in
-    return (Node.Def (var, n))
+  let resolve_def recur_fn scopes name expr =
+    (recur_fn scopes expr) >>= fun expr ->
+    return (Node.Def (name, expr))
 
-  let resolve_fn recur_fn scopes params body =
+  let resolve_fn recur_fn table modul scopes params body =
     let fold_fn var vars =
       vars >>= fun vars ->
       let (name, tipe) = Node.VarDef.to_tuple var in
-      (resolve_type tipe) >>= fun t ->
+      (resolve_type table modul tipe) >>= fun t ->
       let var = Node.VarDef.from_parts name t in
       return (var :: vars) in
     let map_fn var =
@@ -190,8 +227,8 @@ module Resolve = struct
     (recur_fn scopes fn) >>= fun f ->
     return (Node.Apply (f, List.rev a))
 
-  let resolve_cast recur_fn scopes tdef expr =
-    (resolve_type tdef) >>= fun t ->
+  let resolve_cast recur_fn table modul scopes tdef expr =
+    (resolve_type table modul tdef) >>= fun t ->
     (recur_fn scopes expr) >>= fun e ->
     return (Node.Cast (t, e))
 
@@ -200,13 +237,13 @@ module Resolve = struct
       | Node.NumLit n -> Ok (Node.NumLit n)
       | Node.StrLit s -> Ok (Node.StrLit s)
       | Node.SymLit name -> resolve_name table modul scopes name
-      | Node.Rec (name, fields) -> resolve_rec resolve' scopes name fields
+      | Node.Rec (name, fields) -> resolve_rec table modul scopes name fields
       | Node.Def (var, expr) -> resolve_def resolve' scopes var expr
-      | Node.Fn (params, body) -> resolve_fn resolve' scopes params body
+      | Node.Fn (params, body) -> resolve_fn resolve' table modul scopes params body
       | Node.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
       | Node.Let (bindings, body) -> resolve_let resolve' scopes bindings body
       | Node.Apply (fn, args) -> resolve_apply resolve' scopes fn args
-      | Node.Cast (tdef, expr) -> resolve_cast resolve' scopes tdef expr in
+      | Node.Cast (tdef, expr) -> resolve_cast resolve' table modul scopes tdef expr in
     resolve' [] node
 
   let resolve_names table modul nodes =
