@@ -135,8 +135,8 @@ let fn_to_string to_string' params body =
   let params = String.concat " " params in
   sprintf "(fn (params %s) %s)" params (to_string' body)
 
-let if_to_string to_string' test if_expr else_expr =
-  let exprs = List.map to_string' [test; if_expr; else_expr] in
+let if_to_string to_string' test iff els =
+  let exprs = List.map to_string' [test; iff; els] in
   sprintf "(if %s)" (String.concat " " exprs)
 
 let let_to_string to_string' bindings body =
@@ -167,7 +167,7 @@ let rec to_string node =
   | Rec (name, fields) -> rec_to_string name fields
   | Def (name, expr) -> def_to_string name expr
   | Fn (params, body) -> fn_to_string params body
-  | If (test, if_expr, else_expr) -> if_to_string test if_expr else_expr
+  | If (test, iff, els) -> if_to_string test iff els
   | Let (bindings, body) -> let_to_string bindings body
   | Apply (fn, args) -> apply_to_string fn args
   | Cast (tipe, expr) -> cast_to_string tipe expr
