@@ -1,9 +1,9 @@
 open Printf
 open Thwack.Result
 
-type node_t = Resolve.Resolve.node_t
+module Node = Ast.Resolved_node
 
-type n = Resolve.Resolve.node_t * Type.t
+type n = Node.t * Type.t
 type s = (Module.t * Type.t, Cmpl_err.t) result
 type t = (Module.t * n list, Cmpl_err.t) result
 

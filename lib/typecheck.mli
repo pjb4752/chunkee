@@ -1,9 +1,9 @@
-type node_t = Resolve.Resolve.node_t
+module Node = Ast.Resolved_node
 
-type n = Resolve.Resolve.node_t * Type.t
+type n = Node.t * Type.t
 type s = (Module.t * Type.t, Cmpl_err.t) result
 type t = (Module.t * n list, Cmpl_err.t) result
 
-val check_node: Symbol_table.t -> Module.t -> node_t -> s
+val check_node: Symbol_table.t -> Module.t -> Node.t -> s
 
-val check: Symbol_table.t -> Module.t -> node_t list -> t
+val check: Symbol_table.t -> Module.t -> Node.t list -> t

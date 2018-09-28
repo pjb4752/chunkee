@@ -1,19 +1,22 @@
 module Define : sig
+  module Node = Ast.Parsed_node
+
   type t = (Module.t, Cmpl_err.t) result
 
-  val node_define: Module.t -> Parse.t -> t
+  val node_define: Module.t -> Node.t -> t
 
-  val define: Module.t -> Parse.t list -> t
+  val define: Module.t -> Node.t list -> t
 end
 
 module Resolve : sig
-  type node_t = (Name.Var.t, Type.t) Node.t
+  module PNode = Ast.Parsed_node
+  module RNode = Ast.Resolved_node
 
-  type s = (node_t, Cmpl_err.t) result
-  type t = (node_t list, Cmpl_err.t) result
+  type s = (RNode.t, Cmpl_err.t) result
+  type t = (RNode.t list, Cmpl_err.t) result
 
-  val resolve_node: Symbol_table.t -> Module.t -> Parse.t -> s
+  val resolve_node: Symbol_table.t -> Module.t -> PNode.t -> s
 
-  val resolve_names: Symbol_table.t -> Module.t -> Parse.t list -> t
+  val resolve_names: Symbol_table.t -> Module.t -> PNode.t list -> t
 
 end

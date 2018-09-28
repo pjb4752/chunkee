@@ -5,6 +5,8 @@ open Thwack.Result
 module Scope = Set.Make(String)
 
 module Define = struct
+  module Node = Ast.Parsed_node
+
   type t = (Module.t, Cmpl_err.t) result
 
   let ifndef_var modul name =
@@ -38,10 +40,11 @@ module Define = struct
 end
 
 module Resolve = struct
-  type node_t = (Name.Var.t, Type.t) Node.t
+  module PNode = Ast.Parsed_node
+  module RNode = Ast.Resolved_node
 
-  type s = (node_t, Cmpl_err.t) result
-  type t = (node_t list, Cmpl_err.t) result
+  type s = (RNode.t, Cmpl_err.t) result
+  type t = (RNode.t list, Cmpl_err.t) result
 
   let undefined_name_error n =
     Error (Cmpl_err.NameError (sprintf "%s is undefined" n))
@@ -62,7 +65,7 @@ module Resolve = struct
   let make_symlit modul m_name =
     let mod_name = Module.name modul in
     let name = Name.Var.Module (mod_name, m_name) in
-    Ok (Node.SymLit name)
+    Ok (RNode.SymLit name)
 
   let resolve_qualified_name table modul name =
     let bad_name_error n =
@@ -99,8 +102,9 @@ module Resolve = struct
     end
 
   let resolve_name table modul scopes name =
+    let name = Ast.Var_ref.to_string name in
     if List.exists (Scope.mem name) scopes then
-      Ok (Node.SymLit (Name.Var.Local name))
+      Ok (RNode.SymLit (Name.Var.Local name))
     else if is_qualified name then resolve_qualified_name table modul name
     else resolve_unqualified_name table modul name
 
@@ -143,59 +147,59 @@ module Resolve = struct
     end
 
   let resolve_type table modul = function
-    | Node.TypeDef.StrType t when is_qualified t ->
+    | Type_ref.StrType t when is_qualified t ->
         resolve_qualified_type table modul t
-    | Node.TypeDef.StrType t -> resolve_unqualified_type modul t
-    | Node.TypeDef.FnType ts -> Ok (Type.Num)
+    | Type_ref.StrType t -> resolve_unqualified_type modul t
+    | Type_ref.FnType ts -> Ok (Type.Num)
 
   let resolve_rec table modul scopes name fields =
     let fold_fn field fields =
       fields >>= fun fields ->
-      let (name, tipe) = Node.VarDef.to_tuple field in
+      let (name, tipe) = PNode.VarDef.to_tuple field in
       (resolve_type table modul tipe) >>= fun t ->
-      let field = Node.VarDef.from_parts name t in
+      let field = RNode.VarDef.from_parts name t in
       return (field :: fields) in
     let fields = List.fold_right fold_fn fields (Ok []) in
     fields >>= fun fields ->
-    return (Node.Rec (name, fields))
+    return (RNode.Rec (name, fields))
 
   let resolve_def recur_fn scopes name expr =
     (recur_fn scopes expr) >>= fun expr ->
-    return (Node.Def (name, expr))
+    return (RNode.Def (name, expr))
 
   let resolve_fn recur_fn table modul scopes params body =
     let fold_fn var vars =
       vars >>= fun vars ->
-      let (name, tipe) = Node.VarDef.to_tuple var in
+      let (name, tipe) = PNode.VarDef.to_tuple var in
       (resolve_type table modul tipe) >>= fun t ->
-      let var = Node.VarDef.from_parts name t in
+      let var = RNode.VarDef.from_parts name t in
       return (var :: vars) in
     let map_fn var =
-      let (name, _) = Node.VarDef.to_tuple var in
-      Node.VarDef.Name.to_string name in
+      let (name, _) = RNode.VarDef.to_tuple var in
+      RNode.VarDef.Name.to_string name in
     let vars = List.fold_right fold_fn params (Ok []) in
     vars >>= fun v ->
       let param_names = List.map map_fn v in
       let fn_scope = Scope.of_list param_names in
       let scopes = fn_scope :: scopes in
-    (recur_fn scopes body) >>= fun n ->
-    return (Node.Fn (v, n))
+      (recur_fn scopes body) >>= fun n ->
+      return (RNode.Fn (v, n))
 
   let resolve_if recur_fn scopes tst iff els =
     (recur_fn scopes tst) >>= fun t ->
     (recur_fn scopes iff) >>= fun i ->
     (recur_fn scopes els) >>= fun e ->
-    return (Node.If (t, i, e))
+    return (RNode.If (t, i, e))
 
   let resolve_binding recur_fn scopes binding =
-    let (name, expr) = Node.Binding.to_tuple binding in
+    let (name, expr) = PNode.Binding.to_tuple binding in
     match recur_fn scopes expr with
     | Error e -> Error e
     | Ok expr -> begin
       (*TODO we should always create new scope for each binding*)
-      let binding = Node.Binding.from_node name expr in
+      let binding = RNode.Binding.from_node name expr in
       let current_scope = List.hd_else scopes Scope.empty in
-      let name = Node.Binding.Name.to_string name in
+      let name = PNode.Binding.Name.to_string name in
       let new_scope = Scope.add name current_scope in
       match scopes with
       | [] -> Ok ([new_scope], binding)
@@ -214,7 +218,7 @@ module Resolve = struct
     | Error e -> Error e
     | Ok (s, bs) -> begin
       (recur_fn s body) >>= fun b ->
-      return (Node.Let (List.rev bs, b))
+      return (RNode.Let (List.rev bs, b))
     end
 
   let resolve_apply recur_fn scopes fn args =
@@ -225,25 +229,25 @@ module Resolve = struct
     let args = List.fold_left fold_fn (Ok []) args in
     args >>= fun a ->
     (recur_fn scopes fn) >>= fun f ->
-    return (Node.Apply (f, List.rev a))
+    return (RNode.Apply (f, List.rev a))
 
   let resolve_cast recur_fn table modul scopes tdef expr =
     (resolve_type table modul tdef) >>= fun t ->
     (recur_fn scopes expr) >>= fun e ->
-    return (Node.Cast (t, e))
+    return (RNode.Cast (t, e))
 
   let resolve_node table modul node =
     let rec resolve' scopes = function
-      | Node.NumLit n -> Ok (Node.NumLit n)
-      | Node.StrLit s -> Ok (Node.StrLit s)
-      | Node.SymLit name -> resolve_name table modul scopes name
-      | Node.Rec (name, fields) -> resolve_rec table modul scopes name fields
-      | Node.Def (var, expr) -> resolve_def resolve' scopes var expr
-      | Node.Fn (params, body) -> resolve_fn resolve' table modul scopes params body
-      | Node.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
-      | Node.Let (bindings, body) -> resolve_let resolve' scopes bindings body
-      | Node.Apply (fn, args) -> resolve_apply resolve' scopes fn args
-      | Node.Cast (tdef, expr) -> resolve_cast resolve' table modul scopes tdef expr in
+      | PNode.NumLit n -> Ok (RNode.NumLit n)
+      | PNode.StrLit s -> Ok (RNode.StrLit s)
+      | PNode.SymLit name -> resolve_name table modul scopes name
+      | PNode.Rec (name, fields) -> resolve_rec table modul scopes name fields
+      | PNode.Def (var, expr) -> resolve_def resolve' scopes var expr
+      | PNode.Fn (params, body) -> resolve_fn resolve' table modul scopes params body
+      | PNode.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
+      | PNode.Let (bindings, body) -> resolve_let resolve' scopes bindings body
+      | PNode.Apply (fn, args) -> resolve_apply resolve' scopes fn args
+      | PNode.Cast (tdef, expr) -> resolve_cast resolve' table modul scopes tdef expr in
     resolve' [] node
 
   let resolve_names table modul nodes =

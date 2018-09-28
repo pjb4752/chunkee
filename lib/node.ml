@@ -1,105 +1,174 @@
 open Printf
 
-module Name = Id
+module type ShowableType = sig
+  type t
 
-module TypeDef = struct
+  val to_string: t -> string
+end
+
+module type N = sig
+
+  type name_expr_t
+
+  type type_expr_t
+
+  module Name = Id
+
+  module Binding: sig
+
+    module Name = Id
+
+    type 'a t
+
+    val from_node: Name.t -> 'a -> 'a t
+
+    val to_string: ('a -> string) -> 'a t -> string
+
+    val to_tuple: 'a t -> Name.t * 'a
+  end
+
+  module VarDef: sig
+
+    module Name = Id
+
+    type t
+
+    val from_parts: Name.t -> type_expr_t -> t
+
+    val to_tuple: t -> Name.t * type_expr_t
+
+    val to_string: t -> string
+  end
+
   type t =
-    | StrType of string
-    | FnType of t list
+    | NumLit of float
+    | StrLit of string
+    | SymLit of name_expr_t
+    | Rec of Name.t * VarDef.t list
+    | Def of Name.t * t
+    | Fn of VarDef.t list * t
+    | If of t * t * t
+    | Let of t Binding.t list * t
+    | Apply of t * t list
+    | Cast of type_expr_t * t
 
-  let from_string s = StrType s
+  val to_string: t -> string
 
-  let from_list l = FnType l
-
-  let rec to_string t =
-    let string_of_fn l =
-      sprintf "[%s]" (String.concat " " (List.map to_string l)) in
-    match t with
-    | StrType s -> s
-    | FnType l -> string_of_fn l
 end
 
-module VarDef = struct
+module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
+
+  type name_expr_t = NameExpr.t
+
+  type type_expr_t = TypeExpr.t
+
   module Name = Id
 
-  type 'b t = {
-    name: Name.t;
-    tipe: 'b;
-  }
+  module Binding = struct
 
-  let from_parts name tipe = { name; tipe; }
+    module Name = Id
 
-  let to_tuple { name; tipe; } = (name, tipe)
+    type 'a t = {
+      name: Name.t;
+      expr: 'a;
+    }
 
-  let to_string string_fn { name; tipe; } =
-    let name = Name.to_string name
-    and tipe = string_fn tipe in
-    sprintf "[%s %s]" name tipe
-end
+    let from_node name expr = { name; expr; }
 
-module Binding = struct
-  module Name = Id
-  type 'a t = {
-    name: Name.t;
-    expr: 'a;
-  }
+    let to_string expr_to_string { name; expr; } =
+      sprintf "(%s %s)" (Name.to_string name) (expr_to_string expr)
 
-  let from_node name expr = { name; expr; }
+    let to_tuple { name; expr; } = (name, expr)
+  end
 
-  let to_string { name; expr; } expr_fn =
-    sprintf "(%s %s)" (Name.to_string name) (expr_fn expr)
+  module VarDef = struct
 
-  let to_tuple { name; expr; } = (name, expr)
-end
+    module Name = Id
 
-type ('a, 'b) t =
-  | NumLit of float
-  | StrLit of string
-  | SymLit of 'a
-  | Rec of (Name.t * 'b VarDef.t list)
-  | Def of (Name.t * ('a, 'b) t)
-  | Fn of ('b VarDef.t list * ('a, 'b) t)
-  | If of (('a, 'b) t * ('a, 'b) t * ('a, 'b) t)
-  | Let of (('a, 'b) t Binding.t list * ('a, 'b) t)
-  | Apply of (('a, 'b) t * ('a, 'b) t list)
-  | Cast of ('b * ('a, 'b) t)
+    type t = {
+      name: Name.t;
+      tipe: type_expr_t
+    }
 
-let to_string str_of_a str_of_b node =
-  let vardef_to_string = VarDef.to_string str_of_b in
-  let rec to_string' node =
-    let string_of_rec name fdefs =
-      let fdefs = List.map vardef_to_string fdefs in
-      let fdefs = String.concat " " fdefs in
-      sprintf "(defrec %s (fields %s))" (Name.to_string name) fdefs in
-    let string_of_def name expr =
+    let from_parts name tipe = { name; tipe; }
+
+    let to_tuple { name; tipe; } = (name, tipe)
+
+    let to_string { name; tipe; } =
       let name = Name.to_string name in
-      sprintf "(def %s %s)" name (to_string' expr) in
-    let string_of_fn params body =
-      let params = String.concat " " (List.map vardef_to_string params) in
-      sprintf "(fn (params %s) %s)" params (to_string' body) in
-    let string_of_if test if_expr else_expr =
-      let exprs = List.map to_string' [test; if_expr; else_expr] in
-      sprintf "(if %s)" (String.concat " " exprs) in
-    let string_of_binding binding =
-      Binding.to_string binding to_string' in
-    let string_of_let bindings body =
-      let bindings = String.concat " " (List.map string_of_binding bindings) in
-      sprintf "(let (bindings %s) %s)" bindings (to_string' body) in
-    let string_of_apply fn args =
-      let args = String.concat " " (List.map to_string' args) in
-      sprintf "(apply %s %s)" (to_string' fn) args in
-    let string_of_cast tipe expr =
-      let tipe = str_of_b tipe in
-      sprintf "(cast %s %s)" tipe (to_string' expr) in
-    match node with
-    | NumLit n -> sprintf "(numlit %.2f)" n
-    | StrLit s -> sprintf "(strlit %s)" s
-    | SymLit a -> sprintf "(symlit %s)" (str_of_a a)
-    | Rec (name, fdefs) -> string_of_rec name fdefs
-    | Def (name, expr) -> string_of_def name expr
-    | Fn (params, body) -> string_of_fn params body
-    | If (test, if_expr, else_expr) -> string_of_if test if_expr else_expr
-    | Let (bindings, body) -> string_of_let bindings body
-    | Apply (fn, args) -> string_of_apply fn args
-    | Cast (tipe, expr) -> string_of_cast tipe expr in
-  to_string' node
+      let tipe = TypeExpr.to_string tipe in
+      sprintf "[%s %s]" name tipe
+  end
+
+  type t =
+    | NumLit of float
+    | StrLit of string
+    | SymLit of name_expr_t
+    | Rec of Name.t * VarDef.t list
+    | Def of Name.t * t
+    | Fn of VarDef.t list * t
+    | If of t * t * t
+    | Let of t Binding.t list * t
+    | Apply of t * t list
+    | Cast of type_expr_t * t
+
+let numlit_to_string numlit =
+  sprintf "(numlit %.2f)" numlit
+
+let strlit_to_string numlit =
+  sprintf "(strlit \"%s\")" numlit
+
+let symlit_to_string symlit =
+  sprintf "(symlit %s)" (NameExpr.to_string symlit)
+
+let rec_to_string name fields =
+  let fields = List.map VarDef.to_string fields in
+  let fields = String.concat " " fields in
+  sprintf "(defrec %s (fields %s))" (Name.to_string name) fields
+
+let def_to_string to_string' name expr =
+  let name = Name.to_string name in
+  sprintf "(def %s %s)" name (to_string' expr)
+
+let fn_to_string to_string' params body =
+  let params = List.map VarDef.to_string params in
+  let params = String.concat " " params in
+  sprintf "(fn (params %s) %s)" params (to_string' body)
+
+let if_to_string to_string' test if_expr else_expr =
+  let exprs = List.map to_string' [test; if_expr; else_expr] in
+  sprintf "(if %s)" (String.concat " " exprs)
+
+let let_to_string to_string' bindings body =
+  let binding_to_string = Binding.to_string to_string' in
+  let bindings = List.map binding_to_string bindings in
+  let bindings = String.concat " " bindings in
+  sprintf "(let (bindings %s) %s)" bindings (to_string' body)
+
+let apply_to_string to_string' fn args =
+  let args = String.concat " " (List.map to_string' args) in
+  sprintf "(apply %s %s)" (to_string' fn) args
+
+let cast_to_string to_string' tipe expr =
+  let tipe = TypeExpr.to_string tipe in
+  sprintf "(cast %s %s)" tipe (to_string' expr)
+
+let rec to_string node =
+  let def_to_string = def_to_string to_string in
+  let fn_to_string = fn_to_string to_string in
+  let if_to_string = if_to_string to_string in
+  let let_to_string = let_to_string to_string in
+  let apply_to_string = apply_to_string to_string in
+  let cast_to_string = cast_to_string to_string in
+  match node with
+  | NumLit num -> numlit_to_string num
+  | StrLit str -> strlit_to_string str
+  | SymLit sym -> symlit_to_string sym
+  | Rec (name, fields) -> rec_to_string name fields
+  | Def (name, expr) -> def_to_string name expr
+  | Fn (params, body) -> fn_to_string params body
+  | If (test, if_expr, else_expr) -> if_to_string test if_expr else_expr
+  | Let (bindings, body) -> let_to_string bindings body
+  | Apply (fn, args) -> apply_to_string fn args
+  | Cast (tipe, expr) -> cast_to_string tipe expr
+end

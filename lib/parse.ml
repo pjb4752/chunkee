@@ -3,10 +3,10 @@ open Printf
 open Thwack.Result
 open Thwack.Extensions
 
-type t = (string, Node.TypeDef.t) Node.t
+module Node = Ast.Parsed_node
 
 let rec parse_type = function
-  | Form.Symbol t -> Ok (Node.TypeDef.from_string t)
+  | Form.Symbol t -> Ok (Type_ref.from_string t)
   | Form.Vec ts -> begin
     let fold_fn t ts =
       ts >>= fun ts ->
@@ -15,7 +15,7 @@ let rec parse_type = function
    match List.fold_right fold_fn ts (Ok []) with
    | Error e -> Error e
    | Ok [] -> Error (Cmpl_err.ParseError "invalid TYPE form")
-   | Ok ts -> Ok (Node.TypeDef.from_list ts)
+   | Ok ts -> Ok (Type_ref.from_list ts)
   end
   | _ -> Error (Cmpl_err.ParseError "invalid TYPE form")
 
@@ -124,6 +124,7 @@ let parse_str_apply f_parse str args =
 
 let parse_sym_apply f_parse fn args =
   (parse_args f_parse args) >>= fun args ->
+  let fn = Ast.Var_ref.from_string fn in
   return (Node.Apply (Node.SymLit fn, args))
 
 let parse_fn_apply f_parse fn args =
@@ -140,6 +141,10 @@ let parse_op f_parse op (args: Form.t list) =
   else if op = "cast" then parse_cast f_parse args
   else parse_sym_apply f_parse op args
 
+let parse_symbol symbol =
+  let symbol = Ast.Var_ref.from_string symbol in
+  Ok (Node.SymLit symbol)
+
 let parse_list f_parse = function
   | Form.Number n :: args -> parse_num_apply f_parse n args
   | Form.String s :: args -> parse_str_apply f_parse s args
@@ -150,7 +155,7 @@ let parse_list f_parse = function
 let rec parse_form = function
   | Form.Number n -> Ok (Node.NumLit n)
   | Form.String s -> Ok (Node.StrLit s)
-  | Form.Symbol s -> Ok (Node.SymLit s)
+  | Form.Symbol s -> parse_symbol s
   | Form.List l -> parse_list parse_form l
   | _ -> Error (Cmpl_err.ParseError "unrecognized form")
 
