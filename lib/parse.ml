@@ -5,6 +5,24 @@ open Thwack.Extensions
 
 module Node = Ast.Parsed_node
 
+let parse_name_expr name =
+  if String.contains name '.' then
+    match String.split_on_char '/' name with
+    | mod_name :: name :: [] -> begin
+      let mod_parts = String.split_on_char '.' mod_name in
+      let mod_parts = List.map (Mod_name.Name.from_string) mod_parts in
+      match List.rev mod_parts with
+      | mod_name :: path_parts -> begin
+        let mod_path = Mod_name.Path.from_list path_parts in
+        let mod_name = Mod_name.make mod_path mod_name in
+        Ok (Name_expr.QualName (mod_name, name))
+      end
+      | _ -> Error (Cmpl_err.ParseError "unrecognized symbol format")
+    end
+    | _ -> Error (Cmpl_err.ParseError "unrecognized symbol format")
+  else
+    Ok (Name_expr.BareName name)
+
 let rec parse_type = function
   | Form.Symbol t -> Ok (Type_ref.from_string t)
   | Form.Vec ts -> begin
@@ -123,8 +141,8 @@ let parse_str_apply f_parse str args =
   return (Node.Apply (Node.StrLit str, args))
 
 let parse_sym_apply f_parse fn args =
+  (parse_name_expr fn) >>= fun fn ->
   (parse_args f_parse args) >>= fun args ->
-  let fn = Ast.Var_ref.from_string fn in
   return (Node.Apply (Node.SymLit fn, args))
 
 let parse_fn_apply f_parse fn args =
@@ -142,8 +160,8 @@ let parse_op f_parse op (args: Form.t list) =
   else parse_sym_apply f_parse op args
 
 let parse_symbol symbol =
-  let symbol = Ast.Var_ref.from_string symbol in
-  Ok (Node.SymLit symbol)
+  (parse_name_expr symbol) >>= fun symbol ->
+  return (Node.SymLit symbol)
 
 let parse_list f_parse = function
   | Form.Number n :: args -> parse_num_apply f_parse n args

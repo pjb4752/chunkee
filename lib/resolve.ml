@@ -67,30 +67,17 @@ module Resolve = struct
     let name = Name.Var.Module (mod_name, m_name) in
     Ok (RNode.SymLit name)
 
-  let resolve_qualified_name table modul name =
-    let bad_name_error n =
-      Error (Cmpl_err.NameError (sprintf "unknown name format %s" n)) in
-    let unknown_modul_error n =
-      Error (Cmpl_err.NameError (sprintf "unknown module %s" n)) in
-    match String.split_on_char '/' name with
-    | module_name :: var_name :: [] -> begin
-      let parts = String.split_on_char '.' module_name in
-      let parts = List.map (Mod_name.Name.from_string) parts in
-      match List.rev parts with
-      | name :: path_parts -> begin
-        let path = Mod_name.Path.from_list path_parts in
-        let mod_name = Mod_name.make path name in
-        match Symbol_table.find_module table mod_name with
-        | Some m -> begin
-          match resolve_module_name m var_name with
-          | Some name -> make_symlit m name
-          | None -> undefined_name_error var_name
-        end
-        | None -> unknown_modul_error (Mod_name.to_string mod_name)
-      end
-      | _ -> bad_name_error name
+  let resolve_qualified_name table modul mod_name name =
+    match Symbol_table.find_module table mod_name with
+    | Some modul -> begin
+      match resolve_module_name modul name with
+      | Some name -> make_symlit modul name
+      | None -> undefined_name_error name
     end
-    | _ -> bad_name_error name
+    | None ->
+        let mod_name = Mod_name.to_string mod_name in
+        let message = sprintf "unknown module %s" mod_name in
+        Error (Cmpl_err.NameError message)
 
   let resolve_unqualified_name table modul name =
     match resolve_module_name modul name with
@@ -101,12 +88,13 @@ module Resolve = struct
       | _ -> undefined_name_error name
     end
 
-  let resolve_name table modul scopes name =
-    let name = Ast.Var_ref.to_string name in
-    if List.exists (Scope.mem name) scopes then
-      Ok (RNode.SymLit (Name.Var.Local name))
-    else if is_qualified name then resolve_qualified_name table modul name
-    else resolve_unqualified_name table modul name
+  let resolve_name table modul scopes = function
+    | Name_expr.QualName (mod_name, name) ->
+        resolve_qualified_name table modul mod_name name
+    | Name_expr.BareName name ->
+      if List.exists (Scope.mem name) scopes then
+        Ok (RNode.SymLit (Name.Var.Local name))
+      else resolve_unqualified_name table modul name
 
   let resolve_module_type modul tipe =
     let name = Type.Name.from_string tipe in
