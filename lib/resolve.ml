@@ -46,13 +46,17 @@ module Resolve = struct
   type s = (RNode.t, Cmpl_err.t) result
   type t = (RNode.t list, Cmpl_err.t) result
 
-  let undefined_name_error n =
-    Error (Cmpl_err.NameError (sprintf "%s is undefined" n))
+  let undefined_name_error name =
+    Error (Cmpl_err.NameError (sprintf "%s is undefined" name))
 
-  let resolve_module_name modul name =
-    let name = Var.Name.from_string name in
-    if Module.var_exists modul name then Some name
-    else None
+  let undefined_module_error mod_name =
+    let mod_name = Mod_name.to_string mod_name in
+    Error (Cmpl_err.NameError (sprintf "unknown module %s" mod_name))
+
+  let make_symlit modul m_name =
+    let mod_name = Module.name modul in
+    let name = Name.Var.Module (mod_name, m_name) in
+    Ok (RNode.SymLit name)
 
   let resolve_pervasive_name table name =
     let name = Var.Name.from_string name in
@@ -60,31 +64,20 @@ module Resolve = struct
     if Module.var_exists pervasive name then Some (pervasive, name)
     else None
 
-  let make_symlit modul m_name =
-    let mod_name = Module.name modul in
-    let name = Name.Var.Module (mod_name, m_name) in
-    Ok (RNode.SymLit name)
+  let resolve_module_name modul name =
+    let name = Var.Name.from_string name in
+    if Module.var_exists modul name then make_symlit modul name
+    else undefined_name_error (Var.Name.to_string name)
 
   let resolve_qualified_name table modul mod_name name =
     match Symbol_table.find_module table mod_name with
-    | Some modul -> begin
-      match resolve_module_name modul name with
-      | Some name -> make_symlit modul name
-      | None -> undefined_name_error name
-    end
-    | None ->
-        let mod_name = Mod_name.to_string mod_name in
-        let message = sprintf "unknown module %s" mod_name in
-        Error (Cmpl_err.NameError message)
+    | Some modul -> resolve_module_name modul name
+    | None -> undefined_module_error mod_name
 
   let resolve_unqualified_name table modul name =
-    match resolve_module_name modul name with
-    | Some name -> make_symlit modul name
-    | None -> begin
-      match resolve_pervasive_name table name with
-      | Some (m, name) -> make_symlit m name
-      | _ -> undefined_name_error name
-    end
+    match resolve_pervasive_name table name with
+    | Some (mod_name, name) -> make_symlit mod_name name
+    | None -> resolve_module_name modul name
 
   let resolve_name table modul scopes = function
     | Name_expr.QualName (mod_name, name) ->
@@ -96,27 +89,19 @@ module Resolve = struct
 
   let resolve_module_type modul tipe =
     let name = Type.Name.from_string tipe in
-    Module.find_type modul name
+    match Module.find_type modul name with
+    | Some tipe -> Ok tipe
+    | None -> undefined_name_error tipe
 
   let resolve_qualified_type table modul mod_name tipe =
-    let unknown_modul_error n =
-      Error (Cmpl_err.NameError (sprintf "unknown module %s" n)) in
-      match Symbol_table.find_module table mod_name with
-      | Some modul -> begin
-        match resolve_module_type modul tipe with
-        | Some tipe -> Ok tipe
-        | None -> undefined_name_error tipe
-      end
-      | None -> unknown_modul_error (Mod_name.to_string mod_name)
+    match Symbol_table.find_module table mod_name with
+    | Some modul -> resolve_module_type modul tipe
+    | None -> undefined_module_error mod_name
 
   let resolve_unqualified_type modul tipe =
     match Type.find_builtin tipe with
     | Some tipe -> Ok tipe
-    | None -> begin
-      match resolve_module_type modul tipe with
-      | Some tipe -> Ok tipe
-      | None -> undefined_name_error tipe
-    end
+    | None -> resolve_module_type modul tipe
 
   let resolve_simple_type table modul = function
     | Name_expr.QualName (mod_name, tipe) ->
@@ -153,19 +138,19 @@ module Resolve = struct
     let map_fn var =
       let (name, _) = RNode.VarDef.to_tuple var in
       RNode.VarDef.Name.to_string name in
-    let vars = List.fold_right fold_fn params (Ok []) in
-    vars >>= fun v ->
-      let param_names = List.map map_fn v in
+    let params = List.fold_right fold_fn params (Ok []) in
+    params >>= fun params ->
+      let param_names = List.map map_fn params in
       let fn_scope = Scope.of_list param_names in
       let scopes = fn_scope :: scopes in
-      (recur_fn scopes body) >>= fun n ->
-      return (RNode.Fn (v, n))
+      (recur_fn scopes body) >>= fun body ->
+      return (RNode.Fn (params, body))
 
   let resolve_if recur_fn scopes tst iff els =
-    (recur_fn scopes tst) >>= fun t ->
-    (recur_fn scopes iff) >>= fun i ->
-    (recur_fn scopes els) >>= fun e ->
-    return (RNode.If (t, i, e))
+    (recur_fn scopes tst) >>= fun tst ->
+    (recur_fn scopes iff) >>= fun iff ->
+    (recur_fn scopes els) >>= fun els ->
+    return (RNode.If (tst, iff, els))
 
   let resolve_binding recur_fn scopes binding =
     let (name, expr) = PNode.Binding.to_tuple binding in
@@ -192,9 +177,9 @@ module Resolve = struct
       end in
     match resolve_bindings' scopes [] bindings with
     | Error e -> Error e
-    | Ok (s, bs) -> begin
-      (recur_fn s body) >>= fun b ->
-      return (RNode.Let (List.rev bs, b))
+    | Ok (scopes, bindings) -> begin
+      (recur_fn scopes body) >>= fun body ->
+      return (RNode.Let (List.rev bindings, body))
     end
 
   let resolve_apply recur_fn scopes fn args =
@@ -203,14 +188,14 @@ module Resolve = struct
       (recur_fn scopes arg) >>= fun a ->
       return (a :: r) in
     let args = List.fold_left fold_fn (Ok []) args in
-    args >>= fun a ->
-    (recur_fn scopes fn) >>= fun f ->
-    return (RNode.Apply (f, List.rev a))
+    args >>= fun args ->
+    (recur_fn scopes fn) >>= fun fn ->
+    return (RNode.Apply (fn, List.rev args))
 
-  let resolve_cast recur_fn table modul scopes tdef expr =
-    (resolve_type table modul tdef) >>= fun t ->
-    (recur_fn scopes expr) >>= fun e ->
-    return (RNode.Cast (t, e))
+  let resolve_cast recur_fn table modul scopes tipe expr =
+    (resolve_type table modul tipe) >>= fun tipe ->
+    (recur_fn scopes expr) >>= fun expr ->
+    return (RNode.Cast (tipe, expr))
 
   let resolve_node table modul node =
     let rec resolve' scopes = function
@@ -223,7 +208,7 @@ module Resolve = struct
       | PNode.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
       | PNode.Let (bindings, body) -> resolve_let resolve' scopes bindings body
       | PNode.Apply (fn, args) -> resolve_apply resolve' scopes fn args
-      | PNode.Cast (tdef, expr) -> resolve_cast resolve' table modul scopes tdef expr in
+      | PNode.Cast (tipe, expr) -> resolve_cast resolve' table modul scopes tipe expr in
     resolve' [] node
 
   let resolve_names table modul nodes =
