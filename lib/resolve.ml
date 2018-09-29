@@ -60,8 +60,6 @@ module Resolve = struct
     if Module.var_exists pervasive name then Some (pervasive, name)
     else None
 
-  let is_qualified name = String.contains name '.'
-
   let make_symlit modul m_name =
     let mod_name = Module.name modul in
     let name = Name.Var.Module (mod_name, m_name) in
@@ -100,30 +98,16 @@ module Resolve = struct
     let name = Type.Name.from_string tipe in
     Module.find_type modul name
 
-  let resolve_qualified_type table modul tipe =
-    let bad_name_error n =
-      Error (Cmpl_err.NameError (sprintf "unknown name format %s" n)) in
+  let resolve_qualified_type table modul mod_name tipe =
     let unknown_modul_error n =
       Error (Cmpl_err.NameError (sprintf "unknown module %s" n)) in
-    match String.split_on_char '/' tipe with
-    | module_name :: type_name :: [] -> begin
-      let parts = String.split_on_char '.' module_name in
-      let parts = List.map (Mod_name.Name.from_string) parts in
-      match List.rev parts with
-      | name :: path_parts -> begin
-        let path = Mod_name.Path.from_list path_parts in
-        let mod_name = Mod_name.make path name in
-        match Symbol_table.find_module table mod_name with
-        | Some m -> begin
-          match resolve_module_type m type_name with
-          | Some tipe -> Ok tipe
-          | None -> undefined_name_error type_name
-        end
-        | None -> unknown_modul_error (Mod_name.to_string mod_name)
+      match Symbol_table.find_module table mod_name with
+      | Some modul -> begin
+        match resolve_module_type modul tipe with
+        | Some tipe -> Ok tipe
+        | None -> undefined_name_error tipe
       end
-      | _ -> bad_name_error tipe
-    end
-    | _ -> bad_name_error tipe
+      | None -> unknown_modul_error (Mod_name.to_string mod_name)
 
   let resolve_unqualified_type modul tipe =
     match Type.find_builtin tipe with
@@ -134,11 +118,15 @@ module Resolve = struct
       | None -> undefined_name_error tipe
     end
 
+  let resolve_simple_type table modul = function
+    | Name_expr.QualName (mod_name, tipe) ->
+        resolve_qualified_type table modul mod_name tipe
+    | Name_expr.BareName tipe ->
+      resolve_unqualified_type modul tipe
+
   let resolve_type table modul = function
-    | Type_ref.StrType t when is_qualified t ->
-        resolve_qualified_type table modul t
-    | Type_ref.StrType t -> resolve_unqualified_type modul t
-    | Type_ref.FnType ts -> Ok (Type.Num)
+    | Type_expr.SimpleType tipe -> resolve_simple_type table modul tipe
+    | Type_expr.FnType ts -> Ok (Type.Num)
 
   let resolve_rec table modul scopes name fields =
     let fold_fn field fields =

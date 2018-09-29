@@ -5,42 +5,52 @@ open Thwack.Extensions
 
 module Node = Ast.Parsed_node
 
-let parse_name_expr name =
-  if String.contains name '.' then
-    match String.split_on_char '/' name with
-    | mod_name :: name :: [] -> begin
-      let mod_parts = String.split_on_char '.' mod_name in
-      let mod_parts = List.map (Mod_name.Name.from_string) mod_parts in
-      match List.rev mod_parts with
-      | mod_name :: path_parts -> begin
-        let mod_path = Mod_name.Path.from_list path_parts in
-        let mod_name = Mod_name.make mod_path mod_name in
-        Ok (Name_expr.QualName (mod_name, name))
-      end
-      | _ -> Error (Cmpl_err.ParseError "unrecognized symbol format")
-    end
-    | _ -> Error (Cmpl_err.ParseError "unrecognized symbol format")
-  else
-    Ok (Name_expr.BareName name)
+let invalid_symbol_error = Error (Cmpl_err.ParseError "invalid SYMBOL form")
 
-let rec parse_type = function
-  | Form.Symbol t -> Ok (Type_ref.from_string t)
-  | Form.Vec ts -> begin
-    let fold_fn t ts =
-      ts >>= fun ts ->
-      (parse_type t) >>= fun t ->
-      return (t :: ts) in
-   match List.fold_right fold_fn ts (Ok []) with
-   | Error e -> Error e
-   | Ok [] -> Error (Cmpl_err.ParseError "invalid TYPE form")
-   | Ok ts -> Ok (Type_ref.from_list ts)
+let invalid_type_error = Error (Cmpl_err.ParseError "invalid TYPE form")
+
+let parse_qual_name name =
+  match String.split_on_char '/' name with
+  | mod_name :: name :: [] -> begin
+    let mod_parts = String.split_on_char '.' mod_name in
+    let mod_parts = List.map (Mod_name.Name.from_string) mod_parts in
+    match List.rev mod_parts with
+    | mod_name :: path_parts -> begin
+      let mod_path = Mod_name.Path.from_list path_parts in
+      let mod_name = Mod_name.make mod_path mod_name in
+      Ok (Name_expr.QualName (mod_name, name))
+    end
+    | _ -> invalid_symbol_error
   end
-  | _ -> Error (Cmpl_err.ParseError "invalid TYPE form")
+  | _ -> invalid_symbol_error
+
+let parse_name_expr name =
+  if String.contains name '.' then parse_qual_name name
+  else Ok (Name_expr.BareName name)
+
+let parse_type_list parse_type_expr' types =
+  List.fold_right (fun t types ->
+    types >>= fun types ->
+    (parse_type_expr' t) >>= fun t ->
+    return (t :: types)) types (Ok [])
+
+let rec parse_type_expr = function
+  | Form.Symbol tipe -> begin
+      (parse_name_expr tipe) >>= fun tipe ->
+      return (Type_expr.SimpleType tipe)
+  end
+  | Form.Vec types -> begin
+   match parse_type_list parse_type_expr types with
+   | Error e -> Error e
+   | Ok [] -> invalid_type_error
+   | Ok types -> Ok (Type_expr.FnType types)
+  end
+  | _ -> invalid_type_error
 
 let parse_var_def = function
   | Form.Vec (Form.Symbol n :: t :: []) -> begin
-      (parse_type t) >>= fun t ->
-        let n = Node.VarDef.Name.from_string n in return (n, t)
+      (parse_type_expr t) >>= fun t ->
+      let n = Node.VarDef.Name.from_string n in return (n, t)
   end
   | _ -> Error (Cmpl_err.ParseError "invalid VAR form")
 
@@ -119,7 +129,7 @@ let parse_let f_parse = function
 
 let parse_cast f_parse = function
   | raw_type :: expr :: [] -> begin
-    (parse_type raw_type) >>= fun t ->
+    (parse_type_expr raw_type) >>= fun t ->
     (f_parse expr) >>= fun e ->
     return (Node.Cast (t, e))
   end
