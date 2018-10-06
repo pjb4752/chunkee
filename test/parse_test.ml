@@ -2,6 +2,7 @@ open Chunkee
 open Chunkee.Lex
 open Chunkee.Parse
 open OUnit2
+open Test_helper
 
 let assert_true value = assert_equal value true
 
@@ -25,7 +26,7 @@ let suite =
       (fun context ->
         assert_equal
           (parse_form (Form.Symbol "foofoo"))
-          (Ok (Node.SymLit "foofoo"))
+          (Ok (make_bare_sym "foofoo"))
         );
 
     "parse valid rec form">::
@@ -36,12 +37,10 @@ let suite =
           Form.Vec [Form.Symbol "x"; Form.Symbol "num"];
         ] in
         let name = Node.Name.from_string "hello" in
-        let varname = Node.VarDef.Name.from_string "x" in
-        let vartype = Node.TypeDef.from_string "num" in
-        let vardef = Node.VarDef.from_parts varname vartype in
+        let var_def = make_p_var_def "x" "num" in
         assert_equal
           (parse_form form)
-          (Ok (Node.Rec (name, [vardef])))
+          (Ok (Node.Rec (name, [var_def])))
       );
 
     "parse valid def form">::
@@ -74,13 +73,11 @@ let suite =
             Form.Vec [Form.Symbol "a"; Form.Symbol "num"];
           ];
           Form.Symbol "a"
-        ]
-        and name0 = Node.VarDef.Name.from_string "a"
-        and type0 = Node.TypeDef.from_string "num" in
-        let param0 = Node.VarDef.from_parts name0 type0 in
+        ] in
+        let param0 = make_p_var_def "a" "num" in
         assert_equal
           (parse_form form)
-          (Ok (Node.Fn ([param0], Node.SymLit "a")))
+          (Ok (Node.Fn ([param0], make_bare_sym "a")))
       );
 
     "parse invalid fn form">::
@@ -97,9 +94,12 @@ let suite =
           Form.Symbol "if";
             Form.Symbol "a"; Form.Symbol "b"; Form.Symbol "c"
         ] in
+        let tst = make_bare_sym "a" in
+        let iff = make_bare_sym "b" in
+        let els = make_bare_sym "c" in
         assert_equal
           (parse_form form)
-          (Ok (Node.If (Node.SymLit "a", Node.SymLit "b", Node.SymLit "c")))
+          (Ok (Node.If (tst, iff, els)))
       );
 
     "parse invalid if form">::
@@ -122,7 +122,7 @@ let suite =
         let binding = Node.Binding.from_node name (Node.NumLit 5.0) in
         assert_equal
           (parse_form form)
-          (Ok (Node.Let ([binding], (Node.SymLit "a"))))
+          (Ok (Node.Let ([binding], (make_bare_sym "a"))))
       );
 
     "parse invalid let form">::
@@ -142,8 +142,8 @@ let suite =
         ] in
         assert_equal
           (parse_form form)
-          (Ok (Node.Apply (Node.SymLit "+",
-            [Node.SymLit "a"; Node.SymLit "b"])))
+          (Ok (Node.Apply (make_bare_sym "+",
+            [make_bare_sym "a"; make_bare_sym "b"])))
       );
 
     "parse apply form of anonymous function">::
@@ -155,11 +155,9 @@ let suite =
           ];
           Form.Symbol "a"
         ] in
-        let form = Form.List [fn; Form.Number 5.0]
-        and name0 = Node.VarDef.Name.from_string "a"
-        and type0 = Node.TypeDef.from_string "num" in
-        let param0 = Node.VarDef.from_parts name0 type0 in
-        let fn_node = Node.Fn ([param0], Node.SymLit "a") in
+        let form = Form.List [fn; Form.Number 5.0] in
+        let param0 = make_p_var_def "a" "num" in
+        let fn_node = Node.Fn ([param0], make_bare_sym "a") in
         assert_equal
           (parse_form form)
           (Ok (Node.Apply (fn_node, [Node.NumLit 5.0])))
@@ -172,6 +170,6 @@ let suite =
         ] in
         assert_equal
           (parse_form form)
-          (Ok (Node.Cast (Node.TypeDef.from_string "num" , Node.SymLit "a")))
+          (Ok (Node.Cast (make_type_expr "num" , make_bare_sym "a")))
       );
   ]

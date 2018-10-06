@@ -10,7 +10,6 @@ type t =
   | Rec of Mod_name.t * Name.t
   | Fn of t list * t
 
-
 val find_builtin: string -> t option
 
 val to_string: t -> string

@@ -24,19 +24,24 @@ let type_of_str s =
 
 let find_builtin s = type_of_str s
 
-let rec to_string t =
-  let string_of_rec m_name name =
-    sprintf "(rec %s/%s)" (Mod_name.to_string m_name) (Name.to_string name) in
-  let string_of_fn pt rt =
-    let types = List.append pt [rt] in
-    let types = List.map to_string types in
-    sprintf "[%s]" (String.concat " " types) in
-  match t with
+let rec_to_string mod_name name =
+  let mod_name = Mod_name.to_string mod_name in
+  let name = Name.to_string name in
+  sprintf "(rec %s/%s)" mod_name name
+
+let fn_to_string to_string' param_types ret_type =
+  let types = List.append param_types [ret_type] in
+  let types = List.map to_string' types in
+  sprintf "[%s]" (String.concat " " types)
+
+let rec to_string tipe =
+  let fn_to_string = fn_to_string to_string in
+  match tipe with
   | Unit -> "unit"
   | Any -> "any"
   | Num -> "num"
   | Str -> "str"
   | Bool -> "bool"
   | List -> "list"
-  | Rec (m_name, name) -> string_of_rec m_name name
-  | Fn (pt, rt) -> string_of_fn pt rt
+  | Rec (mod_name, name) -> rec_to_string mod_name name
+  | Fn (param_types, ret_type) -> fn_to_string param_types ret_type
