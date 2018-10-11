@@ -25,7 +25,7 @@ let declare_rec modul type_name =
 let declare_toplevel modul = function
   | Node.Def (name, _) -> declare_var modul name
   | Node.Rec (name, _) -> declare_rec modul name
-  | _ -> Ok modul
+  | _ -> assert false
 
 let declare_toplevels modul nodes =
   let fold_fn node modul =

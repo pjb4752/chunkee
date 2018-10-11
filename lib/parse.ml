@@ -72,11 +72,18 @@ let parse_rec f_parse = function
       return (Node.Rec (name, fs))
   | _ -> Error (Cmpl_err.ParseError "invalid RECORD form")
 
+let is_const_literal = function
+  | Form.Number _ | Form.String _ -> true
+  | Form.List (Form.Symbol "fn" :: rest) -> true
+  | _ -> false
+
 let parse_def f_parse = function
-  | Form.Symbol name :: expr :: [] ->
+  | Form.Symbol name :: expr :: [] when is_const_literal expr ->
       (f_parse expr) >>= fun expr ->
       let name = Node.Name.from_string name in
       return (Node.Def (name, expr))
+  | Form.Symbol name :: expr :: [] ->
+      Error (Cmpl_err.ParseError "DEF EXPR must evaluate to constant value")
   | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
 
 let parse_params params =
@@ -160,13 +167,14 @@ let parse_fn_apply f_parse fn args =
   (parse_args f_parse args) >>= fun args ->
   return (Node.Apply (fn, args))
 
+let nested_error = Cmpl_err.ParseError "definitions must occur at toplevel"
+
 let parse_op f_parse op (args: Form.t list) =
-  if op = "defrec" then parse_rec f_parse args
-  else if op = "def" then parse_def f_parse args
-  else if op = "fn" then parse_fn f_parse args
+  if op = "fn" then parse_fn f_parse args
   else if op = "if" then parse_if f_parse args
   else if op = "let" then parse_let f_parse args
   else if op = "cast" then parse_cast f_parse args
+  else if op = "def" || op = "defrec" then Error nested_error
   else parse_sym_apply f_parse op args
 
 let parse_symbol symbol =
@@ -187,9 +195,19 @@ let rec parse_form = function
   | Form.List l -> parse_list parse_form l
   | _ -> Error (Cmpl_err.ParseError "unrecognized form")
 
+let toplevel_error = Cmpl_err.ParseError "toplevel forms must be definitions"
+
+let parse_toplevel = function
+  | Form.List (Form.Symbol op :: args) -> begin
+    if op = "defrec" then parse_rec parse_form args
+    else if op = "def" then parse_def parse_form args
+    else Error toplevel_error
+  end
+  | _ -> Error toplevel_error
+
 let parse forms =
   let fold_fn form forms =
     forms >>= fun fs ->
-    (parse_form form) >>= fun f ->
+    (parse_toplevel form) >>= fun f ->
     return (f :: fs) in
   List.fold_right fold_fn forms (Ok [])
