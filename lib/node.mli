@@ -44,7 +44,7 @@ module type N = sig
     | SymLit of name_expr_t
     | Rec of Name.t * VarDef.t list
     | Def of Name.t * t
-    | Fn of VarDef.t list * t
+    | Fn of VarDef.t list * type_expr_t * t
     | If of t * t * t
     | Let of t Binding.t list * t
     | Apply of t * t list

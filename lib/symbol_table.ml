@@ -1,105 +1,103 @@
-open Thwack.Extensions
-open Thwack.Option
 open Printf
-
-module Lib_tree = struct
-  module Children = Map.Make(Mod_name.Name)
-
-  type t =
-    | Node of t Children.t
-    | Leaf of Module.t
-
-  let empty = Node Children.empty
-
-  let leaf_exists children name =
-    match Children.find_opt name children with
-    | None -> false
-    | Some (Node _) -> false
-    | Some (Leaf _) -> true
-
-  let find_module tree paths =
-    let rec find' tree paths =
-      let match_fn tree paths =
-        match tree with
-        | Leaf modul when List.is_empty paths -> Some modul
-        | Node node when not (List.is_empty paths) ->
-          let head = List.hd paths in
-          find' (Children.find_opt head node) (List.tl paths)
-        | _ -> None in
-      tree >>= fun t ->
-      (match_fn t paths) >>= fun m ->
-      return m in
-    find' (Some tree) (Mod_name.to_list paths)
-
-  let insert_module tree modul =
-    let rec insert' tree paths modul =
-      match tree with
-      | Leaf _ -> assert false
-      | Node children ->
-          match paths with
-          | [] ->
-              let name = Module.short_name modul in
-              if Children.mem name children then assert false
-              else Children.add name (Leaf modul) children
-          | p :: ps ->
-              let child_tree = Children.find_else p empty children in
-              let new_node = Node (insert' child_tree ps modul) in
-              Children.add p new_node children in
-    Node (insert' tree (Module.path_list modul) modul)
-
-  let update_module tree modul =
-    let rec update' tree paths modul =
-      match tree with
-      | Leaf _ -> assert false
-      | Node children ->
-          match paths with
-          | [] ->
-              let name = Module.short_name modul in
-              if leaf_exists children name then
-                Children.add name (Leaf modul) children
-              else assert false
-          | p :: ps -> begin
-            match Children.find_opt p children with
-            | None -> assert false
-            | Some child_tree -> begin
-              let new_node = Node (update' child_tree ps modul) in
-              Children.add p new_node children
-            end
-          end in
-    Node (update' tree (Module.path_list modul) modul)
-
-  let rec to_string tree =
-    let fold_fn k v prior =
-      let name = Mod_name.Name.to_string k in
-      sprintf "(%s %s)" name (to_string v) :: prior in
-    let string_of_children children = Children.fold fold_fn children [] in
-    match tree with
-    | Node cs -> sprintf "(node %s)" (String.concat " " (string_of_children cs))
-    | Leaf modul -> sprintf "(leaf %s)" (Module.to_string modul)
-end
+open Thwack.Option
 
 type t = {
   pervasive: Pervasive.t;
-  libraries: Lib_tree.t
+  tree: Module_tree.t;
+  modul: Module.t;
 }
 
-let with_pervasive pervasive =
-  let { Pervasive.modul } = pervasive in
-  let libraries = Lib_tree.insert_module Lib_tree.empty modul in
-  { pervasive; libraries }
+type exists_in_scope = string -> bool
 
-let pervasive_module { pervasive } = pervasive.modul
+type exists_in_decls = Type.Name.t -> Type.t option
 
-let find_module { libraries } name =
-  Lib_tree.find_module libraries name
+let make pervasive modul =
+  let tree = Module_tree.with_pervasive pervasive in
+  { pervasive; tree; modul }
 
-let insert_module symbol_table modul =
-  let libraries = Lib_tree.insert_module symbol_table.libraries modul in
-  { symbol_table with libraries = libraries }
+let current_module { modul } = modul
 
-let update_module symbol_table modul =
-  let libraries = Lib_tree.update_module symbol_table.libraries modul in
-  { symbol_table with libraries = libraries }
+let undefined_name_error name =
+  Error (Cmpl_err.NameError (sprintf "%s is undefined" name))
 
-let to_string { libraries } =
-  Lib_tree.to_string libraries
+let undefined_module_error mod_name =
+  let mod_name = Mod_name.to_string mod_name in
+  Error (Cmpl_err.NameError (sprintf "unknown module %s" mod_name))
+
+let resolve_module_name modul name =
+  let name = Var.Name.from_string name in
+  let mod_name = Module.name modul in
+  if Module.var_exists modul name then Ok (Name.Var.Module (mod_name, name))
+  else undefined_name_error (Var.Name.to_string name)
+
+let resolve_qualified_name { tree; modul } mod_name name =
+  match Module_tree.find_module tree mod_name with
+  | Some modul -> resolve_module_name modul name
+  | None -> undefined_module_error mod_name
+
+let resolve_unqualified_name { pervasive; modul } name =
+  match resolve_module_name pervasive.modul name with
+  | Error _ -> resolve_module_name modul name
+  | Ok name -> Ok name
+
+let resolve_name table exists_in_scope = function
+  | Name_expr.QualName (mod_name, name) ->
+      resolve_qualified_name table mod_name name
+  | Name_expr.BareName name -> begin
+    if exists_in_scope name then Ok (Name.Var.Local name)
+    else resolve_unqualified_name table name
+  end
+
+let resolve_module_type modul tipe =
+  let name = Type.Name.from_string tipe in
+  match Module.find_type modul name with
+  | Some tipe -> Ok tipe
+  | None -> undefined_name_error tipe
+
+let resolve_qualified_type tree modul mod_name tipe =
+  match Module_tree.find_module tree mod_name with
+  | Some modul -> resolve_module_type modul tipe
+  | None -> undefined_module_error mod_name
+
+let resolve_unqualified_type modul lookup_fn tipe =
+  match Type.find_builtin tipe with
+  | Some tipe -> Ok tipe
+  | None -> begin
+    let name = Type.Name.from_string tipe in
+    let maybe_type =
+      lookup_fn >>= fun lookup_fn ->
+      (lookup_fn name) >>= fun tipe ->
+      return tipe in
+    match maybe_type with
+    | Some tipe -> Ok tipe
+    | None -> resolve_module_type modul tipe
+  end
+
+let resolve_simple_type { tree; modul } lookup_fn = function
+  | Name_expr.QualName (mod_name, tipe) ->
+      resolve_qualified_type tree modul mod_name tipe
+  | Name_expr.BareName tipe ->
+      resolve_unqualified_type modul lookup_fn tipe
+
+let resolve_type table ?lookup_fn:(lookup_fn=None) = function
+  | Type_expr.SimpleType tipe -> resolve_simple_type table lookup_fn tipe
+  | Type_expr.FnType ts -> Ok (Type.Num)
+
+let select_module { tree; modul } mod_name =
+  if (Module.name modul) = mod_name then Some modul
+  else Module_tree.find_module tree mod_name
+
+let module_type table mod_name var_name =
+  (select_module table mod_name) >>= fun modul ->
+  (Module.find_var modul var_name) >>= fun var ->
+  (Var.tipe var) >>= fun tipe ->
+  return tipe
+
+let define_record table name fields =
+  let new_modul = Module.define_record table.modul name fields in
+  { table with modul = new_modul }
+
+let to_string { tree; modul } =
+  let tree = Module_tree.to_string tree in
+  let modul = Module.to_string modul in
+  sprintf "(symbol-table (tree %s) (current %s))" tree modul

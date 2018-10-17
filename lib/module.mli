@@ -22,8 +22,6 @@ val declare_var: t -> Var.Name.t -> t
 
 val define_var: t -> Var.Name.t -> Type.t -> t
 
-val declare_record: t -> Type.Name.t -> t
-
 (*TODO use VarDef here instead of tuple*)
 val define_record: t -> Type.Name.t -> (Type.Name.t * Type.t) list -> t
 

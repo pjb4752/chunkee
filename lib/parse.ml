@@ -48,18 +48,19 @@ let rec parse_type_expr = function
   | _ -> invalid_type_error
 
 let parse_var_def = function
-  | Form.Vec (Form.Symbol n :: t :: []) -> begin
-      (parse_type_expr t) >>= fun t ->
-      let n = Node.VarDef.Name.from_string n in return (n, t)
+  | (Form.Symbol name :: tipe :: []) -> begin
+      (parse_type_expr tipe) >>= fun tipe ->
+      let name = Node.VarDef.Name.from_string name in
+      return (name, tipe)
   end
   | _ -> Error (Cmpl_err.ParseError "invalid VAR form")
 
 let parse_rec_fields f_parse fields =
-  let fold_fn (n, t) prior =
-    prior >>= fun fs ->
-      (parse_var_def (Form.Vec ([n; t]))) >>= fun (n, t) ->
-      let field = Node.VarDef.from_parts n t in
-      return (field :: fs) in
+  let fold_fn (name, tipe) fields =
+    fields >>= fun fields ->
+    (parse_var_def [name; tipe]) >>= fun (name, tipe) ->
+    let field = Node.VarDef.from_parts name tipe in
+    return (field :: fields) in
   if (List.length fields mod 2) = 0 then
     List.fold_right fold_fn (List.as_pairs fields) (Ok [])
   else Error (Cmpl_err.ParseError "invalid FIELDS form")
@@ -87,20 +88,29 @@ let parse_def f_parse = function
   | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
 
 let parse_params params =
-  let fold_fn param prior =
-    prior >>= fun ps ->
-    (parse_var_def param) >>= fun (n, t) ->
-    let p = Node.VarDef.from_parts n t in
-    return (p :: ps) in
-  List.fold_right fold_fn params (Ok [])
+  let fold_fn (name, tipe) params =
+    params >>= fun params ->
+    (parse_var_def [name; tipe]) >>= fun (name, tipe) ->
+    let param = Node.VarDef.from_parts name tipe in
+    return (param :: params) in
+  if (List.length params mod 2) = 0 then
+    List.fold_right fold_fn (List.as_pairs params) (Ok [])
+  else Error (Cmpl_err.ParseError "invalid VARS form")
+
+let parse_header header =
+  match List.rev header with
+  | rtype :: Form.Vec raw_params :: [] -> begin
+      (parse_params raw_params) >>= fun params ->
+      (parse_type_expr rtype) >>= fun rtype ->
+      return (params, rtype)
+  end
+  | _ -> Error (Cmpl_err.ParseError "invalid FN header")
 
 let parse_fn f_parse = function
-  | Form.Vec raw_params :: raw_body :: [] ->
-      let params = parse_params raw_params
-      and expr = f_parse raw_body in
-      params >>= fun p ->
-      expr >>= fun e ->
-      return (Node.Fn (p, e))
+  | Form.Vec raw_header :: raw_body :: [] ->
+      (parse_header raw_header) >>= fun (params, rtype) ->
+      (f_parse raw_body) >>= fun body ->
+      return (Node.Fn (params, rtype, body))
   | _ -> Error (Cmpl_err.ParseError "invalid FN form")
 
 let parse_if f_parse = function

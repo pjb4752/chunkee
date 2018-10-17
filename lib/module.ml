@@ -57,17 +57,11 @@ let define_var modul name tipe =
   let var_types = VarTypes.add name tipe modul.var_types in
   { modul with var_names = var_names; var_types = var_types }
 
-let declare_record modul type_name =
-  let type_names = TypeNames.add type_name modul.type_names in
-  { modul with type_names = type_names }
-
+(* TODO remove declaration first *)
 let define_record modul type_name fields =
-  match TypeNames.find_opt type_name modul.type_names with
-  | Some _ -> begin
-    let type_fields = TypeFields.add type_name fields modul.type_fields in
-    { modul with type_fields = type_fields }
-  end
-  | None -> assert false
+  let new_names = TypeNames.add type_name modul.type_names in
+  let new_types = TypeFields.add type_name fields modul.type_fields in
+  { modul with type_names = new_names; type_fields = new_types }
 
 let to_string { name; var_names; var_types; type_names } =
   let var_to_string vn =

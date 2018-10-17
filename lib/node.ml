@@ -46,7 +46,7 @@ module type N = sig
     | SymLit of name_expr_t
     | Rec of Name.t * VarDef.t list
     | Def of Name.t * t
-    | Fn of VarDef.t list * t
+    | Fn of VarDef.t list * type_expr_t * t
     | If of t * t * t
     | Let of t Binding.t list * t
     | Apply of t * t list
@@ -106,7 +106,7 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
     | SymLit of name_expr_t
     | Rec of Name.t * VarDef.t list
     | Def of Name.t * t
-    | Fn of VarDef.t list * t
+    | Fn of VarDef.t list * type_expr_t * t
     | If of t * t * t
     | Let of t Binding.t list * t
     | Apply of t * t list
@@ -130,10 +130,11 @@ let def_to_string to_string' name expr =
   let name = Name.to_string name in
   sprintf "(def %s %s)" name (to_string' expr)
 
-let fn_to_string to_string' params body =
+let fn_to_string to_string' params rtype body =
   let params = List.map VarDef.to_string params in
   let params = String.concat " " params in
-  sprintf "(fn (params %s) %s)" params (to_string' body)
+  let rtype = TypeExpr.to_string rtype in
+  sprintf "(fn (params %s) (rtype %s) %s)" params rtype (to_string' body)
 
 let if_to_string to_string' test iff els =
   let exprs = List.map to_string' [test; iff; els] in
@@ -166,7 +167,7 @@ let rec to_string node =
   | SymLit sym -> symlit_to_string sym
   | Rec (name, fields) -> rec_to_string name fields
   | Def (name, expr) -> def_to_string name expr
-  | Fn (params, body) -> fn_to_string params body
+  | Fn (params, rtype, body) -> fn_to_string params rtype body
   | If (test, iff, els) -> if_to_string test iff els
   | Let (bindings, body) -> let_to_string bindings body
   | Apply (fn, args) -> apply_to_string fn args

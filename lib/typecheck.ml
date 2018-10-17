@@ -3,9 +3,11 @@ open Thwack.Result
 
 module Node = Ast.Resolved_node
 
-type n = Node.t * Type.t
-type s = (Module.t * Type.t, Cmpl_err.t) result
-type t = (Module.t * n list, Cmpl_err.t) result
+type typed_node = Node.t * Type.t
+
+type t = (Symbol_table.t * typed_node list, Cmpl_err.t) result
+
+type u = (Type.t, Cmpl_err.t) result
 
 module Scope = Map.Make(String)
 
@@ -24,32 +26,17 @@ let chk_local_name scopes name =
       | Some t -> Ok t
   end
 
-let chk_module_name table qual_name var_name =
-  match Symbol_table.find_module table qual_name with
+let chk_module_name table mod_name var_name =
+  match Symbol_table.module_type table mod_name var_name with
   | None -> assert false
-  | Some m -> begin
-    match Module.find_var m var_name with
-    | None -> assert false
-    | Some v -> begin
-      match Var.tipe v with
-      | Some tipe -> Ok tipe
-      | _ -> assert false
-    end
-  end
+  | Some tipe -> Ok tipe
 
-let chk_name table modul scopes name =
+let chk_name table scopes name =
   let tipe = match name with
-  | Name.Var.Local n -> chk_local_name scopes n
-  | Name.Var.Module (qn, vn) -> chk_module_name table qn vn in
-  tipe >>= fun tipe -> return (modul, tipe)
-
-let chk_rec recur_fn modul name fields =
-  let m_name = Module.name modul in
-  Ok (modul, Type.Rec (m_name, name))
-
-let chk_def recur_fn modul scopes name expr =
-  (recur_fn scopes expr) >>= fun (modul, tipe) ->
-  return (Module.define_var modul name tipe, tipe)
+  | Name.Var.Local name -> chk_local_name scopes name
+  | Name.Var.Module (mod_name, var_name) ->
+      chk_module_name table mod_name var_name in
+  tipe >>= fun tipe -> return tipe
 
 let process_params params =
   let fold_fn p ps =
@@ -64,20 +51,27 @@ let process_params params =
     and types = List.map (fun (n, t) -> t) ps in
     Ok (types, scope)
 
-(*TODO should return type be explicit instead of inferred*)
-let chk_fn recur_fn scopes params body =
-  (process_params params) >>= fun (ptype, scope) ->
-  (recur_fn (scope :: scopes) body) >>= fun (modul, rtype) ->
-  return (modul, Type.Fn (ptype, rtype))
+let chk_fn recur_fn scopes params rtype body =
+  let maybe_rtype =
+    (process_params params) >>= fun (ptype, scope) ->
+    (recur_fn (scope :: scopes) body) >>= fun rtype ->
+    return rtype in
+  match maybe_rtype with
+  | Error e -> Error e
+  | Ok actual_rtype when rtype = actual_rtype -> Ok actual_rtype
+  | _ ->
+      let message = "fn actual return type does not match " ^
+                    "expected return type" in
+      Error (Cmpl_err.TypeError message)
 
 let cmp_tst_expr = function
   | Type.Bool -> Ok Type.Bool
   | _ -> Error (Cmpl_err.TypeError ("if-test-expr must evaluate to boolean"))
 
 let chk_if_tst recur_fn scopes tst =
-  (recur_fn scopes tst) >>= fun (modul, ttype) ->
+  (recur_fn scopes tst) >>= fun ttype ->
   (cmp_tst_expr ttype) >>= fun ttype ->
-  return (modul, ttype)
+  return ttype
 
 let cmp_if_expr iff els =
   if iff = els then Ok iff
@@ -85,17 +79,17 @@ let cmp_if_expr iff els =
   else Error (Cmpl_err.TypeError ("if-else-expr must evaluate to same type"))
 
 let chk_if recur_fn scopes tst iff els =
-  (chk_if_tst recur_fn scopes tst) >>= fun (modul, ttype) ->
-  (recur_fn scopes iff) >>= fun (modul, itype) ->
-  (recur_fn scopes els) >>= fun (modul, etype) ->
+  (chk_if_tst recur_fn scopes tst) >>= fun ttype ->
+  (recur_fn scopes iff) >>= fun itype ->
+  (recur_fn scopes els) >>= fun etype ->
   (cmp_if_expr itype etype) >>= fun rtype ->
-  return (modul, rtype)
+  return rtype
 
 let chk_binding recur_fn scopes binding =
   let (name, expr) = Node.Binding.to_tuple binding in
   match recur_fn scopes expr with
   | Error e -> Error e
-  | Ok (_, tipe) -> begin
+  | Ok tipe -> begin
     let name = Node.Binding.Name.to_string name in
     let (scope: 'a Scope.t) = Scope.add name tipe Scope.empty in
     Ok (scope :: scopes)
@@ -110,8 +104,8 @@ let chk_let recur_fn scopes bindings body =
       | Ok s -> chk_bindings s bs
     end in
   (chk_bindings scopes bindings) >>= fun scopes ->
-  (recur_fn scopes body) >>= fun (modul, rtype) ->
-  return (modul, rtype)
+  (recur_fn scopes body) >>= fun rtype ->
+  return rtype
 
 let cmp_fn_types f_type p_act =
   match f_type with
@@ -123,35 +117,53 @@ let cmp_fn_types f_type p_act =
 let chk_apply recur_fn scopes fn args =
   let fold_fn arg types =
     types >>= fun types ->
-    (recur_fn scopes arg) >>= fun (_, tipe) ->
+    (recur_fn scopes arg) >>= fun tipe ->
     return (tipe :: types) in
   let types = List.fold_right fold_fn args (Ok []) in
   types >>= fun etypes ->
-  (recur_fn scopes fn) >>= fun (modul, atypes) ->
+  (recur_fn scopes fn) >>= fun atypes ->
   (cmp_fn_types atypes etypes) >>= fun rtype ->
-  return (modul, rtype)
+  return rtype
 
 let chk_cast recur_fn scopes tipe expr =
-  (recur_fn scopes expr) >>= fun (modul, _) ->
-  return (modul, tipe)
+  (recur_fn scopes expr) >>= fun _ ->
+  return tipe
 
-let check_node table modul node =
-  let rec check' scopes = function
-    | Node.NumLit _ -> Ok (modul, Type.Num)
-    | Node.StrLit _ -> Ok (modul, Type.Str)
-    | Node.SymLit name -> chk_name table modul scopes name
-    | Node.Rec (name, fields) -> chk_rec check' modul name fields
-    | Node.Def (name, expr) -> chk_def check' modul scopes name expr
-    | Node.Fn (params, body) -> chk_fn check' scopes params body
-    | Node.If (tst, iff, els) -> chk_if check' scopes tst iff els
-    | Node.Let (bindings, body) -> chk_let check' scopes bindings body
-    | Node.Apply (fn, args) -> chk_apply check' scopes fn args
-    | Node.Cast (tipe, expr) -> chk_cast check' scopes tipe expr in
-  check' [] node
+let check_node table node =
+  let rec check_node' scopes = function
+    | Node.NumLit n -> Ok Type.Num
+    | Node.StrLit s -> Ok Type.Str
+    | Node.SymLit name -> chk_name table scopes name
+    | Node.Fn (params, rtype, body) -> chk_fn check_node' scopes params rtype body
+    | Node.If (tst, iff, els) -> chk_if check_node' scopes tst iff els
+    | Node.Let (bindings, body) -> chk_let check_node' scopes bindings body
+    | Node.Apply (fn, args) -> chk_apply check_node' scopes fn args
+    | Node.Cast (tipe, expr) -> chk_cast check_node' scopes tipe expr
+    | Node.Def _ -> assert false
+    | Node.Rec _ -> assert false in
+  check_node' [] node
 
-let check table modul nodes =
+(* TODO update table here with new types *)
+let check_top_node table node =
+  match node with
+  | Node.Def (name, expr) -> begin
+    (check_node table expr) >>= fun tipe ->
+    return (table, tipe)
+  end
+  | Node.Rec (name, fields) -> begin
+    let modul = Symbol_table.current_module table in
+    let mod_name = Module.name modul in
+    Ok (table, Type.Rec (mod_name, name))
+  end
+  | _ -> assert false
+
+let check_top_nodes table nodes =
   let fold_fn node accumulator =
-    accumulator >>= fun (modul, node_types) ->
-    (check_node table modul node) >>= fun (modul, tipe) ->
-    return (modul, (node, tipe) :: node_types) in
-  List.fold_right fold_fn nodes (Ok (modul, []))
+    accumulator >>= fun (table, typed_nodes) ->
+    (check_top_node table node) >>= fun (table, tipe) ->
+    return (table, (node, tipe) :: typed_nodes) in
+  List.fold_right fold_fn nodes (Ok (table, []))
+
+let check table nodes =
+  (check_top_nodes table nodes) >>= fun (table, nodes) ->
+  return (table, nodes)

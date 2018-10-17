@@ -10,10 +10,10 @@ let resolve = Resolve.resolve
 
 let typecheck = Typecheck.check
 
-let compile_module table modul source =
+let compile_module table source =
   (lex source) >>= fun forms ->
   (parse forms) >>= fun nodes ->
-  (declare modul nodes) >>= fun modul ->
-  (resolve table modul nodes) >>= fun (modul, nodes) ->
-  (typecheck table modul nodes) >>= fun (modul, nodes) ->
-  return (modul, nodes)
+  (declare table nodes) >>= fun table ->
+  (resolve table nodes) >>= fun nodes ->
+  (typecheck table nodes) >>= fun (table, nodes) ->
+  return (table, nodes)
