@@ -18,8 +18,7 @@ val find_type: t -> Type.Name.t -> Type.t option
 
 val type_exists: t -> Type.Name.t -> bool
 
-val declare_var: t -> Var.Name.t -> t
-
+(* TODO use Var here? *)
 val define_var: t -> Var.Name.t -> Type.t -> t
 
 (*TODO use VarDef here instead of tuple*)

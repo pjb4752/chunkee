@@ -1,8 +1,6 @@
 module Node = Ast.Resolved_node
 
-type typed_node = Node.t * Type.t
-
-type t = (Symbol_table.t * typed_node list, Cmpl_err.t) result
+type t = ((Node.t * Type.t) list, Cmpl_err.t) result
 
 type u = (Type.t, Cmpl_err.t) result
 

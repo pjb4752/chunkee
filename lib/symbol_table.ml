@@ -87,11 +87,18 @@ let select_module { tree; modul } mod_name =
   if (Module.name modul) = mod_name then Some modul
   else Module_tree.find_module tree mod_name
 
-let module_type table mod_name var_name =
+let module_var table mod_name var_name =
   (select_module table mod_name) >>= fun modul ->
   (Module.find_var modul var_name) >>= fun var ->
-  (Var.tipe var) >>= fun tipe ->
-  return tipe
+  return var
+
+let module_type table mod_name var_name =
+  (module_var table mod_name var_name) >>= fun var ->
+  return (Var.tipe var)
+
+let define_var table var tipe =
+  let new_modul = Module.define_var table.modul var tipe in
+  { table with modul = new_modul }
 
 let define_record table name fields =
   let new_modul = Module.define_record table.modul name fields in

@@ -3,9 +3,7 @@ open Thwack.Result
 
 module Node = Ast.Resolved_node
 
-type typed_node = Node.t * Type.t
-
-type t = (Symbol_table.t * typed_node list, Cmpl_err.t) result
+type t = ((Node.t * Type.t) list, Cmpl_err.t) result
 
 type u = (Type.t, Cmpl_err.t) result
 
@@ -143,27 +141,27 @@ let check_node table node =
     | Node.Rec _ -> assert false in
   check_node' [] node
 
-(* TODO update table here with new types *)
+(* TODO unify the logic here into one flow *)
 let check_top_node table node =
   match node with
   | Node.Def (name, expr) -> begin
     (check_node table expr) >>= fun tipe ->
-    return (table, tipe)
+    return tipe
   end
   | Node.Rec (name, fields) -> begin
     let modul = Symbol_table.current_module table in
     let mod_name = Module.name modul in
-    Ok (table, Type.Rec (mod_name, name))
+    Ok (Type.Rec (mod_name, name))
   end
   | _ -> assert false
 
 let check_top_nodes table nodes =
-  let fold_fn node accumulator =
-    accumulator >>= fun (table, typed_nodes) ->
-    (check_top_node table node) >>= fun (table, tipe) ->
-    return (table, (node, tipe) :: typed_nodes) in
-  List.fold_right fold_fn nodes (Ok (table, []))
+  let fold_fn node nodes =
+    nodes >>= fun nodes ->
+    (check_top_node table node) >>= fun tipe ->
+    return ((node, tipe) :: nodes) in
+  List.fold_right fold_fn nodes (Ok [])
 
 let check table nodes =
-  (check_top_nodes table nodes) >>= fun (table, nodes) ->
-  return (table, nodes)
+  (check_top_nodes table nodes) >>= fun nodes ->
+  return nodes

@@ -1,5 +1,9 @@
 open Thwack.Result
 
+module Node = Ast.Resolved_node
+
+type t = (Symbol_table.t * (Node.t * Type.t) list, Cmpl_err.t) result
+
 let lex = Lex.lex
 
 let parse = Parse.parse
@@ -15,5 +19,5 @@ let compile_module table source =
   (parse forms) >>= fun nodes ->
   (declare table nodes) >>= fun table ->
   (resolve table nodes) >>= fun nodes ->
-  (typecheck table nodes) >>= fun (table, nodes) ->
+  (typecheck table nodes) >>= fun nodes ->
   return (table, nodes)

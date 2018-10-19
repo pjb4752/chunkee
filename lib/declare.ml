@@ -7,15 +7,42 @@ type t = (Symbol_table.t, Cmpl_err.t) result
 
 module TypeDecls = Map.Make(Type.Name)
 
-(*let declare_var modul name =*)
-  (*let str_name = Node.Name.to_string name in*)
-  (*let var_name = Var.Name.from_string str_name in*)
-  (*if Module.var_exists modul var_name then*)
-    (*let message = sprintf "var %s already declared" str_name in*)
-    (*Error (Cmpl_err.NameError message)*)
-  (*else*) (*Ok (Module.declare_var modul var_name)*)
+let var_exists table name =
+  let mod_name = Symbol_table.current_module table |> Module.name in
+  match Symbol_table.module_var table mod_name name with
+  | Some _ -> true
+  | None -> false
 
-let define_vars table vardefs = Ok table
+let find_fn_type table params rtype =
+  let ptypes = List.map (fun p ->
+    let (_, tipe) = Node.VarDef.to_tuple p in tipe) params in
+  let ftype = Type_expr.FnType (List.append ptypes [rtype]) in
+  Symbol_table.resolve_type table ftype
+
+let find_def_type table = function
+  | Node.NumLit _ -> Ok Type.Num
+  | Node.StrLit _ -> Ok Type.Str
+  | Node.Fn (params, rtype, _) -> find_fn_type table params rtype
+  | _ -> assert false
+
+let define_var table = function
+  | Node.Def (name, expr) -> begin
+    if var_exists table name then
+      let name = Node.Name.to_string name in
+      let message = sprintf "var %s already declared" name in
+      Error (Cmpl_err.NameError message)
+    else (
+      (find_def_type table expr) >>= fun tipe ->
+      return (Symbol_table.define_var table name tipe)
+    )
+  end
+  | _ -> assert false
+
+let define_vars table vardefs =
+  List.fold_right (fun vardef table ->
+    table >>= fun table ->
+    (define_var table vardef) >>= fun table ->
+    return table) vardefs (Ok table)
 
 let type_redef_error name =
   let name = Type.Name.to_string name in

@@ -4,12 +4,10 @@ module Name = Id
 
 type t = {
   name: Name.t;
-  tipe: Type.t option
+  tipe: Type.t
 }
 
-let declare name = { name; tipe = None }
-
-let define name tipe = { name; tipe = Some tipe }
+let make name tipe = { name; tipe }
 
 let name { name } = name
 

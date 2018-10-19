@@ -35,8 +35,8 @@ let path_list { name; } = Mod_name.path_list name
 let find_var { var_names; var_types } name =
   (VarNames.find_opt name var_names) >>= fun name ->
   match VarTypes.find_opt name var_types with
-  | None -> return (Var.declare name)
-  | Some t -> return (Var.define name t)
+  | Some tipe -> return (Var.make name tipe)
+  | None -> assert false
 
 let var_exists modul var_name =
   is_some @@ find_var modul var_name
@@ -48,16 +48,11 @@ let find_type { name; type_names } type_name =
 let type_exists modul type_name =
   Thwack.Option.is_some @@ find_type modul type_name
 
-let declare_var modul name =
-  let var_names = VarNames.add name modul.var_names in
-  { modul with var_names = var_names }
-
 let define_var modul name tipe =
   let var_names = VarNames.add name modul.var_names in
   let var_types = VarTypes.add name tipe modul.var_types in
   { modul with var_names = var_names; var_types = var_types }
 
-(* TODO remove declaration first *)
 let define_record modul type_name fields =
   let new_names = TypeNames.add type_name modul.type_names in
   let new_types = TypeFields.add type_name fields modul.type_fields in
