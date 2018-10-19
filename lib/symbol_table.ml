@@ -79,9 +79,18 @@ let resolve_simple_type { tree; modul } lookup_fn = function
   | Name_expr.BareName tipe ->
       resolve_unqualified_type modul lookup_fn tipe
 
-let resolve_type table ?lookup_fn:(lookup_fn=None) = function
+let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
   | Type_expr.SimpleType tipe -> resolve_simple_type table lookup_fn tipe
-  | Type_expr.FnType ts -> Ok (Type.Num)
+  | Type_expr.FnType types ->
+      let fold_fn types tipe =
+        Thwack.Result.(
+          types >>= fun types ->
+          (resolve_type table ~lookup_fn:lookup_fn tipe) >>= fun tipe ->
+          return (tipe :: types)) in
+      match List.fold_left fold_fn (Ok []) types with
+      | Error e -> Error e
+      | Ok (rtype :: ptypes) -> Ok (Type.Fn (ptypes, rtype))
+      | Ok _ -> assert false
 
 let select_module { tree; modul } mod_name =
   if (Module.name modul) = mod_name then Some modul
