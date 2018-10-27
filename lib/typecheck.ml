@@ -25,7 +25,7 @@ let chk_local_name scopes name =
   end
 
 let chk_module_name table mod_name var_name =
-  match Symbol_table.module_type table mod_name var_name with
+  match Symbol_table.module_vartype table mod_name var_name with
   | None -> assert false
   | Some tipe -> Ok tipe
 
@@ -123,6 +123,28 @@ let chk_apply recur_fn scopes fn args =
   (cmp_fn_types atypes etypes) >>= fun rtype ->
   return rtype
 
+let compare_cons_type name rtype cons =
+  match List.find_opt (fun c -> (fst c) = name) cons with
+  | Some (_, tipe) when is_compatible tipe rtype -> Ok rtype
+  | Some (_, tipe) ->
+      let message = "record binding does not match expected type" in
+      Error (Cmpl_err.TypeError message)
+  | None -> assert false
+
+let chk_cons recur_fn scopes tipe bindings =
+  match tipe with
+  | Type.Rec (_, _, cons) -> begin
+    let fold_fn binding rtypes =
+      rtypes >>= fun rtypes ->
+      let (name, expr) = Node.Binding.to_tuple binding in
+      (recur_fn scopes expr) >>= fun rtype ->
+      (compare_cons_type name rtype cons) >>= fun rtype ->
+      return (rtype :: rtypes) in
+    let rtypes = List.fold_right fold_fn bindings (Ok []) in
+    rtypes >>= fun rtypes -> return tipe
+    end
+  | _ -> assert false
+
 let chk_cast recur_fn scopes tipe expr =
   (recur_fn scopes expr) >>= fun _ ->
   return tipe
@@ -136,6 +158,7 @@ let check_node table node =
     | Node.If (tst, iff, els) -> chk_if check_node' scopes tst iff els
     | Node.Let (bindings, body) -> chk_let check_node' scopes bindings body
     | Node.Apply (fn, args) -> chk_apply check_node' scopes fn args
+    | Node.Cons (tipe, bindings) -> chk_cons check_node' scopes tipe bindings
     | Node.Cast (tipe, expr) -> chk_cast check_node' scopes tipe expr
     | Node.Def _ -> assert false
     | Node.Rec _ -> assert false in
@@ -148,10 +171,12 @@ let check_top_node table node =
     (check_node table expr) >>= fun tipe ->
     return tipe
   end
-  | Node.Rec (name, fields) -> begin
+  | Node.Rec (name, _) -> begin
     let modul = Symbol_table.current_module table in
     let mod_name = Module.name modul in
-    Ok (Type.Rec (mod_name, name))
+    match Symbol_table.module_type table mod_name name with
+    | None -> assert false
+    | Some tipe -> Ok tipe
   end
   | _ -> assert false
 

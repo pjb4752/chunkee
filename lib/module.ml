@@ -5,14 +5,14 @@ module VarNames = Set.Make(Var.Name)
 module VarTypes = Map.Make(Var.Name)
 
 module TypeNames = Set.Make(Type.Name)
-module TypeFields = Map.Make(Type.Name)
+module TypeCons = Map.Make(Type.Name)
 
 type t = {
   name: Mod_name.t;
   var_names: VarNames.t;
   var_types: Type.t VarTypes.t;
   type_names: TypeNames.t;
-  type_fields: (Type.Name.t * Type.t) list TypeFields.t;
+  type_cons: Type.rec_cons_t TypeCons.t;
 }
 
 let from_name name = {
@@ -20,7 +20,7 @@ let from_name name = {
   var_names = VarNames.empty;
   var_types = VarTypes.empty;
   type_names = TypeNames.empty;
-  type_fields = TypeFields.empty;
+  type_cons = TypeCons.empty;
 }
 
 let from_parts path name = from_name (Mod_name.make path name)
@@ -41,9 +41,14 @@ let find_var { var_names; var_types } name =
 let var_exists modul var_name =
   is_some @@ find_var modul var_name
 
-let find_type { name; type_names } type_name =
-  (TypeNames.find_opt type_name type_names) >>= fun type_name ->
-  return (Type.Rec (name, type_name))
+let find_type { name; type_names; type_cons } type_name =
+  match TypeNames.find_opt type_name type_names with
+  | None -> None
+  | Some type_name -> begin
+    match TypeCons.find_opt type_name type_cons with
+    | None -> assert false
+    | Some cons -> Some (Type.Rec (name, type_name, cons))
+  end
 
 let type_exists modul type_name =
   Thwack.Option.is_some @@ find_type modul type_name
@@ -53,10 +58,10 @@ let define_var modul name tipe =
   let var_types = VarTypes.add name tipe modul.var_types in
   { modul with var_names = var_names; var_types = var_types }
 
-let define_record modul type_name fields =
+let define_record modul type_name cons =
   let new_names = TypeNames.add type_name modul.type_names in
-  let new_types = TypeFields.add type_name fields modul.type_fields in
-  { modul with type_names = new_names; type_fields = new_types }
+  let new_cons = TypeCons.add type_name cons modul.type_cons in
+  { modul with type_names = new_names; type_cons = new_cons }
 
 let to_string { name; var_names; var_types; type_names } =
   let var_to_string vn =

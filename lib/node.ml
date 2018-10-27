@@ -22,9 +22,13 @@ module type N = sig
 
     val from_node: Name.t -> 'a -> 'a t
 
-    val to_string: ('a -> string) -> 'a t -> string
+    val name: 'a t -> Name.t
+
+    val expr: 'a t -> 'a
 
     val to_tuple: 'a t -> Name.t * 'a
+
+    val to_string: ('a -> string) -> 'a t -> string
   end
 
   module VarDef: sig
@@ -50,6 +54,7 @@ module type N = sig
     | If of t * t * t
     | Let of t Binding.t list * t
     | Apply of t * t list
+    | Cons of (type_expr_t * t Binding.t list)
     | Cast of type_expr_t * t
 
   val to_string: t -> string
@@ -75,10 +80,14 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
 
     let from_node name expr = { name; expr; }
 
-    let to_string expr_to_string { name; expr; } =
-      sprintf "(%s %s)" (Name.to_string name) (expr_to_string expr)
+    let name { name; } = name
+
+    let expr { expr; } = expr
 
     let to_tuple { name; expr; } = (name, expr)
+
+    let to_string expr_to_string { name; expr; } =
+      sprintf "(%s %s)" (Name.to_string name) (expr_to_string expr)
   end
 
   module VarDef = struct
@@ -110,6 +119,7 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
     | If of t * t * t
     | Let of t Binding.t list * t
     | Apply of t * t list
+    | Cons of (type_expr_t * t Binding.t list)
     | Cast of type_expr_t * t
 
 let numlit_to_string numlit =
@@ -150,6 +160,12 @@ let apply_to_string to_string' fn args =
   let args = String.concat " " (List.map to_string' args) in
   sprintf "(apply %s %s)" (to_string' fn) args
 
+let cons_to_string to_string' tipe bindings =
+  let binding_to_string = Binding.to_string to_string' in
+  let bindings = List.map binding_to_string bindings in
+  let bindings = String.concat " " bindings in
+  sprintf "(recop %s %s)" (TypeExpr.to_string tipe) bindings
+
 let cast_to_string to_string' tipe expr =
   let tipe = TypeExpr.to_string tipe in
   sprintf "(cast %s %s)" tipe (to_string' expr)
@@ -160,6 +176,7 @@ let rec to_string node =
   let if_to_string = if_to_string to_string in
   let let_to_string = let_to_string to_string in
   let apply_to_string = apply_to_string to_string in
+  let cons_to_string = cons_to_string to_string in
   let cast_to_string = cast_to_string to_string in
   match node with
   | NumLit num -> numlit_to_string num
@@ -171,5 +188,6 @@ let rec to_string node =
   | If (test, iff, els) -> if_to_string test iff els
   | Let (bindings, body) -> let_to_string bindings body
   | Apply (fn, args) -> apply_to_string fn args
+  | Cons (tipe, bindings) -> cons_to_string tipe bindings
   | Cast (tipe, expr) -> cast_to_string tipe expr
 end

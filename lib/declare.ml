@@ -5,6 +5,9 @@ module Node = Ast.Parsed_node
 
 type t = (Symbol_table.t, Cmpl_err.t) result
 
+type declarations =
+  | Record of Mod_name.t
+
 module TypeDecls = Map.Make(Type.Name)
 
 let var_exists table name =
@@ -49,23 +52,26 @@ let type_redef_error name =
   let message = sprintf "type %s already declared" name in
   Error (Cmpl_err.NameError message)
 
-let declare_type mod_name typedecls = function
+let declare_type typedecls mod_name = function
   | Node.Rec (name, _) ->
       if TypeDecls.mem name typedecls then type_redef_error name
-      else Ok (TypeDecls.add name (Type.Rec (mod_name, name)) typedecls)
+      else Ok (TypeDecls.add name (Record mod_name) typedecls)
   | _ -> assert false
 
 let declare_types mod_name typedefs =
   List.fold_right (fun typedef typedecls ->
     typedecls >>= fun typedecls ->
-    (declare_type mod_name typedecls typedef) >>= fun typedecls ->
+    (declare_type typedecls mod_name typedef) >>= fun typedecls ->
     return typedecls) typedefs (Ok TypeDecls.empty)
 
 let resolve_type table typedecls type_expr =
   Symbol_table.resolve_type table ~lookup_fn:(Some (fun name ->
-    TypeDecls.find_opt name typedecls)) type_expr
+    match TypeDecls.find_opt name typedecls with
+    | Some (Record mod_name) -> Some (Type.Rec (mod_name, name, []))
+    | None -> None
+    )) type_expr
 
-let resolve_record_fields table typedecls fields =
+let resolve_constructor table typedecls fields =
   let fold_fn field fields =
     fields >>= fun fields ->
     let (name, type_expr) = Node.VarDef.to_tuple field in
@@ -75,8 +81,8 @@ let resolve_record_fields table typedecls fields =
   List.fold_right fold_fn fields (Ok [])
 
 let define_record table typedecls name fields =
-  (resolve_record_fields table typedecls fields) >>= fun resolved ->
-  return (Symbol_table.define_record table name resolved)
+  (resolve_constructor table typedecls fields) >>= fun cons_fields ->
+  return (Symbol_table.define_record table name cons_fields)
 
 let define_type table typedecls = function
   | Node.Rec (name, fields) -> define_record table typedecls name fields

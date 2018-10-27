@@ -7,6 +7,7 @@ module Form = struct
     | Number of float
     | String of string
     | Symbol of string
+    | Cons of string
     | List of t list
     | Vec of t list
 
@@ -16,6 +17,7 @@ module Form = struct
     | Number n -> sprintf "(number %.2f)" n
     | String s -> sprintf "(string %s)" s
     | Symbol s -> sprintf "(symbol %s)" s
+    | Cons s -> sprintf "(cons %s)" s
     | List l -> sprintf "(list %s)" (string_of_list l)
     | Vec v -> sprintf "(vec %s)" (string_of_list v)
 end
@@ -29,9 +31,13 @@ let upper_case = ['A'; 'B'; 'C'; 'D'; 'E'; 'F'; 'G'; 'H'; 'I'; 'J'; 'K'; 'L';
 let operators = ['+'; '-'; '*'; '/'; '>'; '<'; '=']
 let alpha = '_' :: (List.append lower_case upper_case)
 
-let symbol_starting_chars = List.append alpha operators
+let symbol_starting_chars = '_' :: (List.append lower_case operators)
 let symbol_chars =
-  List.append (List.append symbol_starting_chars digits) ['!'; '?'; '.']
+  symbol_starting_chars @ upper_case @ digits @ ['!'; '?'; '.'; ':']
+
+let cons_starting_chars = upper_case
+let cons_chars =
+  cons_starting_chars @ lower_case @ digits
 
 let append_char s c = s ^ String.make 1 c
 
@@ -49,6 +55,8 @@ let is_digit = is_char_of digits
 let is_string_delim = is_char_of ['"']
 let is_symbol_starting_char = is_char_of symbol_starting_chars
 let is_symbol_char = is_char_of symbol_chars
+let is_cons_starting_char = is_char_of cons_starting_chars
+let is_cons_char = is_char_of cons_chars
 let is_list_open = is_char_of ['(']
 let is_list_close = is_char_of [')']
 let is_vec_open = is_char_of ['[']
@@ -79,6 +87,11 @@ let lex_symbol input =
   let terminal_fn i o = (i, Form.Symbol o)
   and is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
   lex_form input terminal_fn is_not_symbol_char
+
+let lex_cons input =
+  let terminal_fn i o = (i, Form.Cons o)
+  and is_not_cons_char = (fun c -> not (is_cons_char c)) in
+  lex_form input terminal_fn is_not_cons_char
 
 let lex_delimited input start delimiter terminal_fn input_fn =
   let rec lex_delimited' input output =
@@ -119,6 +132,7 @@ let rec try_lex input =
   if is_digit c then lex_num input
   else if is_string_delim c then lex_string input
   else if is_symbol_starting_char c then lex_symbol input
+  else if is_cons_starting_char c then lex_cons input
   else if is_list_open c then lex_list try_lex input
   else if is_vec_open c then lex_vec try_lex input
   else raise (SyntaxError ("unrecognized form '" ^ (implode input) ^ "'"))

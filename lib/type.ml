@@ -10,8 +10,9 @@ type t =
   | Str
   | Bool
   | List
-  | Rec of Mod_name.t * Name.t
+  | Rec of Mod_name.t * Name.t * rec_cons_t
   | Fn of t list * t
+and rec_cons_t = (Name.t * t) list
 
 let type_of_str s =
   if s = "unit" then Some Unit
@@ -43,5 +44,5 @@ let rec to_string tipe =
   | Str -> "str"
   | Bool -> "bool"
   | List -> "list"
-  | Rec (mod_name, name) -> rec_to_string mod_name name
+  | Rec (mod_name, name, _) -> rec_to_string mod_name name
   | Fn (param_types, ret_type) -> fn_to_string param_types ret_type

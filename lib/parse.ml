@@ -39,6 +39,10 @@ let rec parse_type_expr = function
       (parse_name_expr tipe) >>= fun tipe ->
       return (Type_expr.SimpleType tipe)
   end
+  | Form.Cons tipe -> begin
+      (parse_name_expr tipe) >>= fun tipe ->
+      return (Type_expr.SimpleType tipe)
+  end
   | Form.Vec types -> begin
    match parse_type_list parse_type_expr types with
    | Error e -> Error e
@@ -66,7 +70,7 @@ let parse_rec_fields f_parse fields =
   else Error (Cmpl_err.ParseError "invalid FIELDS form")
 
 let parse_rec f_parse = function
-  | Form.Symbol name :: Form.Vec fields :: [] ->
+  | Form.Cons name :: Form.Vec fields :: [] ->
       let name = Node.Name.from_string name in
       let fields = parse_rec_fields f_parse fields in
       fields >>= fun fs ->
@@ -187,6 +191,14 @@ let parse_op f_parse op (args: Form.t list) =
   else if op = "def" || op = "defrec" then Error nested_error
   else parse_sym_apply f_parse op args
 
+let parse_cons f_parse tipe = function
+  | Form.Vec bindings :: [] ->
+      (parse_name_expr tipe) >>= fun name_expr ->
+      let type_expr = Type_expr.SimpleType name_expr in
+      (parse_bindings f_parse bindings) >>= fun bindings ->
+      return (Node.Cons (type_expr, bindings))
+  | _ -> Error (Cmpl_err.ParseError "invalid CONS form")
+
 let parse_symbol symbol =
   (parse_name_expr symbol) >>= fun symbol ->
   return (Node.SymLit symbol)
@@ -195,6 +207,7 @@ let parse_list f_parse = function
   | Form.Number n :: args -> parse_num_apply f_parse n args
   | Form.String s :: args -> parse_str_apply f_parse s args
   | Form.Symbol op :: args -> parse_op f_parse op args
+  | Form.Cons tipe :: args -> parse_cons f_parse tipe args
   | Form.List expr :: args -> parse_fn_apply f_parse expr args
   | _ -> Error (Cmpl_err.ParseError "unrecognized form")
 

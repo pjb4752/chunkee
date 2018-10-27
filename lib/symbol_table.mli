@@ -16,10 +16,12 @@ val resolve_type: t -> ?lookup_fn:exists_in_decls option -> Type_expr.t ->
 
 val module_var: t -> Mod_name.t -> Var.Name.t -> Var.t option
 
-val module_type: t -> Mod_name.t -> Var.Name.t -> Type.t option
+val module_vartype: t -> Mod_name.t -> Var.Name.t -> Type.t option
+
+val module_type: t -> Mod_name.t -> Type.Name.t -> Type.t option
 
 val define_var: t -> Var.Name.t -> Type.t -> t
 
-val define_record: t -> Type.Name.t -> (Type.Name.t * Type.t) list -> t
+val define_record: t -> Type.Name.t -> Type.rec_cons_t -> t
 
 val to_string: t -> string

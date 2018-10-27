@@ -24,14 +24,22 @@ let undefined_module_error mod_name =
   let mod_name = Mod_name.to_string mod_name in
   Error (Cmpl_err.NameError (sprintf "unknown module %s" mod_name))
 
+let no_constructor_error tipe =
+  let tipe = Type.to_string tipe in
+  Error (Cmpl_err.NameError (sprintf "no constructor for type %s" tipe))
+
+let select_module { tree; modul } mod_name =
+  if (Module.name modul) = mod_name then Some modul
+  else Module_tree.find_module tree mod_name
+
 let resolve_module_name modul name =
   let name = Var.Name.from_string name in
   let mod_name = Module.name modul in
   if Module.var_exists modul name then Ok (Name.Var.Module (mod_name, name))
   else undefined_name_error (Var.Name.to_string name)
 
-let resolve_qualified_name { tree; modul } mod_name name =
-  match Module_tree.find_module tree mod_name with
+let resolve_qualified_name table mod_name name =
+  match select_module table mod_name with
   | Some modul -> resolve_module_name modul name
   | None -> undefined_module_error mod_name
 
@@ -54,8 +62,8 @@ let resolve_module_type modul tipe =
   | Some tipe -> Ok tipe
   | None -> undefined_name_error tipe
 
-let resolve_qualified_type tree modul mod_name tipe =
-  match Module_tree.find_module tree mod_name with
+let resolve_qualified_type table mod_name tipe =
+  match select_module table mod_name with
   | Some modul -> resolve_module_type modul tipe
   | None -> undefined_module_error mod_name
 
@@ -73,11 +81,11 @@ let resolve_unqualified_type modul lookup_fn tipe =
     | None -> resolve_module_type modul tipe
   end
 
-let resolve_simple_type { tree; modul } lookup_fn = function
+let resolve_simple_type table lookup_fn = function
   | Name_expr.QualName (mod_name, tipe) ->
-      resolve_qualified_type tree modul mod_name tipe
+      resolve_qualified_type table mod_name tipe
   | Name_expr.BareName tipe ->
-      resolve_unqualified_type modul lookup_fn tipe
+      resolve_unqualified_type table.modul lookup_fn tipe
 
 let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
   | Type_expr.SimpleType tipe -> resolve_simple_type table lookup_fn tipe
@@ -92,25 +100,27 @@ let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
       | Ok (rtype :: ptypes) -> Ok (Type.Fn (ptypes, rtype))
       | Ok _ -> assert false
 
-let select_module { tree; modul } mod_name =
-  if (Module.name modul) = mod_name then Some modul
-  else Module_tree.find_module tree mod_name
-
 let module_var table mod_name var_name =
   (select_module table mod_name) >>= fun modul ->
   (Module.find_var modul var_name) >>= fun var ->
   return var
 
-let module_type table mod_name var_name =
+let module_vartype table mod_name var_name =
   (module_var table mod_name var_name) >>= fun var ->
   return (Var.tipe var)
+
+let module_type table mod_name type_name =
+  (select_module table mod_name) >>= fun modul ->
+  (Module.find_type modul type_name) >>= fun tipe ->
+  return tipe
+
 
 let define_var table var tipe =
   let new_modul = Module.define_var table.modul var tipe in
   { table with modul = new_modul }
 
-let define_record table name fields =
-  let new_modul = Module.define_record table.modul name fields in
+let define_record table name cons =
+  let new_modul = Module.define_record table.modul name cons in
   { table with modul = new_modul }
 
 let to_string { tree; modul } =

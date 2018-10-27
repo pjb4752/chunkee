@@ -5,6 +5,7 @@ module Form : sig
     | Number of float
     | String of string
     | Symbol of string
+    | Cons of string
     | List of t list
     | Vec of t list
 

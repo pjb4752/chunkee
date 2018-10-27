@@ -93,6 +93,46 @@ let resolve_apply recur_fn scopes fn args =
   (recur_fn scopes fn) >>= fun fn ->
   return (RNode.Apply (fn, List.rev args))
 
+let check_cons_fields fields tipe =
+  match tipe with
+  | Type.Rec (_, name, cons) -> begin
+    let cons_fields = List.map fst cons in
+    if (List.compare_lengths cons_fields fields) = 0 then
+      let field_exists cons_fields field =
+        if List.exists ((=) field) cons_fields then Ok field
+        else
+          let field = Type.Name.to_string field in
+          let message = sprintf "%s is not a valid binding" field in
+          Error (Cmpl_err.NameError message) in
+      let fold_fn field fields =
+        fields >>= fun fields ->
+        (field_exists cons_fields field) >>= fun field ->
+        return (field :: fields) in
+      List.fold_right fold_fn fields (Ok [])
+    else
+      let message = sprintf
+        "Wrong number of bindings for constructor '%s'"
+        (Type.Name.to_string name) in
+      Error (Cmpl_err.NameError message)
+  end
+  | _ -> assert false
+
+let resolve_exprs recur_fn scopes exprs =
+  let fold_fn expr exprs =
+    exprs >>= fun exprs ->
+    (recur_fn scopes expr) >>= fun expr ->
+    return (expr :: exprs) in
+  List.fold_right fold_fn exprs (Ok [])
+
+let resolve_cons recur_fn table scopes tipe bindings =
+  (Symbol_table.resolve_type table tipe) >>= fun tipe ->
+  let fields = List.map PNode.Binding.name bindings in
+  (check_cons_fields fields tipe) >>= fun fields ->
+  let exprs = List.map PNode.Binding.expr bindings in
+  (resolve_exprs recur_fn scopes exprs) >>= fun exprs ->
+  let bindings = List.map2 RNode.Binding.from_node fields exprs in
+  return (RNode.Cons (tipe, bindings))
+
 let resolve_cast recur_fn table scopes tipe expr =
   (Symbol_table.resolve_type table tipe) >>= fun tipe ->
   (recur_fn scopes expr) >>= fun expr ->
@@ -110,6 +150,7 @@ let resolve_node table node =
     | PNode.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
     | PNode.Let (bindings, body) -> resolve_let resolve' scopes bindings body
     | PNode.Apply (fn, args) -> resolve_apply resolve' scopes fn args
+    | PNode.Cons (tipe, bindings) -> resolve_cons resolve' table scopes tipe bindings
     | PNode.Cast (tipe, expr) -> resolve_cast resolve' table scopes tipe expr in
   resolve' [] node
 

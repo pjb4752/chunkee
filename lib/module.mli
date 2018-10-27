@@ -22,6 +22,6 @@ val type_exists: t -> Type.Name.t -> bool
 val define_var: t -> Var.Name.t -> Type.t -> t
 
 (*TODO use VarDef here instead of tuple*)
-val define_record: t -> Type.Name.t -> (Type.Name.t * Type.t) list -> t
+val define_record: t -> Type.Name.t -> Type.rec_cons_t -> t
 
 val to_string: t -> string

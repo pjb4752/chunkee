@@ -20,9 +20,13 @@ module type N = sig
 
     val from_node: Name.t -> 'a -> 'a t
 
-    val to_string: ('a -> string) -> 'a t -> string
+    val name: 'a t -> Name.t
+
+    val expr: 'a t -> 'a
 
     val to_tuple: 'a t -> Name.t * 'a
+
+    val to_string: ('a -> string) -> 'a t -> string
   end
 
   module VarDef: sig
@@ -48,6 +52,7 @@ module type N = sig
     | If of t * t * t
     | Let of t Binding.t list * t
     | Apply of t * t list
+    | Cons of (type_expr_t * t Binding.t list)
     | Cast of type_expr_t * t
 
   val to_string: t -> string
