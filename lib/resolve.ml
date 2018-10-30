@@ -133,6 +133,14 @@ let resolve_cons recur_fn table scopes tipe bindings =
   let bindings = List.map2 RNode.Binding.from_node fields exprs in
   return (RNode.Cons (tipe, bindings))
 
+let resolve_get table scopes record field =
+  match record with
+  | PNode.SymLit name -> begin
+    (resolve_symlit table scopes name) >>= fun symlit ->
+    return (RNode.Get (symlit, field))
+  end
+  | _ -> assert false
+
 let resolve_cast recur_fn table scopes tipe expr =
   (Symbol_table.resolve_type table tipe) >>= fun tipe ->
   (recur_fn scopes expr) >>= fun expr ->
@@ -151,6 +159,7 @@ let resolve_node table node =
     | PNode.Let (bindings, body) -> resolve_let resolve' scopes bindings body
     | PNode.Apply (fn, args) -> resolve_apply resolve' scopes fn args
     | PNode.Cons (tipe, bindings) -> resolve_cons resolve' table scopes tipe bindings
+    | PNode.Get (record, field) -> resolve_get table scopes record field
     | PNode.Cast (tipe, expr) -> resolve_cast resolve' table scopes tipe expr in
   resolve' [] node
 

@@ -110,6 +110,13 @@ let parse_header header =
   end
   | _ -> Error (Cmpl_err.ParseError "invalid FN header")
 
+let parse_get = function
+  | Form.Symbol record :: Form.Symbol field :: [] ->
+      (parse_name_expr record) >>= fun record ->
+      let field = Node.Name.from_string field in
+      return (Node.Get (Node.SymLit record, field))
+  | _ -> Error (Cmpl_err.ParseError "invalid GET form")
+
 let parse_fn f_parse = function
   | Form.Vec raw_header :: raw_body :: [] ->
       (parse_header raw_header) >>= fun (params, rtype) ->
@@ -184,7 +191,8 @@ let parse_fn_apply f_parse fn args =
 let nested_error = Cmpl_err.ParseError "definitions must occur at toplevel"
 
 let parse_op f_parse op (args: Form.t list) =
-  if op = "fn" then parse_fn f_parse args
+  if op = "get" then parse_get args
+  else if op = "fn" then parse_fn f_parse args
   else if op = "if" then parse_if f_parse args
   else if op = "let" then parse_let f_parse args
   else if op = "cast" then parse_cast f_parse args

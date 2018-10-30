@@ -55,6 +55,7 @@ module type N = sig
     | Let of t Binding.t list * t
     | Apply of t * t list
     | Cons of (type_expr_t * t Binding.t list)
+    | Get of t * Name.t
     | Cast of type_expr_t * t
 
   val to_string: t -> string
@@ -120,6 +121,7 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
     | Let of t Binding.t list * t
     | Apply of t * t list
     | Cons of (type_expr_t * t Binding.t list)
+    | Get of t * Name.t
     | Cast of type_expr_t * t
 
 let numlit_to_string numlit =
@@ -166,6 +168,11 @@ let cons_to_string to_string' tipe bindings =
   let bindings = String.concat " " bindings in
   sprintf "(recop %s %s)" (TypeExpr.to_string tipe) bindings
 
+let get_to_string to_string' record field =
+  let record = to_string' record in
+  let field = Name.to_string field in
+  sprintf "(get %s %s)" record field
+
 let cast_to_string to_string' tipe expr =
   let tipe = TypeExpr.to_string tipe in
   sprintf "(cast %s %s)" tipe (to_string' expr)
@@ -177,6 +184,7 @@ let rec to_string node =
   let let_to_string = let_to_string to_string in
   let apply_to_string = apply_to_string to_string in
   let cons_to_string = cons_to_string to_string in
+  let get_to_string = get_to_string to_string in
   let cast_to_string = cast_to_string to_string in
   match node with
   | NumLit num -> numlit_to_string num
@@ -189,5 +197,6 @@ let rec to_string node =
   | Let (bindings, body) -> let_to_string bindings body
   | Apply (fn, args) -> apply_to_string fn args
   | Cons (tipe, bindings) -> cons_to_string tipe bindings
+  | Get (record, field) -> get_to_string record field
   | Cast (tipe, expr) -> cast_to_string tipe expr
 end

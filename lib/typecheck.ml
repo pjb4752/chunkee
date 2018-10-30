@@ -145,6 +145,25 @@ let chk_cons recur_fn scopes tipe bindings =
     end
   | _ -> assert false
 
+let chk_record_type = function
+  | Type.Rec (_, _, cons) -> Ok cons
+  | _ -> Error (Cmpl_err.TypeError "first arg to 'get' must be record type")
+
+let chk_record_field cons field =
+  match List.find_opt (fun (name, _) -> name = field) cons with
+  | Some (_, tipe) -> Ok (tipe)
+  | None -> Error (Cmpl_err.NameError "record does not have that field")
+
+let chk_get table scopes record field =
+  match record with
+  | Node.SymLit name -> begin
+    (chk_name table scopes name) >>= fun rectype ->
+    (chk_record_type rectype) >>= fun cons ->
+    (chk_record_field cons field) >>= fun rtype ->
+    return rtype
+  end
+  | _ -> assert false
+
 let chk_cast recur_fn scopes tipe expr =
   (recur_fn scopes expr) >>= fun _ ->
   return tipe
@@ -159,6 +178,7 @@ let check_node table node =
     | Node.Let (bindings, body) -> chk_let check_node' scopes bindings body
     | Node.Apply (fn, args) -> chk_apply check_node' scopes fn args
     | Node.Cons (tipe, bindings) -> chk_cons check_node' scopes tipe bindings
+    | Node.Get (record, field) -> chk_get table scopes record field
     | Node.Cast (tipe, expr) -> chk_cast check_node' scopes tipe expr
     | Node.Def _ -> assert false
     | Node.Rec _ -> assert false in
