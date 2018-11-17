@@ -54,6 +54,7 @@ module type N = sig
     | Apply of t * t list
     | Cons of (type_expr_t * t Binding.t list)
     | Get of t * Name.t
+    | Set of t * Name.t * t
     | Cast of type_expr_t * t
 
   val to_string: t -> string

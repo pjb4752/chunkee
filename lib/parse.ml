@@ -117,6 +117,14 @@ let parse_get = function
       return (Node.Get (Node.SymLit record, field))
   | _ -> Error (Cmpl_err.ParseError "invalid GET form")
 
+let parse_set f_parse = function
+  | Form.Symbol record :: Form.Symbol field :: expr :: [] ->
+      (parse_name_expr record) >>= fun record ->
+      (f_parse expr) >>= fun expr ->
+      let field = Node.Name.from_string field in
+      return (Node.Set (Node.SymLit record, field, expr))
+  | _ -> Error (Cmpl_err.ParseError "invalid SET! form")
+
 let parse_fn f_parse = function
   | Form.Vec raw_header :: raw_body :: [] ->
       (parse_header raw_header) >>= fun (params, rtype) ->
@@ -192,6 +200,7 @@ let nested_error = Cmpl_err.ParseError "definitions must occur at toplevel"
 
 let parse_op f_parse op (args: Form.t list) =
   if op = "get" then parse_get args
+  else if op = "set!" then parse_set f_parse args
   else if op = "fn" then parse_fn f_parse args
   else if op = "if" then parse_if f_parse args
   else if op = "let" then parse_let f_parse args

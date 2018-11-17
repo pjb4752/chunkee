@@ -9,11 +9,11 @@ type u = (Type.t, Cmpl_err.t) result
 
 module Scope = Map.Make(String)
 
-let is_compatible this that =
-  this = that || this == Type.Any
+let is_compatible expected actual =
+  expected = actual || expected == Type.Any
 
-let are_compatible this that =
-  List.for_all2 is_compatible this that
+let are_compatible expected actual =
+  List.for_all2 is_compatible expected actual
 
 let chk_local_name scopes name =
   match List.find_opt (Scope.mem name) scopes with
@@ -164,6 +164,22 @@ let chk_get table scopes record field =
   end
   | _ -> assert false
 
+let compare_set_type expected actual =
+  if is_compatible expected actual then Ok actual
+  else Error (Cmpl_err.TypeError "record set expr is not of expected type")
+
+let chk_set recur_fn table scopes record field expr =
+  match record with
+  | Node.SymLit name -> begin
+    (chk_name table scopes name) >>= fun rectype ->
+    (chk_record_type rectype) >>= fun cons ->
+    (chk_record_field cons field) >>= fun fieldtype ->
+    (recur_fn scopes expr) >>= fun exprtype ->
+    (compare_set_type exprtype fieldtype) >>= fun fieldtype ->
+    return Type.Unit
+  end
+  | _ -> assert false
+
 let chk_cast recur_fn scopes tipe expr =
   (recur_fn scopes expr) >>= fun _ ->
   return tipe
@@ -173,12 +189,15 @@ let check_node table node =
     | Node.NumLit n -> Ok Type.Num
     | Node.StrLit s -> Ok Type.Str
     | Node.SymLit name -> chk_name table scopes name
-    | Node.Fn (params, rtype, body) -> chk_fn check_node' scopes params rtype body
+    | Node.Fn (params, rtype, body) ->
+        chk_fn check_node' scopes params rtype body
     | Node.If (tst, iff, els) -> chk_if check_node' scopes tst iff els
     | Node.Let (bindings, body) -> chk_let check_node' scopes bindings body
     | Node.Apply (fn, args) -> chk_apply check_node' scopes fn args
     | Node.Cons (tipe, bindings) -> chk_cons check_node' scopes tipe bindings
     | Node.Get (record, field) -> chk_get table scopes record field
+    | Node.Set (record, field, expr) ->
+        chk_set check_node' table scopes record field expr
     | Node.Cast (tipe, expr) -> chk_cast check_node' scopes tipe expr
     | Node.Def _ -> assert false
     | Node.Rec _ -> assert false in

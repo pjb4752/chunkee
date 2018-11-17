@@ -141,6 +141,15 @@ let resolve_get table scopes record field =
   end
   | _ -> assert false
 
+let resolve_set recur_fn table scopes record field expr =
+  match record with
+  | PNode.SymLit name -> begin
+    (resolve_symlit table scopes name) >>= fun symlit ->
+    (recur_fn scopes expr) >>= fun expr ->
+    return (RNode.Set (symlit, field, expr))
+  end
+  | _ -> assert false
+
 let resolve_cast recur_fn table scopes tipe expr =
   (Symbol_table.resolve_type table tipe) >>= fun tipe ->
   (recur_fn scopes expr) >>= fun expr ->
@@ -158,9 +167,13 @@ let resolve_node table node =
     | PNode.If (tst, iff, els) -> resolve_if resolve' scopes tst iff els
     | PNode.Let (bindings, body) -> resolve_let resolve' scopes bindings body
     | PNode.Apply (fn, args) -> resolve_apply resolve' scopes fn args
-    | PNode.Cons (tipe, bindings) -> resolve_cons resolve' table scopes tipe bindings
+    | PNode.Cons (tipe, bindings) ->
+        resolve_cons resolve' table scopes tipe bindings
     | PNode.Get (record, field) -> resolve_get table scopes record field
-    | PNode.Cast (tipe, expr) -> resolve_cast resolve' table scopes tipe expr in
+    | PNode.Set (record, field, expr) ->
+        resolve_set resolve' table scopes record field expr
+    | PNode.Cast (tipe, expr) ->
+        resolve_cast resolve' table scopes tipe expr in
   resolve' [] node
 
 let resolve_nodes table nodes =
