@@ -1,4 +1,5 @@
 open Printf
+open Thwack.Extensions
 
 exception SyntaxError of string
 
@@ -39,15 +40,6 @@ let cons_starting_chars = upper_case
 let cons_chars =
   cons_starting_chars @ lower_case @ digits
 
-let append_char s c = s ^ String.make 1 c
-
-let explode s =
-  let rec exp i l =
-    if i < 0 then l else exp (i - 1) (s.[i] :: l) in
-  exp (String.length s - 1) []
-
-let implode l = List.fold_left append_char "" l
-
 let is_char_of set ch = List.exists (fun c -> c = ch) set
 
 let is_blank = is_char_of whitespace
@@ -74,7 +66,7 @@ let lex_form input terminal_fn test_fn =
     match input with
     | [] -> terminal_fn input output
     | x :: xs when test_fn x -> terminal_fn input output
-    | x :: xs -> lex_form' xs (append_char output x) in
+    | x :: xs -> lex_form' xs (String.append_char output x) in
   lex_form' input ""
 
 (* TODO: needs better handling of decimal points, preceding +/- *)
@@ -108,7 +100,7 @@ let lex_string input =
   and input_fn i out =
     match i with
     | [] -> assert false
-    | x :: xs -> (xs, append_char out x) in
+    | x :: xs -> (xs, String.append_char out x) in
   lex_delimited (List.tl input) "" '"' terminal_fn input_fn
 
 let lex_collection lex_fn input terminal_fn terminal_char =
@@ -135,7 +127,8 @@ let rec try_lex input =
   else if is_cons_starting_char c then lex_cons input
   else if is_list_open c then lex_list try_lex input
   else if is_vec_open c then lex_vec try_lex input
-  else raise (SyntaxError ("unrecognized form '" ^ (implode input) ^ "'"))
+  else let bad_input = String.from_chars input in
+    raise (SyntaxError (sprintf "unrecognized form '%s'" bad_input))
 
 let lex_forms input =
   let rec lex_list' input forms =
@@ -147,7 +140,7 @@ let lex_forms input =
         lex_list' new_input (new_form :: forms) in
   lex_list' input []
 
-let lex_exn s = lex_forms @@ explode s
+let lex_exn s = lex_forms @@ String.to_chars s
 
 let lex s =
   try Ok (lex_exn s)
