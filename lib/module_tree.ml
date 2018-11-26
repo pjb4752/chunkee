@@ -78,28 +78,18 @@ module Lib_tree = struct
     | Leaf modul -> sprintf "(leaf %s)" (Module.to_string modul)
 end
 
-type t = {
-  pervasive: Pervasive.t;
-  libraries: Lib_tree.t
-}
+type t = Lib_tree.t
 
-let with_pervasive pervasive =
-  let { Pervasive.modul } = pervasive in
-  let libraries = Lib_tree.insert_module Lib_tree.empty modul in
-  { pervasive; libraries }
+let empty = Lib_tree.empty
 
-let pervasive_module { pervasive } = pervasive.modul
+let find_module lib_tree name =
+  Lib_tree.find_module lib_tree name
 
-let find_module { libraries } name =
-  Lib_tree.find_module libraries name
+let insert_module lib_tree modul =
+  Lib_tree.insert_module lib_tree modul
 
-let insert_module symbol_table modul =
-  let libraries = Lib_tree.insert_module symbol_table.libraries modul in
-  { symbol_table with libraries = libraries }
+let update_module lib_tree modul =
+  Lib_tree.update_module lib_tree modul
 
-let update_module symbol_table modul =
-  let libraries = Lib_tree.update_module symbol_table.libraries modul in
-  { symbol_table with libraries = libraries }
-
-let to_string { libraries } =
-  Lib_tree.to_string libraries
+let to_string lib_tree =
+  Lib_tree.to_string lib_tree

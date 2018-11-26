@@ -11,8 +11,9 @@ type exists_in_scope = string -> bool
 
 type exists_in_decls = Type.Name.t -> Type.t option
 
-let make pervasive modul =
-  let tree = Module_tree.with_pervasive pervasive in
+let make (pervasive: Pervasive.t) modul =
+  let tree = Module_tree.empty in
+  let tree = Module_tree.insert_module tree pervasive.modul in
   { pervasive; tree; modul }
 
 let current_module { modul } = modul
