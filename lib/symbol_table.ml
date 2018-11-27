@@ -98,7 +98,7 @@ let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
           return (tipe :: types)) in
       match List.fold_left fold_fn (Ok []) types with
       | Error e -> Error e
-      | Ok (rtype :: ptypes) -> Ok (Type.Fn (ptypes, rtype))
+      | Ok (rtype :: ptypes) -> Ok (Type.Fn (List.rev ptypes, rtype))
       | Ok _ -> assert false
 
 let module_var table mod_name var_name =
