@@ -107,9 +107,16 @@ let chk_let recur_fn scopes bindings body =
 
 let cmp_fn_types f_type p_act =
   match f_type with
-  | Type.Fn (p_exp, rt) when are_compatible p_exp p_act -> Ok rt
-  | Type.Fn _ ->
+  | Type.Fn (p_exp, rt) -> begin
+    let comparison = List.compare_lengths p_exp p_act in
+    if comparison = 0 && (are_compatible p_exp p_act) then Ok rt
+    else if comparison < 0 then
+      Error (Cmpl_err.TypeError "too many arguments passed to function")
+    else if comparison > 0 then
+      Error (Cmpl_err.TypeError "too few arguments passed to fucntion")
+    else
       Error (Cmpl_err.TypeError "argument types do not match expected types")
+  end
   | _ -> Error (Cmpl_err.TypeError "cannot apply non-fn type")
 
 let chk_apply recur_fn scopes fn args =
