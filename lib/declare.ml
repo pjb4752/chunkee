@@ -26,6 +26,7 @@ let find_def_type table = function
   | Node.NumLit _ -> Ok Type.Num
   | Node.StrLit _ -> Ok Type.Str
   | Node.Fn (params, rtype, _) -> find_fn_type table params rtype
+  | Node.Cons (rtype, _) -> Symbol_table.resolve_type table rtype
   | _ -> assert false
 
 let define_var table = function

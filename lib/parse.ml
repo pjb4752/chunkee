@@ -77,9 +77,13 @@ let parse_rec f_parse = function
       return (Node.Rec (name, fs))
   | _ -> Error (Cmpl_err.ParseError "invalid RECORD form")
 
-let is_const_literal = function
+let rec is_const_literal = function
   | Form.Number _ | Form.String _ -> true
   | Form.List (Form.Symbol "fn" :: rest) -> true
+  | Form.List (Form.Cons _ :: Form.Vec bindings :: []) -> begin
+    let forms = List.map snd @@ List.as_pairs bindings in
+    List.for_all is_const_literal forms
+  end
   | _ -> false
 
 let parse_def f_parse = function
