@@ -3,26 +3,46 @@ open Thwack.Extensions
 
 module Read_list = Thwack.Read_list
 
-exception SyntaxError of string
+exception SyntaxError of string * int * int
 
 module Form = struct
+  type meta = { line_num: int; char_num: int }
+
   type t =
-    | Number of float
-    | String of string
-    | Symbol of string
-    | Cons of string
-    | List of t list
-    | Vec of t list
+    | Number of float * meta
+    | String of string * meta
+    | Symbol of string * meta
+    | Cons of string * meta
+    | List of t list * meta
+    | Vec of t list * meta
 
   let rec to_string form =
     let string_of_list l = String.concat " " (List.map to_string l) in
     match form with
-    | Number n -> sprintf "(number %.2f)" n
-    | String s -> sprintf "(string %s)" s
-    | Symbol s -> sprintf "(symbol %s)" s
-    | Cons s -> sprintf "(cons %s)" s
-    | List l -> sprintf "(list %s)" (string_of_list l)
-    | Vec v -> sprintf "(vec %s)" (string_of_list v)
+    | Number (n, _) -> sprintf "%.2f" n
+    | String (s, _) -> sprintf "\"%s\"" s
+    | Symbol (s, _) -> sprintf "%s" s
+    | Cons (s, _) -> sprintf "%s" s
+    | List (l, _) -> sprintf "(%s)" (string_of_list l)
+    | Vec (v, _) -> sprintf "[%s]" (string_of_list v)
+
+  let metadata = function
+    | Number (_, meta) -> meta
+    | String (_, meta) -> meta
+    | Symbol (_, meta) -> meta
+    | Cons (_, meta) -> meta
+    | List (_, meta) -> meta
+    | Vec (_, meta) -> meta
+
+  let rec debug_string form =
+    let string_of_list l = String.concat " " (List.map to_string l) in
+    match form with
+    | Number (n, _) -> sprintf "(number %.2f)" n
+    | String (s, _) -> sprintf "(string %s)" s
+    | Symbol (s, _) -> sprintf "(symbol %s)" s
+    | Cons (s, _) -> sprintf "(cons %s)" s
+    | List (l, _) -> sprintf "(list %s)" (string_of_list l)
+    | Vec (v, _) -> sprintf "(vec %s)" (string_of_list v)
 end
 
 let whitespace = [' '; '\t'; '\n']
@@ -53,8 +73,6 @@ let is_cons_char = is_char_of cons_chars
 let is_list_open = is_char_of ['(']
 let is_vec_open = is_char_of ['[']
 
-let string_to_number s = Form.Number (float_of_string s)
-
 let rec remove_blank input =
   Read_list.(
     match input with
@@ -75,27 +93,33 @@ let lex_form input terminal_fn test_fn =
 
 (* TODO: needs better handling of decimal points, preceding +/- *)
 let lex_num line_num char_num input =
-  let terminal_fn input output = (input, string_to_number output) in
+  let terminal_fn input output =
+    let meta = { Form.line_num; char_num } in
+    (input, Form.Number (float_of_string output, meta)) in
   let is_not_digit = (fun c -> not (is_digit c)) in
   lex_form input terminal_fn is_not_digit
 
 let lex_symbol line_num char_num input =
-  let terminal_fn input output = (input, Form.Symbol output) in
+  let terminal_fn input output =
+    let meta = { Form.line_num; char_num } in
+    (input, Form.Symbol (output, meta)) in
   let is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
   lex_form input terminal_fn is_not_symbol_char
 
 let lex_cons line_num char_num input =
-  let terminal_fn input output = (input, Form.Cons output) in
+  let terminal_fn input output =
+    let meta = { Form.line_num; char_num } in
+    (input, Form.Cons (output, meta)) in
   let is_not_cons_char = (fun c -> not (is_cons_char c)) in
   lex_form input terminal_fn is_not_cons_char
 
-let lex_delimited input start delimiter terminal_fn input_fn =
+let lex_delimited line_num char_num input start delimiter terminal_fn input_fn =
   Read_list.(
     let rec lex_delimited' input output =
       match input with
       | [] ->
           let message = sprintf "expecting '%c', none found" delimiter in
-          raise (SyntaxError message)
+          raise (SyntaxError (message, line_num, char_num))
       | { value } :: xs when value = delimiter -> (xs, terminal_fn output)
       | { value } :: xs ->
           let (new_input, new_output) = input_fn input output in
@@ -104,16 +128,20 @@ let lex_delimited input start delimiter terminal_fn input_fn =
   )
 
 let lex_string line_num char_num input =
-  let terminal_fn = (fun output -> Form.String output) in
-  let input_fn input out =
+  Read_list.(
+    let terminal_fn output =
+      Form.String (output, { line_num; char_num }) in
+    let input_fn input out =
+      match input with
+      | [] -> assert false
+      | { value } :: xs -> (xs, String.append_char out value) in
     match input with
     | [] -> assert false
-    | { Read_list.value } :: xs -> (xs, String.append_char out value) in
-  match input with
-  | [] -> assert false
-  | x :: xs -> lex_delimited xs "" '"' terminal_fn input_fn
+    | { value; line_num; char_num } :: xs ->
+        lex_delimited line_num char_num xs "" '"' terminal_fn input_fn
+  )
 
-let lex_collection lex_fn input terminal_fn terminal_char =
+let lex_collection lex_fn input terminal_fn final_char =
   Read_list.(
     let input_fn = (fun input output ->
       match input with
@@ -125,15 +153,20 @@ let lex_collection lex_fn input terminal_fn terminal_char =
           (new_input, form :: output)) in
     match input with
     | [] -> assert false
-    | x :: xs -> lex_delimited xs [] terminal_char terminal_fn input_fn
+    | { value; line_num; char_num } :: xs ->
+        lex_delimited line_num char_num xs [] final_char terminal_fn input_fn
   )
 
 let lex_list lex_fn line_num char_num input =
-  let terminal_fn = (fun output -> Form.List (List.rev output)) in
+  let terminal_fn output =
+    let meta = { Form.line_num; char_num } in
+    Form.List (List.rev output, meta) in
   lex_collection lex_fn input terminal_fn ')'
 
 let lex_vec lex_fn line_num char_num input =
-  let terminal_fn = (fun output -> Form.Vec (List.rev output)) in
+  let terminal_fn output =
+    let meta = { Form.line_num; char_num } in
+    Form.Vec (List.rev output, meta) in
   lex_collection lex_fn input terminal_fn ']'
 
 let rec try_lex input =
@@ -147,7 +180,8 @@ let rec try_lex input =
   else
     let chars = Read_list.(List.map (fun e -> e.value) input) in
     let bad_input = String.from_chars chars in
-    raise (SyntaxError (sprintf "unrecognized form '%s'" bad_input))
+    let message = sprintf "Unrecognized form '%s'" bad_input in
+    raise (SyntaxError (message, line_num, char_num))
 
 let lex_forms input =
   Read_list.(
@@ -163,4 +197,5 @@ let lex_forms input =
 
 let lex str =
   try Ok (lex_forms @@ Read_list.from_string str)
-  with SyntaxError e -> Error (Cmpl_err.SyntaxError e)
+  with SyntaxError (message, line_num, char_num) ->
+    Error (Cmpl_err.SyntaxError { message; line_num; char_num })
