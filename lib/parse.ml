@@ -4,7 +4,7 @@ open Thwack.Extensions
 
 module Node = Ast.Parsed_node
 
-let parse_error { Form.line_num; char_num } messages =
+let parse_error { Metadata.line_num; char_num } messages =
   let message = String.concat "\n" messages in
   Error (Cmpl_err.ParseError { line_num; char_num; message })
 
@@ -121,7 +121,7 @@ let parse_rec metadata = function
       let name = Node.Name.from_string name in
       let fields = parse_rec_fields fields meta in
       fields >>= fun fs ->
-      return (Node.Rec (name, fs))
+      return (Node.Rec (name, fs, metadata))
   | args -> begin
     let raw = String.concat " " @@ List.map Form.to_string args in
     parse_error metadata [
@@ -144,7 +144,7 @@ let parse_def f_parse metadata = function
   | Form.Symbol (name, _) :: expr :: [] when is_const_literal expr ->
       (f_parse expr) >>= fun expr ->
       let name = Node.Name.from_string name in
-      return (Node.Def (name, expr))
+      return (Node.Def (name, expr, metadata))
   | Form.Symbol (name, _) :: expr :: [] -> begin
     let raw = sprintf "(def %s %s)" name @@ Form.to_string expr in
     parse_error metadata [
@@ -167,7 +167,8 @@ let parse_get metadata = function
   | Form.Symbol (record, meta) :: Form.Symbol (field, _) :: [] ->
       (parse_name_expr record meta) >>= fun record ->
       let field = Node.Name.from_string field in
-      return (Node.Get (Node.SymLit record, field))
+      let symlit = Node.SymLit (record, meta) in
+      return (Node.Get (symlit, field, metadata))
   | args -> begin
     let args = String.concat " " @@ List.map Form.to_string args in
     parse_error metadata [
@@ -182,7 +183,8 @@ let parse_set f_parse metadata = function
       (parse_name_expr record meta) >>= fun record ->
       (f_parse expr) >>= fun expr ->
       let field = Node.Name.from_string field in
-      return (Node.Set (Node.SymLit record, field, expr))
+      let symlit = Node.SymLit (record, meta) in
+      return (Node.Set (symlit, field, expr, metadata))
   | args -> begin
     let args = String.concat " " @@ List.map Form.to_string args in
     parse_error metadata [
@@ -230,7 +232,7 @@ let parse_fn f_parse metadata = function
   | Form.Vec (raw_header, meta) :: raw_body :: [] ->
       (parse_header meta raw_header) >>= fun (params, rtype) ->
       (f_parse raw_body) >>= fun body ->
-      return (Node.Fn (params, rtype, body))
+      return (Node.Fn (params, rtype, body, metadata))
   | args -> begin
     let args = String.concat " " @@ List.map Form.to_string args in
     parse_error metadata [
@@ -247,7 +249,7 @@ let parse_if f_parse metadata = function
       (f_parse raw_test) >>= fun t ->
       (f_parse raw_if) >>= fun i ->
       (f_parse raw_else) >>= fun e ->
-      return (Node.If (t, i, e))
+      return (Node.If (t, i, e, metadata))
   | args -> begin
     let args = String.concat " " @@ List.map Form.to_string args in
     parse_error metadata [
@@ -297,7 +299,7 @@ let parse_let f_parse metadata = function
       let bindings = parse_bindings f_parse meta bindings in
       bindings >>= fun bi ->
       (f_parse body) >>= fun b ->
-      return (Node.Let (bi, b))
+      return (Node.Let (bi, b, metadata))
   | args -> begin
     let args = String.concat " " @@ List.map Form.to_string args in
     parse_error metadata [
@@ -313,7 +315,7 @@ let parse_cast f_parse metadata = function
   | raw_type :: expr :: [] -> begin
     (parse_type_expr raw_type) >>= fun t ->
     (f_parse expr) >>= fun e ->
-    return (Node.Cast (t, e))
+    return (Node.Cast (t, e, metadata))
   end
   | args -> begin
     let args = String.concat " " @@ List.map Form.to_string args in
@@ -333,23 +335,26 @@ let parse_args f_parse args =
     return (a :: args) in
   List.fold_right fold_fn args (Ok [])
 
-let parse_num_apply f_parse num args =
+let parse_num_apply f_parse metadata num args =
   (parse_args f_parse args) >>= fun args ->
-  return (Node.Apply (Node.NumLit num, args))
+  let numlit = Node.NumLit (num, metadata) in
+  return (Node.Apply (numlit, args, metadata))
 
-let parse_str_apply f_parse str args =
+let parse_str_apply f_parse metadata str args =
   (parse_args f_parse args) >>= fun args ->
-  return (Node.Apply (Node.StrLit str, args))
+  let strlit = Node.StrLit (str, metadata) in
+  return (Node.Apply (strlit, args, metadata))
 
-let parse_sym_apply f_parse meta fn args =
-  (parse_name_expr fn meta) >>= fun fn ->
+let parse_sym_apply f_parse metadata fn args =
+  (parse_name_expr fn metadata) >>= fun fn ->
   (parse_args f_parse args) >>= fun args ->
-  return (Node.Apply (Node.SymLit fn, args))
+  let symlit = Node.SymLit (fn, metadata) in
+  return (Node.Apply (symlit, args, metadata))
 
-let parse_fn_apply f_parse meta fn args =
-  (f_parse (Form.List (fn, meta))) >>= fun fn ->
+let parse_fn_apply f_parse metadata fn args =
+  (f_parse (Form.List (fn, metadata))) >>= fun fn ->
   (parse_args f_parse args) >>= fun args ->
-  return (Node.Apply (fn, args))
+  return (Node.Apply (fn, args, metadata))
 
 let nested_error metadata =
   parse_error metadata [
@@ -374,7 +379,7 @@ let parse_cons f_parse metadata tipe = function
       (parse_name_expr tipe meta) >>= fun name_expr ->
       let type_expr = Type_expr.SimpleType name_expr in
       (parse_bindings f_parse meta bindings) >>= fun bindings ->
-      return (Node.Cons (type_expr, bindings))
+      return (Node.Cons (type_expr, bindings, metadata))
   | args -> begin
     let raw = String.concat " " @@ List.map Form.to_string args in
     parse_error metadata [
@@ -384,13 +389,13 @@ let parse_cons f_parse metadata tipe = function
     ]
   end
 
-let parse_symbol meta symbol =
-  (parse_name_expr symbol meta) >>= fun symbol ->
-  return (Node.SymLit symbol)
+let parse_symbol metadata symbol =
+  (parse_name_expr symbol metadata) >>= fun symbol ->
+  return (Node.SymLit (symbol, metadata))
 
 let parse_list f_parse metadata = function
-  | Form.Number (n, _) :: args -> parse_num_apply f_parse n args
-  | Form.String (s, _) :: args -> parse_str_apply f_parse s args
+  | Form.Number (n, meta) :: args -> parse_num_apply f_parse meta n args
+  | Form.String (s, meta) :: args -> parse_str_apply f_parse meta s args
   | Form.Symbol (op, meta) :: args -> parse_op f_parse meta op args
   | Form.Cons (tipe, meta) :: args -> parse_cons f_parse meta tipe args
   | Form.List (expr, meta) :: args -> parse_fn_apply f_parse meta expr args
@@ -404,8 +409,8 @@ let parse_list f_parse metadata = function
   end
 
 let rec parse_form = function
-  | Form.Number (n, _) -> Ok (Node.NumLit n)
-  | Form.String (s, _) -> Ok (Node.StrLit s)
+  | Form.Number (n, meta) -> Ok (Node.NumLit (n, meta))
+  | Form.String (s, meta) -> Ok (Node.StrLit (s, meta))
   | Form.Symbol (s, meta) -> parse_symbol meta s
   | Form.List (l, meta) -> parse_list parse_form meta l
   | Form.Cons (_, meta) -> begin

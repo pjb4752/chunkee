@@ -1,19 +1,17 @@
 exception SyntaxError of string * int * int
 
 module Form : sig
-  type meta = { line_num: int; char_num: int }
-
   type t =
-    | Number of float * meta
-    | String of string * meta
-    | Symbol of string * meta
-    | Cons of string * meta
-    | List of t list * meta
-    | Vec of t list * meta
+    | Number of float * Metadata.t
+    | String of string * Metadata.t
+    | Symbol of string * Metadata.t
+    | Cons of string * Metadata.t
+    | List of t list * Metadata.t
+    | Vec of t list * Metadata.t
 
   val to_string: t -> string
 
-  val metadata: t -> meta
+  val metadata: t -> Metadata.t
 
   val debug_string: t -> string
 end

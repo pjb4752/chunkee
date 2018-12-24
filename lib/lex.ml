@@ -6,15 +6,13 @@ module Read_list = Thwack.Read_list
 exception SyntaxError of string * int * int
 
 module Form = struct
-  type meta = { line_num: int; char_num: int }
-
   type t =
-    | Number of float * meta
-    | String of string * meta
-    | Symbol of string * meta
-    | Cons of string * meta
-    | List of t list * meta
-    | Vec of t list * meta
+    | Number of float * Metadata.t
+    | String of string * Metadata.t
+    | Symbol of string * Metadata.t
+    | Cons of string * Metadata.t
+    | List of t list * Metadata.t
+    | Vec of t list * Metadata.t
 
   let rec to_string form =
     let string_of_list l = String.concat " " (List.map to_string l) in
@@ -94,21 +92,21 @@ let lex_form input terminal_fn test_fn =
 (* TODO: needs better handling of decimal points, preceding +/- *)
 let lex_num line_num char_num input =
   let terminal_fn input output =
-    let meta = { Form.line_num; char_num } in
+    let meta = { Metadata.line_num; char_num } in
     (input, Form.Number (float_of_string output, meta)) in
   let is_not_digit = (fun c -> not (is_digit c)) in
   lex_form input terminal_fn is_not_digit
 
 let lex_symbol line_num char_num input =
   let terminal_fn input output =
-    let meta = { Form.line_num; char_num } in
+    let meta = { Metadata.line_num; char_num } in
     (input, Form.Symbol (output, meta)) in
   let is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
   lex_form input terminal_fn is_not_symbol_char
 
 let lex_cons line_num char_num input =
   let terminal_fn input output =
-    let meta = { Form.line_num; char_num } in
+    let meta = { Metadata.line_num; char_num } in
     (input, Form.Cons (output, meta)) in
   let is_not_cons_char = (fun c -> not (is_cons_char c)) in
   lex_form input terminal_fn is_not_cons_char
@@ -159,13 +157,13 @@ let lex_collection lex_fn input terminal_fn final_char =
 
 let lex_list lex_fn line_num char_num input =
   let terminal_fn output =
-    let meta = { Form.line_num; char_num } in
+    let meta = { Metadata.line_num; char_num } in
     Form.List (List.rev output, meta) in
   lex_collection lex_fn input terminal_fn ')'
 
 let lex_vec lex_fn line_num char_num input =
   let terminal_fn output =
-    let meta = { Form.line_num; char_num } in
+    let meta = { Metadata.line_num; char_num } in
     Form.Vec (List.rev output, meta) in
   lex_collection lex_fn input terminal_fn ']'
 

@@ -25,12 +25,12 @@ let find_fn_type table params rtype =
 let find_def_type table = function
   | Node.NumLit _ -> Ok Type.Num
   | Node.StrLit _ -> Ok Type.Str
-  | Node.Fn (params, rtype, _) -> find_fn_type table params rtype
-  | Node.Cons (rtype, _) -> Symbol_table.resolve_type table rtype
+  | Node.Fn (params, rtype, _, _) -> find_fn_type table params rtype
+  | Node.Cons (rtype, _, _) -> Symbol_table.resolve_type table rtype
   | _ -> assert false
 
 let define_var table = function
-  | Node.Def (name, expr) -> begin
+  | Node.Def (name, expr, _) -> begin
     if var_exists table name then
       let name = Node.Name.to_string name in
       let message = sprintf "var %s already declared" name in
@@ -54,7 +54,7 @@ let type_redef_error name =
   Error (Cmpl_err.NameError message)
 
 let declare_type typedecls mod_name = function
-  | Node.Rec (name, _) ->
+  | Node.Rec (name, _, _) ->
       if TypeDecls.mem name typedecls then type_redef_error name
       else Ok (TypeDecls.add name (Record mod_name) typedecls)
   | _ -> assert false
@@ -86,7 +86,7 @@ let define_record table typedecls name fields =
   return (Symbol_table.define_record table name cons_fields)
 
 let define_type table typedecls = function
-  | Node.Rec (name, fields) -> define_record table typedecls name fields
+  | Node.Rec (name, fields, _) -> define_record table typedecls name fields
   | _ -> assert false
 
 let define_types table typedefs =

@@ -43,19 +43,19 @@ module type N = sig
   end
 
   type t =
-    | NumLit of float
-    | StrLit of string
-    | SymLit of name_expr_t
-    | Rec of Name.t * VarDef.t list
-    | Def of Name.t * t
-    | Fn of VarDef.t list * type_expr_t * t
-    | If of t * t * t
-    | Let of t Binding.t list * t
-    | Apply of t * t list
-    | Cons of (type_expr_t * t Binding.t list)
-    | Get of t * Name.t
-    | Set of t * Name.t * t
-    | Cast of type_expr_t * t
+    | NumLit of float * Metadata.t
+    | StrLit of string * Metadata.t
+    | SymLit of name_expr_t * Metadata.t
+    | Rec of Name.t * VarDef.t list * Metadata.t
+    | Def of Name.t * t * Metadata.t
+    | Fn of VarDef.t list * type_expr_t * t * Metadata.t
+    | If of t * t * t * Metadata.t
+    | Let of t Binding.t list * t * Metadata.t
+    | Apply of t * t list * Metadata.t
+    | Cons of type_expr_t * t Binding.t list * Metadata.t
+    | Get of t * Name.t * Metadata.t
+    | Set of t * Name.t * t * Metadata.t
+    | Cast of type_expr_t * t * Metadata.t
 
   val to_string: t -> string
 end

@@ -162,7 +162,7 @@ let chk_record_field cons field =
 
 let chk_get table scopes record field =
   match record with
-  | Node.SymLit name -> begin
+  | Node.SymLit (name, _) -> begin
     (chk_name table scopes name) >>= fun rectype ->
     (chk_record_type rectype) >>= fun cons ->
     (chk_record_field cons field) >>= fun rtype ->
@@ -176,7 +176,7 @@ let compare_set_type expected actual =
 
 let chk_set recur_fn table scopes record field expr =
   match record with
-  | Node.SymLit name -> begin
+  | Node.SymLit (name, _) -> begin
     (chk_name table scopes name) >>= fun rectype ->
     (chk_record_type rectype) >>= fun cons ->
     (chk_record_field cons field) >>= fun fieldtype ->
@@ -192,19 +192,25 @@ let chk_cast recur_fn scopes tipe expr =
 
 let check_node table node =
   let rec check_node' scopes = function
-    | Node.NumLit _ -> Ok Type.Num
-    | Node.StrLit _ -> Ok Type.Str
-    | Node.SymLit name -> chk_name table scopes name
-    | Node.Fn (params, rtype, body) ->
+    | Node.NumLit (_, _) -> Ok Type.Num
+    | Node.StrLit (_, _) -> Ok Type.Str
+    | Node.SymLit (name, _) -> chk_name table scopes name
+    | Node.Fn (params, rtype, body, _) ->
         chk_fn check_node' scopes params rtype body
-    | Node.If (tst, iff, els) -> chk_if check_node' scopes tst iff els
-    | Node.Let (bindings, body) -> chk_let check_node' scopes bindings body
-    | Node.Apply (fn, args) -> chk_apply check_node' scopes fn args
-    | Node.Cons (tipe, bindings) -> chk_cons check_node' scopes tipe bindings
-    | Node.Get (record, field) -> chk_get table scopes record field
-    | Node.Set (record, field, expr) ->
+    | Node.If (tst, iff, els, _) ->
+        chk_if check_node' scopes tst iff els
+    | Node.Let (bindings, body, _) ->
+        chk_let check_node' scopes bindings body
+    | Node.Apply (fn, args, _) ->
+        chk_apply check_node' scopes fn args
+    | Node.Cons (tipe, bindings, _) ->
+        chk_cons check_node' scopes tipe bindings
+    | Node.Get (record, field, _) ->
+        chk_get table scopes record field
+    | Node.Set (record, field, expr, _) ->
         chk_set check_node' table scopes record field expr
-    | Node.Cast (tipe, expr) -> chk_cast check_node' scopes tipe expr
+    | Node.Cast (tipe, expr, _) ->
+        chk_cast check_node' scopes tipe expr
     | Node.Def _ -> assert false
     | Node.Rec _ -> assert false in
   check_node' [] node
@@ -212,11 +218,11 @@ let check_node table node =
 (* TODO unify the logic here into one flow *)
 let check_top_node table node =
   match node with
-  | Node.Def (_, expr) -> begin
+  | Node.Def (_, expr, _) -> begin
     (check_node table expr) >>= fun tipe ->
     return tipe
   end
-  | Node.Rec (name, _) -> begin
+  | Node.Rec (name, _, _) -> begin
     let modul = Symbol_table.current_module table in
     let mod_name = Module.name modul in
     match Symbol_table.module_type table mod_name name with

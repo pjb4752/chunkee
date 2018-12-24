@@ -45,19 +45,19 @@ module type N = sig
   end
 
   type t =
-    | NumLit of float
-    | StrLit of string
-    | SymLit of name_expr_t
-    | Rec of Name.t * VarDef.t list
-    | Def of Name.t * t
-    | Fn of VarDef.t list * type_expr_t * t
-    | If of t * t * t
-    | Let of t Binding.t list * t
-    | Apply of t * t list
-    | Cons of (type_expr_t * t Binding.t list)
-    | Get of t * Name.t
-    | Set of t * Name.t * t
-    | Cast of type_expr_t * t
+    | NumLit of float * Metadata.t
+    | StrLit of string * Metadata.t
+    | SymLit of name_expr_t * Metadata.t
+    | Rec of Name.t * VarDef.t list * Metadata.t
+    | Def of Name.t * t * Metadata.t
+    | Fn of VarDef.t list * type_expr_t * t * Metadata.t
+    | If of t * t * t * Metadata.t
+    | Let of t Binding.t list * t * Metadata.t
+    | Apply of t * t list * Metadata.t
+    | Cons of type_expr_t * t Binding.t list * Metadata.t
+    | Get of t * Name.t * Metadata.t
+    | Set of t * Name.t * t * Metadata.t
+    | Cast of type_expr_t * t * Metadata.t
 
   val to_string: t -> string
 
@@ -112,19 +112,19 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
   end
 
   type t =
-    | NumLit of float
-    | StrLit of string
-    | SymLit of name_expr_t
-    | Rec of Name.t * VarDef.t list
-    | Def of Name.t * t
-    | Fn of VarDef.t list * type_expr_t * t
-    | If of t * t * t
-    | Let of t Binding.t list * t
-    | Apply of t * t list
-    | Cons of (type_expr_t * t Binding.t list)
-    | Get of t * Name.t
-    | Set of t * Name.t * t
-    | Cast of type_expr_t * t
+    | NumLit of float * Metadata.t
+    | StrLit of string * Metadata.t
+    | SymLit of name_expr_t * Metadata.t
+    | Rec of Name.t * VarDef.t list * Metadata.t
+    | Def of Name.t * t * Metadata.t
+    | Fn of VarDef.t list * type_expr_t * t * Metadata.t
+    | If of t * t * t * Metadata.t
+    | Let of t Binding.t list * t * Metadata.t
+    | Apply of t * t list * Metadata.t
+    | Cons of type_expr_t * t Binding.t list * Metadata.t
+    | Get of t * Name.t * Metadata.t
+    | Set of t * Name.t * t * Metadata.t
+    | Cast of type_expr_t * t * Metadata.t
 
 let numlit_to_string numlit =
   sprintf "(numlit %.2f)" numlit
@@ -196,17 +196,17 @@ let rec to_string node =
   let set_to_string = set_to_string to_string in
   let cast_to_string = cast_to_string to_string in
   match node with
-  | NumLit num -> numlit_to_string num
-  | StrLit str -> strlit_to_string str
-  | SymLit sym -> symlit_to_string sym
-  | Rec (name, fields) -> rec_to_string name fields
-  | Def (name, expr) -> def_to_string name expr
-  | Fn (params, rtype, body) -> fn_to_string params rtype body
-  | If (test, iff, els) -> if_to_string test iff els
-  | Let (bindings, body) -> let_to_string bindings body
-  | Apply (fn, args) -> apply_to_string fn args
-  | Cons (tipe, bindings) -> cons_to_string tipe bindings
-  | Get (record, field) -> get_to_string record field
-  | Set (record, field, expr) -> set_to_string record field expr
-  | Cast (tipe, expr) -> cast_to_string tipe expr
+  | NumLit (num, _) -> numlit_to_string num
+  | StrLit (str, _) -> strlit_to_string str
+  | SymLit (sym, _) -> symlit_to_string sym
+  | Rec (name, fields, _) -> rec_to_string name fields
+  | Def (name, expr, _) -> def_to_string name expr
+  | Fn (params, rtype, body, _) -> fn_to_string params rtype body
+  | If (test, iff, els, _) -> if_to_string test iff els
+  | Let (bindings, body, _) -> let_to_string bindings body
+  | Apply (fn, args, _) -> apply_to_string fn args
+  | Cons (tipe, bindings, _) -> cons_to_string tipe bindings
+  | Get (record, field, _) -> get_to_string record field
+  | Set (record, field, expr, _) -> set_to_string record field expr
+  | Cast (tipe, expr, _) -> cast_to_string tipe expr
 end
