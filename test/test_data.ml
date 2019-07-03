@@ -22,4 +22,4 @@ let pervasive = {
   C.Pervasive.modul = pervasive_module;
 }
 
-let stdlib = C.Symbol_table.with_pervasive pervasive
+let stdlib = C.Symbol_table.make pervasive

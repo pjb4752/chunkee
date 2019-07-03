@@ -1,4 +1,3 @@
-open Thwack.Option
 open Printf
 
 module Name = Id

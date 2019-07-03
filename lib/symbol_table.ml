@@ -16,7 +16,7 @@ let make (pervasive: Pervasive.t) modul =
   let tree = Module_tree.insert_module tree pervasive.modul in
   { pervasive; tree; modul }
 
-let current_module { modul } = modul
+let current_module { modul; _ } = modul
 
 let undefined_name_error name =
   Error (Cmpl_err.NameError (sprintf "%s is undefined" name))
@@ -25,11 +25,7 @@ let undefined_module_error mod_name =
   let mod_name = Mod_name.to_string mod_name in
   Error (Cmpl_err.NameError (sprintf "unknown module %s" mod_name))
 
-let no_constructor_error tipe =
-  let tipe = Type.to_string tipe in
-  Error (Cmpl_err.NameError (sprintf "no constructor for type %s" tipe))
-
-let select_module { tree; modul } mod_name =
+let select_module { tree; modul; _ } mod_name =
   if (Module.name modul) = mod_name then Some modul
   else Module_tree.find_module tree mod_name
 
@@ -44,7 +40,7 @@ let resolve_qualified_name table mod_name name =
   | Some modul -> resolve_module_name modul name
   | None -> undefined_module_error mod_name
 
-let resolve_unqualified_name { pervasive; modul } name =
+let resolve_unqualified_name { pervasive; modul; _ } name =
   match resolve_module_name pervasive.modul name with
   | Error _ -> resolve_module_name modul name
   | Ok name -> Ok name
@@ -124,7 +120,7 @@ let define_record table name cons =
   let new_modul = Module.define_record table.modul name cons in
   { table with modul = new_modul }
 
-let to_string { tree; modul } =
+let to_string { tree; modul; _ } =
   let tree = Module_tree.to_string tree in
   let modul = Module.to_string modul in
   sprintf "(symbol-table (tree %s) (current %s))" tree modul

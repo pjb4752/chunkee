@@ -25,14 +25,14 @@ let from_name name = {
 
 let from_parts path name = from_name (Mod_name.make path name)
 
-let name { name; } = name
+let name { name; _ } = name
 
-let short_name { name; } = Mod_name.short_name name
+let short_name { name; _ } = Mod_name.short_name name
 
-let path_list { name; } = Mod_name.path_list name
+let path_list { name; _ } = Mod_name.path_list name
 
 (*TODO use Map.find_else ?*)
-let find_var { var_names; var_types } name =
+let find_var { var_names; var_types; _ } name =
   (VarNames.find_opt name var_names) >>= fun name ->
   match VarTypes.find_opt name var_types with
   | Some tipe -> return (Var.make name tipe)
@@ -41,7 +41,7 @@ let find_var { var_names; var_types } name =
 let var_exists modul var_name =
   is_some @@ find_var modul var_name
 
-let find_type { name; type_names; type_cons } type_name =
+let find_type { name; type_names; type_cons; _ } type_name =
   match TypeNames.find_opt type_name type_names with
   | None -> None
   | Some type_name -> begin
@@ -63,7 +63,7 @@ let define_record modul type_name cons =
   let new_cons = TypeCons.add type_name cons modul.type_cons in
   { modul with type_names = new_names; type_cons = new_cons }
 
-let to_string { name; var_names; var_types; type_names } =
+let to_string { name; var_names; var_types; type_names; _ } =
   let var_to_string vn =
     match VarTypes.find_opt vn var_types with
     | None -> sprintf "%s %s" (Var.Name.to_string vn) "none"

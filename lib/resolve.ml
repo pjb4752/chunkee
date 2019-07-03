@@ -65,7 +65,7 @@ let resolve_binding recur_fn scopes binding =
     let new_scope = Scope.add name current_scope in
     match scopes with
     | [] -> Ok ([new_scope], binding)
-    | hd :: tl -> Ok (new_scope :: tl, binding)
+    | _ :: tl -> Ok (new_scope :: tl, binding)
   end
 
 let resolve_let recur_fn scopes bindings body =

@@ -1,4 +1,0 @@
-(library
- ((name chunkee)
-  (public_name chunkee)
-  (libraries (thwack))))

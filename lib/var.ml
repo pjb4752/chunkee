@@ -9,8 +9,8 @@ type t = {
 
 let make name tipe = { name; tipe }
 
-let name { name } = name
+let name { name; _ } = name
 
-let tipe { tipe } = tipe
+let tipe { tipe; _ } = tipe
 
-let to_string { name; } = sprintf "(var %s)" (Name.to_string name)
+let to_string { name; _ } = sprintf "(var %s)" (Name.to_string name)

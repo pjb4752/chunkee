@@ -82,9 +82,9 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
 
     let from_node name expr = { name; expr; }
 
-    let name { name; } = name
+    let name { name; _ } = name
 
-    let expr { expr; } = expr
+    let expr { expr; _ } = expr
 
     let to_tuple { name; expr; } = (name, expr)
 

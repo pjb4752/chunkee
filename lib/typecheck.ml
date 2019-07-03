@@ -1,4 +1,3 @@
-open Printf
 open Thwack.Result
 
 module Node = Ast.Resolved_node
@@ -46,12 +45,12 @@ let process_params params =
   | Error e -> Error e
   | Ok ps ->
     let scope = List.fold_right (fun (n, t) s -> Scope.add n t s) ps Scope.empty
-    and types = List.map (fun (n, t) -> t) ps in
+    and types = List.map (fun (_, t) -> t) ps in
     Ok (types, scope)
 
 let chk_fn recur_fn scopes params rtype body =
   let maybe_rtype =
-    (process_params params) >>= fun (ptype, scope) ->
+    (process_params params) >>= fun (_, scope) ->
     (recur_fn (scope :: scopes) body) >>= fun rtype ->
     return rtype in
   match maybe_rtype with
@@ -77,7 +76,7 @@ let cmp_if_expr iff els =
   else Error (Cmpl_err.TypeError ("if-else-expr must evaluate to same type"))
 
 let chk_if recur_fn scopes tst iff els =
-  (chk_if_tst recur_fn scopes tst) >>= fun ttype ->
+  (chk_if_tst recur_fn scopes tst) >>= fun _ ->
   (recur_fn scopes iff) >>= fun itype ->
   (recur_fn scopes els) >>= fun etype ->
   (cmp_if_expr itype etype) >>= fun rtype ->
@@ -133,7 +132,7 @@ let chk_apply recur_fn scopes fn args =
 let compare_cons_type name rtype cons =
   match List.find_opt (fun c -> (fst c) = name) cons with
   | Some (_, tipe) when is_compatible tipe rtype -> Ok rtype
-  | Some (_, tipe) ->
+  | Some (_, _) ->
       let message = "record binding does not match expected type" in
       Error (Cmpl_err.TypeError message)
   | None -> assert false
@@ -148,7 +147,7 @@ let chk_cons recur_fn scopes tipe bindings =
       (compare_cons_type name rtype cons) >>= fun rtype ->
       return (rtype :: rtypes) in
     let rtypes = List.fold_right fold_fn bindings (Ok []) in
-    rtypes >>= fun rtypes -> return tipe
+    rtypes >>= fun _ -> return tipe
     end
   | _ -> assert false
 
@@ -182,7 +181,7 @@ let chk_set recur_fn table scopes record field expr =
     (chk_record_type rectype) >>= fun cons ->
     (chk_record_field cons field) >>= fun fieldtype ->
     (recur_fn scopes expr) >>= fun exprtype ->
-    (compare_set_type exprtype fieldtype) >>= fun fieldtype ->
+    (compare_set_type exprtype fieldtype) >>= fun _ ->
     return Type.Unit
   end
   | _ -> assert false
@@ -193,8 +192,8 @@ let chk_cast recur_fn scopes tipe expr =
 
 let check_node table node =
   let rec check_node' scopes = function
-    | Node.NumLit n -> Ok Type.Num
-    | Node.StrLit s -> Ok Type.Str
+    | Node.NumLit _ -> Ok Type.Num
+    | Node.StrLit _ -> Ok Type.Str
     | Node.SymLit name -> chk_name table scopes name
     | Node.Fn (params, rtype, body) ->
         chk_fn check_node' scopes params rtype body
@@ -213,7 +212,7 @@ let check_node table node =
 (* TODO unify the logic here into one flow *)
 let check_top_node table node =
   match node with
-  | Node.Def (name, expr) -> begin
+  | Node.Def (_, expr) -> begin
     (check_node table expr) >>= fun tipe ->
     return tipe
   end

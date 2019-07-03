@@ -1,5 +1,4 @@
 open Lex
-open Printf
 open Thwack.Result
 open Thwack.Extensions
 
@@ -59,7 +58,7 @@ let parse_var_def = function
   end
   | _ -> Error (Cmpl_err.ParseError "invalid VAR form")
 
-let parse_rec_fields f_parse fields =
+let parse_rec_fields fields =
   let fold_fn (name, tipe) fields =
     fields >>= fun fields ->
     (parse_var_def [name; tipe]) >>= fun (name, tipe) ->
@@ -69,17 +68,17 @@ let parse_rec_fields f_parse fields =
     List.fold_right fold_fn (List.as_pairs fields) (Ok [])
   else Error (Cmpl_err.ParseError "invalid FIELDS form")
 
-let parse_rec f_parse = function
+let parse_rec = function
   | Form.Cons name :: Form.Vec fields :: [] ->
       let name = Node.Name.from_string name in
-      let fields = parse_rec_fields f_parse fields in
+      let fields = parse_rec_fields fields in
       fields >>= fun fs ->
       return (Node.Rec (name, fs))
   | _ -> Error (Cmpl_err.ParseError "invalid RECORD form")
 
 let rec is_const_literal = function
   | Form.Number _ | Form.String _ -> true
-  | Form.List (Form.Symbol "fn" :: rest) -> true
+  | Form.List (Form.Symbol "fn" :: _) -> true
   | Form.List (Form.Cons _ :: Form.Vec bindings :: []) -> begin
     let forms = List.map snd @@ List.as_pairs bindings in
     List.for_all is_const_literal forms
@@ -91,7 +90,7 @@ let parse_def f_parse = function
       (f_parse expr) >>= fun expr ->
       let name = Node.Name.from_string name in
       return (Node.Def (name, expr))
-  | Form.Symbol name :: expr :: [] ->
+  | Form.Symbol _ :: _ :: [] ->
       Error (Cmpl_err.ParseError "DEF EXPR must evaluate to constant value")
   | _ -> Error (Cmpl_err.ParseError "invalid DEF form")
 
@@ -243,7 +242,7 @@ let toplevel_error = Cmpl_err.ParseError "toplevel forms must be definitions"
 
 let parse_toplevel = function
   | Form.List (Form.Symbol op :: args) -> begin
-    if op = "defrec" then parse_rec parse_form args
+    if op = "defrec" then parse_rec args
     else if op = "def" then parse_def parse_form args
     else Error toplevel_error
   end
