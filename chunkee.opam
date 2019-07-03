@@ -1,5 +1,6 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "chunkee"
+synopsis: "flop compiler frontend"
 version: "0.0.1"
 maintainer: "pjb4752 <pjb4752@gmail.com>"
 authors: "pjb4752 <pjb4752@gmail.com>"
