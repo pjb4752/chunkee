@@ -32,7 +32,7 @@ module Form = struct
     | List (_, meta) -> meta
     | Vec (_, meta) -> meta
 
-  let rec debug_string form =
+  let debug_string form =
     let string_of_list l = String.concat " " (List.map to_string l) in
     match form with
     | Number (n, _) -> sprintf "(number %.2f)" n
@@ -84,8 +84,8 @@ let lex_form input terminal_fn test_fn =
     let rec lex_form' input output =
       match input with
       | [] -> terminal_fn input output
-      | { value } :: xs when test_fn value -> terminal_fn input output
-      | { value } :: xs -> lex_form' xs (String.append_char output value) in
+      | { value; _ } :: _ when test_fn value -> terminal_fn input output
+      | { value; _ } :: xs -> lex_form' xs (String.append_char output value) in
     lex_form' input ""
   )
 
@@ -118,8 +118,8 @@ let lex_delimited line_num char_num input start delimiter terminal_fn input_fn =
       | [] ->
           let message = sprintf "expecting '%c', none found" delimiter in
           raise (SyntaxError (message, line_num, char_num))
-      | { value } :: xs when value = delimiter -> (xs, terminal_fn output)
-      | { value } :: xs ->
+      | { value; _ } :: xs when value = delimiter -> (xs, terminal_fn output)
+      | _ ->
           let (new_input, new_output) = input_fn input output in
           lex_delimited' new_input new_output in
     lex_delimited' input start
@@ -132,10 +132,10 @@ let lex_string line_num char_num input =
     let input_fn input out =
       match input with
       | [] -> assert false
-      | { value } :: xs -> (xs, String.append_char out value) in
+      | { value; _ } :: xs -> (xs, String.append_char out value) in
     match input with
     | [] -> assert false
-    | { value; line_num; char_num } :: xs ->
+    | { line_num; char_num; _ } :: xs ->
         lex_delimited line_num char_num xs "" '"' terminal_fn input_fn
   )
 
@@ -144,14 +144,14 @@ let lex_collection lex_fn input terminal_fn final_char =
     let input_fn = (fun input output ->
       match input with
       | [] -> assert false
-      | { value } :: xs when (is_blank value) ->
+      | { value; _ } :: _ when (is_blank value) ->
           let new_input = remove_blank input in (new_input, output)
-      | { value } :: xs ->
+      | _ ->
           let (new_input, form) = lex_fn input in
           (new_input, form :: output)) in
     match input with
     | [] -> assert false
-    | { value; line_num; char_num } :: xs ->
+    | { line_num; char_num; _ } :: xs ->
         lex_delimited line_num char_num xs [] final_char terminal_fn input_fn
   )
 
@@ -186,8 +186,8 @@ let lex_forms input =
     let rec lex_list' input forms =
       match input with
       | [] -> List.rev forms
-      | { value } :: xs when is_blank value -> lex_list' xs forms
-      | xs ->
+      | { value; _ } :: xs when is_blank value -> lex_list' xs forms
+      | _ ->
           let (new_input, new_form) = try_lex input in
           lex_list' new_input (new_form :: forms) in
     lex_list' input []

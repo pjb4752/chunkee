@@ -8,8 +8,8 @@ type t =
   | TypeError of string
 
 let message = function
-  | SyntaxError { message } -> message
-  | ParseError { message } -> message
+  | SyntaxError { message; _ } -> message
+  | ParseError { message; _ } -> message
   | ModuleError message -> message
   | NameError message -> message
   | TypeError message -> message

@@ -1,4 +1,5 @@
 open Lex
+open Printf
 open Thwack.Result
 open Thwack.Extensions
 
@@ -83,7 +84,7 @@ let rec parse_type_expr = function
   end
 
 let parse_var_def = function
-  | (Form.Symbol (name, meta) :: tipe :: []) -> begin
+  | (Form.Symbol (name, _) :: tipe :: []) -> begin
       (parse_type_expr tipe) >>= fun tipe ->
       let name = Node.VarDef.Name.from_string name in
       return (name, tipe)
@@ -133,7 +134,7 @@ let parse_rec metadata = function
 
 let rec is_const_literal = function
   | Form.Number _ | Form.String _ -> true
-  | Form.List (Form.Symbol ("fn", _) :: rest, _) -> true
+  | Form.List (Form.Symbol ("fn", _) :: _, _) -> true
   | Form.List (Form.Cons _ :: Form.Vec (bindings, _) :: [], _) -> begin
     let forms = List.map snd @@ List.as_pairs bindings in
     List.for_all is_const_literal forms
@@ -437,7 +438,7 @@ let toplevel_error metadata raw =
 
 let parse_toplevel = function
   | Form.List ((Form.Symbol (op, smeta) :: args), meta) -> begin
-    if op = "defrec" then parse_rec parse_form meta args
+    if op = "defrec" then parse_rec meta args
     else if op = "def" then parse_def parse_form meta args
     else toplevel_error smeta op
   end
