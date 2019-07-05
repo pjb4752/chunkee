@@ -8,5 +8,5 @@ homepage: "https://github.com/pjb4752/chunkee"
 bug-reports: "https://github.com/pjb4752/chunkee/issues"
 dev-repo: "git://github.com/pjb4752/chunkee.git"
 build: [
-  ["jbuilder" "build" "--only" "chunkee" "--root" "." "-j" jobs "@install"]
+  ["dune" "build" "--only" "chunkee" "--root" "." "-j" jobs "@install"]
 ]

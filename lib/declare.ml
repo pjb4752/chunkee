@@ -10,6 +10,10 @@ type declarations =
 
 module TypeDecls = Map.Make(Type.Name)
 
+let definition_error { Metadata.line_num; char_num } messages =
+  let message = String.concat "\n" messages in
+  Error (Cmpl_err.DefinitionError { line_num; char_num; message })
+
 let var_exists table name =
   let mod_name = Symbol_table.current_module table |> Module.name in
   match Symbol_table.module_var table mod_name name with
@@ -30,11 +34,12 @@ let find_def_type table = function
   | _ -> assert false
 
 let define_var table = function
-  | Node.Def (name, expr, _) -> begin
+  | Node.Def (name, expr, meta) -> begin
     if var_exists table name then
       let name = Node.Name.to_string name in
-      let message = sprintf "var %s already declared" name in
-      Error (Cmpl_err.NameError message)
+      definition_error meta [
+        sprintf "\tVar with name '%s' already defined" name
+      ]
     else (
       (find_def_type table expr) >>= fun tipe ->
       return (Symbol_table.define_var table name tipe)
@@ -48,14 +53,13 @@ let define_vars table vardefs =
     (define_var table vardef) >>= fun table ->
     return table) vardefs (Ok table)
 
-let type_redef_error name =
-  let name = Type.Name.to_string name in
-  let message = sprintf "type %s already declared" name in
-  Error (Cmpl_err.NameError message)
-
 let declare_type typedecls mod_name = function
-  | Node.Rec (name, _, _) ->
-      if TypeDecls.mem name typedecls then type_redef_error name
+  | Node.Rec (name, _, meta) ->
+      if TypeDecls.mem name typedecls then
+        let name = Type.Name.to_string name in
+        definition_error meta [
+          sprintf "\tType with name '%s' already defined" name
+        ]
       else Ok (TypeDecls.add name (Record mod_name) typedecls)
   | _ -> assert false
 
