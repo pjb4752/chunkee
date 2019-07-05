@@ -116,7 +116,7 @@ let lex_delimited line_num char_num input start delimiter terminal_fn input_fn =
     let rec lex_delimited' input output =
       match input with
       | [] ->
-          let message = sprintf "expecting '%c', none found" delimiter in
+          let message = sprintf "Unclosed expression found, expecting delimiter '%c'" delimiter in
           raise (SyntaxError (message, line_num, char_num))
       | { value; _ } :: xs when value = delimiter -> (xs, terminal_fn output)
       | _ ->
@@ -167,6 +167,15 @@ let lex_vec lex_fn line_num char_num input =
     Form.Vec (List.rev output, meta) in
   lex_collection lex_fn input terminal_fn ']'
 
+let handle_unexpected_input line_num char_num input =
+  let chars = Read_list.(List.map (fun e -> e.value) input) in
+  let message = match chars with
+  | ')' :: _ -> "Found ')' where none was expected"
+  | ']' :: _ -> "Found ']' where none was expected"
+  | _ -> sprintf "Unrecognized form '%s'" (String.from_chars chars)
+  in
+  raise (SyntaxError (message, line_num, char_num))
+
 let rec try_lex input =
   let { Read_list.value; line_num; char_num } = List.hd input in
   if is_digit value then lex_num line_num char_num input
@@ -175,11 +184,7 @@ let rec try_lex input =
   else if is_cons_starting_char value then lex_cons line_num char_num input
   else if is_list_open value then lex_list try_lex line_num char_num input
   else if is_vec_open value then lex_vec try_lex line_num char_num input
-  else
-    let chars = Read_list.(List.map (fun e -> e.value) input) in
-    let bad_input = String.from_chars chars in
-    let message = sprintf "Unrecognized form '%s'" bad_input in
-    raise (SyntaxError (message, line_num, char_num))
+  else handle_unexpected_input line_num char_num input
 
 let lex_forms input =
   Read_list.(
