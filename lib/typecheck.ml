@@ -1,3 +1,4 @@
+open Printf
 open Thwack.Result
 
 module Node = Ast.Resolved_node
@@ -48,7 +49,7 @@ let process_params params =
     and types = List.map (fun (_, t) -> t) ps in
     Ok (types, scope)
 
-let chk_fn recur_fn scopes params rtype body =
+let chk_fn recur_fn scopes params rtype body metadata =
   let maybe_rtype =
     (process_params params) >>= fun (_, scope) ->
     (recur_fn (scope :: scopes) body) >>= fun rtype ->
@@ -56,30 +57,37 @@ let chk_fn recur_fn scopes params rtype body =
   match maybe_rtype with
   | Error e -> Error e
   | Ok actual_rtype when rtype = actual_rtype -> Ok actual_rtype
-  | _ ->
-      let message = "fn actual return type does not match " ^
-                    "expected return type" in
-      Error (Cmpl_err.TypeError message)
+  | Ok actual_rtype -> Error (Cmpl_err.type_errors metadata [
+    sprintf "fn return type expected %s" @@ Type.to_string rtype;
+    sprintf "but got actual type %s" @@ Type.to_string actual_rtype;
+  ])
 
-let cmp_tst_expr = function
+let cmp_tst_expr test_type metadata =
+  match test_type with
   | Type.Bool -> Ok Type.Bool
-  | _ -> Error (Cmpl_err.TypeError ("if-test-expr must evaluate to boolean"))
+  | tipe -> Error (Cmpl_err.type_errors metadata [
+    sprintf "if-test-expr must evaluate to boolean, instead got %s" @@ Type.to_string tipe
+  ])
 
-let chk_if_tst recur_fn scopes tst =
+let chk_if_tst recur_fn scopes tst metadata =
   (recur_fn scopes tst) >>= fun ttype ->
-  (cmp_tst_expr ttype) >>= fun ttype ->
+  (cmp_tst_expr ttype metadata) >>= fun ttype ->
   return ttype
 
-let cmp_if_expr iff els =
+let cmp_if_expr iff els metadata =
   if iff = els then Ok iff
   else if iff = Type.Any || els = Type.Any then Ok Type.Any
-  else Error (Cmpl_err.TypeError ("if-else-expr must evaluate to same type"))
+  else Error (Cmpl_err.type_errors metadata [
+    "if-else-expr must evaluate to same result type";
+    sprintf "result of if-expr was %s" @@ Type.to_string iff;
+    sprintf "which is incompatible with else-expr type of %s" @@ Type.to_string els
+  ])
 
-let chk_if recur_fn scopes tst iff els =
-  (chk_if_tst recur_fn scopes tst) >>= fun _ ->
+let chk_if recur_fn scopes tst iff els metadata =
+  (chk_if_tst recur_fn scopes tst metadata) >>= fun _ ->
   (recur_fn scopes iff) >>= fun itype ->
   (recur_fn scopes els) >>= fun etype ->
-  (cmp_if_expr itype etype) >>= fun rtype ->
+  (cmp_if_expr itype etype metadata) >>= fun rtype ->
   return rtype
 
 let chk_binding recur_fn scopes binding =
@@ -104,21 +112,26 @@ let chk_let recur_fn scopes bindings body =
   (recur_fn scopes body) >>= fun rtype ->
   return rtype
 
-let cmp_fn_types f_type p_act =
+let cmp_fn_types f_type p_act metadata =
   match f_type with
   | Type.Fn (p_exp, rt) -> begin
     let comparison = List.compare_lengths p_exp p_act in
     if comparison = 0 && (are_compatible p_exp p_act) then Ok rt
-    else if comparison < 0 then
-      Error (Cmpl_err.TypeError "too many arguments passed to function")
-    else if comparison > 0 then
-      Error (Cmpl_err.TypeError "too few arguments passed to fucntion")
+    else if comparison != 0 then
+      Error (Cmpl_err.type_errors metadata [
+        sprintf "function expected %d arguments" @@ List.length p_exp;
+        sprintf "but instead received %d" @@ List.length p_act
+      ])
     else
-      Error (Cmpl_err.TypeError "argument types do not match expected types")
+      Error (Cmpl_err.type_errors metadata [
+        "argument types do not match expected types"
+      ])
   end
-  | _ -> Error (Cmpl_err.TypeError "cannot apply non-fn type")
+  | tipe -> Error (Cmpl_err.type_errors metadata [
+    sprintf "cannot apply not function type of %s" @@ Type.to_string tipe
+  ])
 
-let chk_apply recur_fn scopes fn args =
+let chk_apply recur_fn scopes fn args metadata =
   let fold_fn arg types =
     types >>= fun types ->
     (recur_fn scopes arg) >>= fun tipe ->
@@ -126,62 +139,72 @@ let chk_apply recur_fn scopes fn args =
   let types = List.fold_right fold_fn args (Ok []) in
   types >>= fun etypes ->
   (recur_fn scopes fn) >>= fun atypes ->
-  (cmp_fn_types atypes etypes) >>= fun rtype ->
+  (cmp_fn_types atypes etypes metadata) >>= fun rtype ->
   return rtype
 
-let compare_cons_type name rtype cons =
+let compare_cons_type name rtype cons metadata =
   match List.find_opt (fun c -> (fst c) = name) cons with
   | Some (_, tipe) when is_compatible tipe rtype -> Ok rtype
-  | Some (_, _) ->
-      let message = "record binding does not match expected type" in
-      Error (Cmpl_err.TypeError message)
+  | Some (_, tipe) -> Error (Cmpl_err.type_errors metadata [
+    sprintf "record constructor expected type of %s" @@ Type.to_string tipe;
+    sprintf "instead received type of %s" @@ Type.to_string rtype
+  ])
   | None -> assert false
 
-let chk_cons recur_fn scopes tipe bindings =
+let chk_cons recur_fn scopes tipe bindings metadata =
   match tipe with
   | Type.Rec (_, _, cons) -> begin
     let fold_fn binding rtypes =
       rtypes >>= fun rtypes ->
       let (name, expr) = Node.Binding.to_tuple binding in
       (recur_fn scopes expr) >>= fun rtype ->
-      (compare_cons_type name rtype cons) >>= fun rtype ->
+      (compare_cons_type name rtype cons metadata) >>= fun rtype ->
       return (rtype :: rtypes) in
     let rtypes = List.fold_right fold_fn bindings (Ok []) in
     rtypes >>= fun _ -> return tipe
     end
   | _ -> assert false
 
-let chk_record_type = function
+let chk_record_type rectype metadata =
+  match rectype with
   | Type.Rec (_, _, cons) -> Ok cons
-  | _ -> Error (Cmpl_err.TypeError "first arg to 'get' must be record type")
+  | tipe -> Error (Cmpl_err.type_errors metadata [
+    "first arg to builtin 'get' must be record type";
+    sprintf "instead received %s" @@ Type.to_string tipe
+  ])
 
-let chk_record_field cons field =
+let chk_record_field cons field metadata =
   match List.find_opt (fun (name, _) -> name = field) cons with
   | Some (_, tipe) -> Ok (tipe)
-  | None -> Error (Cmpl_err.NameError "record does not have that field")
+  | None -> Error (Cmpl_err.name_errors metadata [
+    sprintf "record does not have field %s" @@ Type.Name.to_string field
+  ])
 
-let chk_get table scopes record field =
+let chk_get table scopes record field metadata =
   match record with
   | Node.SymLit (name, _) -> begin
     (chk_name table scopes name) >>= fun rectype ->
-    (chk_record_type rectype) >>= fun cons ->
-    (chk_record_field cons field) >>= fun rtype ->
+    (chk_record_type rectype metadata) >>= fun cons ->
+    (chk_record_field cons field metadata) >>= fun rtype ->
     return rtype
   end
   | _ -> assert false
 
-let compare_set_type expected actual =
+let compare_set_type actual expected metadata =
   if is_compatible expected actual then Ok actual
-  else Error (Cmpl_err.TypeError "record set expr is not of expected type")
+  else Error (Cmpl_err.type_errors metadata [
+    sprintf "builtin 'set' expected type of %s" @@ Type.to_string expected;
+    sprintf "but instead received type of %s" @@ Type.to_string actual
+  ])
 
-let chk_set recur_fn table scopes record field expr =
+let chk_set recur_fn table scopes record field expr metadata =
   match record with
   | Node.SymLit (name, _) -> begin
     (chk_name table scopes name) >>= fun rectype ->
-    (chk_record_type rectype) >>= fun cons ->
-    (chk_record_field cons field) >>= fun fieldtype ->
+    (chk_record_type rectype metadata) >>= fun cons ->
+    (chk_record_field cons field metadata) >>= fun fieldtype ->
     (recur_fn scopes expr) >>= fun exprtype ->
-    (compare_set_type exprtype fieldtype) >>= fun _ ->
+    (compare_set_type exprtype fieldtype metadata) >>= fun _ ->
     return Type.Unit
   end
   | _ -> assert false
@@ -195,22 +218,14 @@ let check_node table node =
     | Node.NumLit (_, _) -> Ok Type.Num
     | Node.StrLit (_, _) -> Ok Type.Str
     | Node.SymLit (name, _) -> chk_name table scopes name
-    | Node.Fn (params, rtype, body, _) ->
-        chk_fn check_node' scopes params rtype body
-    | Node.If (tst, iff, els, _) ->
-        chk_if check_node' scopes tst iff els
-    | Node.Let (bindings, body, _) ->
-        chk_let check_node' scopes bindings body
-    | Node.Apply (fn, args, _) ->
-        chk_apply check_node' scopes fn args
-    | Node.Cons (tipe, bindings, _) ->
-        chk_cons check_node' scopes tipe bindings
-    | Node.Get (record, field, _) ->
-        chk_get table scopes record field
-    | Node.Set (record, field, expr, _) ->
-        chk_set check_node' table scopes record field expr
-    | Node.Cast (tipe, expr, _) ->
-        chk_cast check_node' scopes tipe expr
+    | Node.Fn (params, rtype, body, meta) -> chk_fn check_node' scopes params rtype body meta
+    | Node.If (tst, iff, els, meta) -> chk_if check_node' scopes tst iff els meta
+    | Node.Let (bindings, body, _) -> chk_let check_node' scopes bindings body
+    | Node.Apply (fn, args, meta) -> chk_apply check_node' scopes fn args meta
+    | Node.Cons (tipe, bindings, meta) -> chk_cons check_node' scopes tipe bindings meta
+    | Node.Get (record, field, meta) -> chk_get table scopes record field meta
+    | Node.Set (record, field, expr, meta) -> chk_set check_node' table scopes record field expr meta
+    | Node.Cast (tipe, expr, _) -> chk_cast check_node' scopes tipe expr
     | Node.Def _ -> assert false
     | Node.Rec _ -> assert false in
   check_node' [] node

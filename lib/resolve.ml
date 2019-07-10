@@ -9,16 +9,24 @@ module RNode = Ast.Resolved_node
 
 type t = (RNode.t list, Cmpl_err.t) result
 
-let resolve_symlit table scopes meta name =
+let resolve_symlit table scopes metadata name =
   let name = Symbol_table.resolve_name table (fun name ->
-    List.exists (Scope.mem name) scopes) name in
-  name >>= fun name -> return (RNode.SymLit (name, meta))
+    List.exists (Scope.mem name) scopes) name
+  in
+  match name with
+  | Ok name -> Ok (RNode.SymLit (name, metadata))
+  | Error e -> Error (Cmpl_err.name_error metadata @@ Symbol_table.err_string e)
+
+let resolve_type table tipe metadata =
+  match Symbol_table.resolve_type table tipe with
+  | Ok tipe -> Ok tipe
+  | Error e -> Error (Cmpl_err.name_error metadata @@ Symbol_table.err_string e)
 
 let resolve_rec table meta name fields =
   let fold_fn field fields =
     fields >>= fun fields ->
     let (name, tipe) = PNode.VarDef.to_tuple field in
-    (Symbol_table.resolve_type table tipe) >>= fun tipe ->
+    (resolve_type table tipe meta) >>= fun tipe ->
     let field = RNode.VarDef.from_parts name tipe in
     return (field :: fields) in
   (List.fold_right fold_fn fields (Ok [])) >>= fun fields ->
@@ -32,7 +40,7 @@ let resolve_fn recur_fn table scopes meta params rtype body =
   let fold_fn var vars =
     vars >>= fun vars ->
     let (name, tipe) = PNode.VarDef.to_tuple var in
-    (Symbol_table.resolve_type table tipe) >>= fun t ->
+    (resolve_type table tipe meta) >>= fun t ->
     let var = RNode.VarDef.from_parts name t in
     return (var :: vars) in
   let map_fn var =
@@ -43,7 +51,7 @@ let resolve_fn recur_fn table scopes meta params rtype body =
     let param_names = List.map map_fn params in
     let fn_scope = Scope.of_list param_names in
     let scopes = fn_scope :: scopes in
-    (Symbol_table.resolve_type table rtype) >>= fun rtype ->
+    (resolve_type table rtype meta) >>= fun rtype ->
     (recur_fn scopes body) >>= fun body ->
     return (RNode.Fn (params, rtype, body, meta))
 
@@ -93,7 +101,7 @@ let resolve_apply recur_fn scopes meta fn args =
   (recur_fn scopes fn) >>= fun fn ->
   return (RNode.Apply (fn, List.rev args, meta))
 
-let check_cons_fields fields tipe =
+let check_cons_fields fields tipe metadata =
   match tipe with
   | Type.Rec (_, name, cons) -> begin
     let cons_fields = List.map fst cons in
@@ -101,19 +109,17 @@ let check_cons_fields fields tipe =
       let field_exists cons_fields field =
         if List.exists ((=) field) cons_fields then Ok field
         else
-          let field = Type.Name.to_string field in
-          let message = sprintf "%s is not a valid binding" field in
-          Error (Cmpl_err.NameError message) in
+          let message = sprintf "%s is not a valid binding" @@ Type.Name.to_string field in
+          Error (Cmpl_err.name_error metadata message)
+      in
       let fold_fn field fields =
         fields >>= fun fields ->
         (field_exists cons_fields field) >>= fun field ->
         return (field :: fields) in
       List.fold_right fold_fn fields (Ok [])
     else
-      let message = sprintf
-        "Wrong number of bindings for constructor '%s'"
-        (Type.Name.to_string name) in
-      Error (Cmpl_err.NameError message)
+      let message = sprintf "Wrong number of bindings for constructor '%s'" @@ Type.Name.to_string name in
+      Error (Cmpl_err.name_error metadata message)
   end
   | _ -> assert false
 
@@ -125,9 +131,9 @@ let resolve_exprs recur_fn scopes exprs =
   List.fold_right fold_fn exprs (Ok [])
 
 let resolve_cons recur_fn table scopes meta tipe bindings =
-  (Symbol_table.resolve_type table tipe) >>= fun tipe ->
+  (resolve_type table tipe meta) >>= fun tipe ->
   let fields = List.map PNode.Binding.name bindings in
-  (check_cons_fields fields tipe) >>= fun fields ->
+  (check_cons_fields fields tipe meta) >>= fun fields ->
   let exprs = List.map PNode.Binding.expr bindings in
   (resolve_exprs recur_fn scopes exprs) >>= fun exprs ->
   let bindings = List.map2 RNode.Binding.from_node fields exprs in
@@ -151,7 +157,7 @@ let resolve_set recur_fn table scopes record field expr =
   | _ -> assert false
 
 let resolve_cast recur_fn table scopes meta tipe expr =
-  (Symbol_table.resolve_type table tipe) >>= fun tipe ->
+  (resolve_type table tipe meta) >>= fun tipe ->
   (recur_fn scopes expr) >>= fun expr ->
   return (RNode.Cast (tipe, expr, meta))
 
@@ -160,26 +166,16 @@ let resolve_node table node =
     | PNode.NumLit (n, meta) -> Ok (RNode.NumLit (n, meta))
     | PNode.StrLit (s, meta) -> Ok (RNode.StrLit (s, meta))
     | PNode.SymLit (name, meta) -> resolve_symlit table scopes meta name
-    | PNode.Rec (name, fields, meta) ->
-        resolve_rec table meta name fields
-    | PNode.Def (var, expr, meta) ->
-        resolve_def resolve' scopes meta var expr
-    | PNode.Fn (params, rtype, body, meta) ->
-        resolve_fn resolve' table scopes meta params rtype body
-    | PNode.If (tst, iff, els, meta) ->
-        resolve_if resolve' scopes meta tst iff els
-    | PNode.Let (bindings, body, meta) ->
-        resolve_let resolve' scopes meta bindings body
-    | PNode.Apply (fn, args, meta) ->
-        resolve_apply resolve' scopes meta fn args
-    | PNode.Cons (tipe, bindings, meta) ->
-        resolve_cons resolve' table scopes meta tipe bindings
-    | PNode.Get (record, field, _) ->
-        resolve_get table scopes record field
-    | PNode.Set (record, field, expr, _) ->
-        resolve_set resolve' table scopes record field expr
-    | PNode.Cast (tipe, expr, meta) ->
-        resolve_cast resolve' table scopes meta tipe expr in
+    | PNode.Rec (name, fields, meta) -> resolve_rec table meta name fields
+    | PNode.Def (var, expr, meta) -> resolve_def resolve' scopes meta var expr
+    | PNode.Fn (params, rtype, body, meta) -> resolve_fn resolve' table scopes meta params rtype body
+    | PNode.If (tst, iff, els, meta) -> resolve_if resolve' scopes meta tst iff els
+    | PNode.Let (bindings, body, meta) -> resolve_let resolve' scopes meta bindings body
+    | PNode.Apply (fn, args, meta) -> resolve_apply resolve' scopes meta fn args
+    | PNode.Cons (tipe, bindings, meta) -> resolve_cons resolve' table scopes meta tipe bindings
+    | PNode.Get (record, field, _) -> resolve_get table scopes record field
+    | PNode.Set (record, field, expr, _) -> resolve_set resolve' table scopes record field expr
+    | PNode.Cast (tipe, expr, meta) -> resolve_cast resolve' table scopes meta tipe expr in
   resolve' [] node
 
 let resolve_nodes table nodes =

@@ -7,6 +7,10 @@ type t = {
   modul: Module.t;
 }
 
+type err_t =
+  | ModuleError of string
+  | NameError of string
+
 type exists_in_scope = string -> bool
 
 type exists_in_decls = Type.Name.t -> Type.t option
@@ -19,11 +23,11 @@ let make (pervasive: Pervasive.t) modul =
 let current_module { modul; _ } = modul
 
 let undefined_name_error name =
-  Error (Cmpl_err.NameError (sprintf "%s is undefined" name))
+  Error (NameError (sprintf "%s is undefined" name))
 
 let undefined_module_error mod_name =
   let mod_name = Mod_name.to_string mod_name in
-  Error (Cmpl_err.NameError (sprintf "unknown module %s" mod_name))
+  Error (ModuleError (sprintf "unknown module %s" mod_name))
 
 let select_module { tree; modul; _ } mod_name =
   if (Module.name modul) = mod_name then Some modul
@@ -79,10 +83,8 @@ let resolve_unqualified_type modul lookup_fn tipe =
   end
 
 let resolve_simple_type table lookup_fn = function
-  | Name_expr.QualName (mod_name, tipe) ->
-      resolve_qualified_type table mod_name tipe
-  | Name_expr.BareName tipe ->
-      resolve_unqualified_type table.modul lookup_fn tipe
+  | Name_expr.QualName (mod_name, tipe) -> resolve_qualified_type table mod_name tipe
+  | Name_expr.BareName tipe -> resolve_unqualified_type table.modul lookup_fn tipe
 
 let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
   | Type_expr.SimpleType tipe -> resolve_simple_type table lookup_fn tipe
@@ -111,7 +113,6 @@ let module_type table mod_name type_name =
   (Module.find_type modul type_name) >>= fun tipe ->
   return tipe
 
-
 let define_var table var tipe =
   let new_modul = Module.define_var table.modul var tipe in
   { table with modul = new_modul }
@@ -124,3 +125,7 @@ let to_string { tree; modul; _ } =
   let tree = Module_tree.to_string tree in
   let modul = Module.to_string modul in
   sprintf "(symbol-table (tree %s) (current %s))" tree modul
+
+let err_string = function
+  | ModuleError message -> message
+  | NameError message -> message
