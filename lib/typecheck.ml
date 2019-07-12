@@ -12,9 +12,6 @@ module Scope = Map.Make(String)
 let is_compatible expected actual =
   expected = actual || expected == Type.Any
 
-let are_compatible expected actual =
-  List.for_all2 is_compatible expected actual
-
 let chk_local_name scopes name =
   match List.find_opt (Scope.mem name) scopes with
   | None -> assert false
@@ -112,19 +109,29 @@ let chk_let recur_fn scopes bindings body =
   (recur_fn scopes body) >>= fun rtype ->
   return rtype
 
+let chk_param_types expected_types actual_types return_type metadata =
+  let chk_param_type expected actual =
+    if is_compatible expected actual then Ok return_type
+    else Error (Cmpl_err.type_errors metadata [
+      sprintf "function expected argument of type %s" @@ Type.to_string expected;
+      sprintf "instead received one of type %s" @@ Type.to_string actual
+    ])
+  in
+  let fold_fn expected actual = function
+    | Ok _ -> chk_param_type expected actual
+    | Error e -> Error e
+  in
+  List.fold_right2 fold_fn expected_types actual_types (Ok return_type)
+
 let cmp_fn_types f_type p_act metadata =
   match f_type with
   | Type.Fn (p_exp, rt) -> begin
-    let comparison = List.compare_lengths p_exp p_act in
-    if comparison = 0 && (are_compatible p_exp p_act) then Ok rt
-    else if comparison != 0 then
+    if List.compare_lengths p_exp p_act = 0 then
+      chk_param_types p_exp p_act rt metadata
+    else
       Error (Cmpl_err.type_errors metadata [
         sprintf "function expected %d arguments" @@ List.length p_exp;
         sprintf "but instead received %d" @@ List.length p_act
-      ])
-    else
-      Error (Cmpl_err.type_errors metadata [
-        "argument types do not match expected types"
       ])
   end
   | tipe -> Error (Cmpl_err.type_errors metadata [
