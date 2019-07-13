@@ -10,6 +10,9 @@ type declarations =
 
 module TypeDecls = Map.Make(Type.Name)
 
+let build_prefix { Metadata.line_num; char_num } =
+  sprintf "in expression at %d:%d" line_num char_num
+
 let var_exists table name =
   let mod_name = Symbol_table.current_module table |> Module.name in
   match Symbol_table.module_var table mod_name name with
@@ -22,7 +25,11 @@ let find_fn_type table params rtype metadata =
   let ftype = Type_expr.FnType (List.append ptypes [rtype]) in
   match Symbol_table.resolve_type table ftype with
   | Ok tipe -> Ok tipe
-  | Error e -> Error (Cmpl_err.definition_error metadata @@ Symbol_table.err_string e)
+  | Error e ->
+      let prefix = build_prefix metadata in
+      Error (Cmpl_err.definition_errors metadata prefix [
+        Symbol_table.err_string e
+      ])
 
 let find_def_type table expr metadata =
   match expr with
@@ -32,17 +39,23 @@ let find_def_type table expr metadata =
   | Node.Cons (rtype, _, _) -> begin
     match Symbol_table.resolve_type table rtype with
     | Ok tipe -> Ok tipe
-    | Error e -> Error (Cmpl_err.definition_error metadata @@ Symbol_table.err_string e)
+    | Error e ->
+        let prefix = build_prefix metadata in
+        Error (Cmpl_err.definition_errors metadata prefix [
+          Symbol_table.err_string e
+        ])
   end
   | _ -> assert false
 
 let define_var table = function
-  | Node.Def (name, expr, meta) -> begin
+  | Node.Def (name, expr, metadata) -> begin
     if var_exists table name then
-      let message = sprintf "\tVar with name '%s' already defined" @@ Node.Name.to_string name in
-      Error (Cmpl_err.definition_error meta message)
+      let prefix = build_prefix metadata in
+      Error (Cmpl_err.definition_errors metadata prefix [
+        sprintf "var with name '%s' is already defined" @@ Node.Name.to_string name
+      ])
     else (
-      (find_def_type table expr meta) >>= fun tipe ->
+      (find_def_type table expr metadata) >>= fun tipe ->
       return (Symbol_table.define_var table name tipe)
     )
   end
@@ -55,10 +68,12 @@ let define_vars table vardefs =
     return table) vardefs (Ok table)
 
 let declare_type typedecls mod_name = function
-  | Node.Rec (name, _, meta) ->
+  | Node.Rec (name, _, metadata) ->
       if TypeDecls.mem name typedecls then
-        let message = sprintf "\tType with name '%s' already defined" @@ Type.Name.to_string name in
-        Error (Cmpl_err.definition_error meta message)
+        let prefix = build_prefix metadata in
+        Error (Cmpl_err.definition_errors metadata prefix [
+          sprintf "type with name '%s' is already defined" @@ Type.Name.to_string name
+        ])
       else Ok (TypeDecls.add name (Record mod_name) typedecls)
   | _ -> assert false
 
@@ -77,7 +92,11 @@ let resolve_type table typedecls type_expr metadata =
   in
   match resolved with
   | Ok tipe -> Ok tipe
-  | Error e -> Error (Cmpl_err.definition_error metadata @@ Symbol_table.err_string e)
+  | Error e ->
+      let prefix = build_prefix metadata in
+      Error (Cmpl_err.definition_errors metadata prefix [
+        Symbol_table.err_string e
+      ])
 
 let resolve_constructor table typedecls fields metadata =
   let fold_fn field fields =

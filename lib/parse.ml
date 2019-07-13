@@ -5,6 +5,9 @@ open Thwack.Extensions
 
 module Node = Ast.Parsed_node
 
+let build_prefix { Metadata.line_num; char_num } =
+  sprintf "in expression at %d:%d" line_num char_num
+
 let parse_qual_name name metadata =
   match String.split_on_char '/' name with
   | mod_name :: name :: [] -> begin
@@ -16,16 +19,20 @@ let parse_qual_name name metadata =
       let mod_name = Mod_name.make mod_path mod_name in
       Ok (Name_expr.QualName (mod_name, name))
     end
-    | _ -> Error (Cmpl_err.parse_errors metadata [
-        "\tQualified names must contain a full path to a module";
-        "\tInstead found: " ^ name;
-        "\tPlease use the correct form foo/bar.baz instead of foo/baz"
+    | _ ->
+        let prefix = build_prefix metadata in
+        Error (Cmpl_err.parse_errors metadata prefix [
+          "qualified names must contain a full path to a module, ";
+          sprintf "but instead found: %s" name;
+          "\n\tplease use the correct form foo/bar.baz instead of foo/baz"
       ])
   end
-  | _ -> Error (Cmpl_err.parse_errors metadata [
-      "\tQualified names must contain both module tree and path information";
-      "\tInstead found: " ^ name;
-      "\tPlease use the correct form foo/bar.baz instead of bar.baz"
+  | _ ->
+      let prefix = build_prefix metadata in
+      Error (Cmpl_err.parse_errors metadata prefix [
+        "qualified names must contain both module tree and path information, ";
+        sprintf "but instead found: %s" name;
+        "\n\tplease use the correct form foo/bar.baz instead of bar.baz"
     ])
 
 let parse_name_expr name meta =
@@ -39,37 +46,39 @@ let parse_type_list parse_type_expr' types =
     return (t :: types)) types (Ok [])
 
 let invalid_type_error raw metadata =
-  Error (Cmpl_err.parse_errors metadata [
-    "\tType expressions must be of a valid form";
-    "\tinstead found: " ^ raw;
-    "\tPlease use a correct simple or aggregate type"
+  let prefix = build_prefix metadata in
+  Error (Cmpl_err.parse_errors metadata prefix [
+    "type expressions must be of a valid form, ";
+    sprintf "but instead found: %s" raw;
+    "\n\tplease use a correct simple or aggregate type"
   ])
 
 let rec parse_type_expr = function
-  | Form.Symbol (tipe, meta) -> begin
-      (parse_name_expr tipe meta) >>= fun tipe ->
+  | Form.Symbol (tipe, metadata) -> begin
+      (parse_name_expr tipe metadata) >>= fun tipe ->
       return (Type_expr.SimpleType tipe)
   end
-  | Form.Cons (tipe, meta) -> begin
-      (parse_name_expr tipe meta) >>= fun tipe ->
+  | Form.Cons (tipe, metadata) -> begin
+      (parse_name_expr tipe metadata) >>= fun tipe ->
       return (Type_expr.SimpleType tipe)
   end
-  | Form.Vec (types, meta) -> begin
+  | Form.Vec (types, metadata) -> begin
    match parse_type_list parse_type_expr types with
    | Error e -> Error e
-   | Ok [] -> Error (Cmpl_err.parse_errors meta [
-        "\tAggregate type expressions must contain 1 or more types";
-        "\tInstead found an empty expression";
-        "\tPlease use the correct form [type1 type2 type3]"
+   | Ok [] ->
+       let prefix = build_prefix metadata in
+       Error (Cmpl_err.parse_errors metadata prefix [
+        "aggregate type expressions must contain 1 or more types, instead found an empty expression";
+        "\n\tplease use the correct form [type1 type2 type3]"
      ])
    | Ok types -> Ok (Type_expr.FnType types)
   end
   | form -> begin
     let error_fn = invalid_type_error @@ Form.to_string form in
     match form with
-    | Form.Number (_, meta) -> error_fn meta
-    | Form.String (_, meta) -> error_fn meta
-    | Form.List (_, meta) -> error_fn meta
+    | Form.Number (_, metadata) -> error_fn metadata
+    | Form.String (_, metadata) -> error_fn metadata
+    | Form.List (_, metadata) -> error_fn metadata
     | _ -> assert false
   end
 
@@ -83,10 +92,11 @@ let parse_var_def = function
     let metadata = Form.metadata first in
     let first = Form.to_string first in
     let last = Form.to_string last in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tVariable definitions must be pairs of a name and a type";
-      "\tInstead found: " ^ (sprintf "[%s %s]" first last);
-      "\tPlease use the correct form [name type]"
+    let prefix = build_prefix metadata in
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "variable definitions must be pairs of a name and a type, ";
+      sprintf "but instead found: [%s %s]" first last;
+      "\n\tplease use the correct form [name type]"
     ])
   end
   | _ -> assert false
@@ -100,11 +110,12 @@ let parse_rec_fields fields metadata =
   if (List.length fields mod 2) = 0 then
     List.fold_right fold_fn (List.as_pairs fields) (Ok [])
   else
+    let prefix = build_prefix metadata in
     let raw = String.concat " " @@ List.map Form.to_string fields in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tRecord fields must be pairs of a name and a type";
-      "\tInstead found an odd number of forms: " ^ (sprintf "[%s]" raw);
-      "\tPlease use the correct form [name1 type1 name2 type2]"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "record fields must be pairs of a name and a type, ";
+      sprintf "but instead found an odd number of forms: [%s]" raw;
+      "\n\tplease use the correct form [name1 type1 name2 type2]"
     ])
 
 let parse_rec metadata = function
@@ -114,11 +125,12 @@ let parse_rec metadata = function
       fields >>= fun fs ->
       return (Node.Rec (name, fs, metadata))
   | args -> begin
+    let prefix = build_prefix metadata in
     let raw = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tRecord definitions must be a name and a vector of field definitions";
-      "\tInstead found: " ^ (sprintf "(defrec %s)" raw);
-      "\tPlease use the correct form (defrec RecName [field1 type1])"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "record definitions must be a name and a vector of field definitions, ";
+      sprintf "but instead found: (defrec %s)" raw;
+      "\n\tplease use the correct form (defrec RecName [field1 type1])"
     ])
   end
 
@@ -137,20 +149,21 @@ let parse_def f_parse metadata = function
       let name = Node.Name.from_string name in
       return (Node.Def (name, expr, metadata))
   | Form.Symbol (name, _) :: expr :: [] -> begin
+    let prefix = build_prefix metadata in
     let raw = sprintf "(def %s %s)" name @@ Form.to_string expr in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tTop-level definitions must evaluate to a constant value, which is:";
-      "\t\taliteral number, string, function or constant record";
-      "\tInstead found: " ^ raw;
-      "\tPlease use the correct form (def name <constant>)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "top-level definitions must evaluate to a literal value or constant record, ";
+      sprintf "but instead found: %s" raw;
+      "\n\tplease use the correct form (def name <constant>)"
     ])
   end
   | args -> begin
+    let prefix = build_prefix metadata in
     let args = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tTop-level variable definitions must provide a name and an expr";
-      "\tInstead found: " ^ (sprintf "(def %s)" args);
-      "\tPlease use the correct form (def name <constant>)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "top-level variable definitions must provide a name and an expr, ";
+      sprintf "but instead found: (def %s)" args;
+      "\n\tplease use the correct form (def name <constant>)"
     ])
   end
 
@@ -161,11 +174,12 @@ let parse_get metadata = function
       let symlit = Node.SymLit (record, meta) in
       return (Node.Get (symlit, field, metadata))
   | args -> begin
+    let prefix = build_prefix metadata in
     let args = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tGet expression must provide the record and field name";
-      "\tInstead found: " ^ (sprintf "(get %s)" args);
-      "\tPlease use the correct form (get record field)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "get expression must provide the record and field name, ";
+      sprintf "but instead found: (get %s)" args;
+      "\n\tplease use the correct form (get record field)"
     ])
   end
 
@@ -177,11 +191,12 @@ let parse_set f_parse metadata = function
       let symlit = Node.SymLit (record, meta) in
       return (Node.Set (symlit, field, expr, metadata))
   | args -> begin
+    let prefix = build_prefix metadata in
     let args = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tSet expression must provide record and field names, and expression";
-      "\tInstead found: " ^ (sprintf "(get %s)" args);
-      "\tPlease use the correct form (set! record field expression)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "set expression must provide record and field names, and expression, ";
+      sprintf "but instead found: (get %s)" args;
+      "\n\tplease use the correct form (set! record field expression)"
     ])
   end
 
@@ -194,11 +209,12 @@ let parse_params metadata params =
   if (List.length params mod 2) = 0 then
     List.fold_right fold_fn (List.as_pairs params) (Ok [])
   else
+    let prefix = build_prefix metadata in
     let raw = String.concat " " @@ List.map Form.to_string params in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tParameter lists must be pairs of a name and a type";
-      "\tInstead found an odd number of forms: " ^ (sprintf "[%s]" raw);
-      "\tPlease use the correct form [name1 type1 name2 type2]"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "parameter lists must be pairs of a name and a type, ";
+      sprintf "but instead found an odd number of forms: [%s]" raw;
+      "\n\tplease use the correct form [name1 type1 name2 type2]"
     ])
 
 let parse_header metadata header =
@@ -209,13 +225,12 @@ let parse_header metadata header =
       return (params, rtype)
   end
   | header -> begin
+    let prefix = build_prefix metadata in
     let args = String.concat " " @@ List.map Form.to_string header in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tFunction headers must be a vector of two, where the first item in";
-      "\tin the vector is a vector of parameters,";
-      "\tand the second is the return type";
-      "\tInstead found: " ^ (sprintf "[%s]" args);
-      "Please use the correct form (fn [[name type] type] <body>)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "function headers must be a vector containing a vector of parameters and the return type, ";
+      sprintf "but instead found: [%s]" args;
+      "\n\tplease use the correct form (fn [[name type] type] <body>)"
     ])
   end
 
@@ -225,13 +240,12 @@ let parse_fn f_parse metadata = function
       (f_parse raw_body) >>= fun body ->
       return (Node.Fn (params, rtype, body, metadata))
   | args -> begin
+    let prefix = build_prefix metadata in
     let args = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tFunction forms must receive two arguments:";
-      "\t\t1. a header containing the parameter definitions and return type";
-      "\t\t2. a singular body expression";
-      "\tInstead found: " ^ (sprintf "(fn %s)" args);
-      "Please use the correct form (fn [[name type] type] <body>)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "function forms must contain a function header and singular body expression, ";
+      sprintf "but instead found: (fn %s)" args;
+      "\n\tplease use the correct form (fn [[name type] type] <body>)"
     ])
   end
 
@@ -242,14 +256,12 @@ let parse_if f_parse metadata = function
       (f_parse raw_else) >>= fun e ->
       return (Node.If (t, i, e, metadata))
   | args -> begin
+    let prefix = build_prefix metadata in
     let args = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tIf forms must recieve 3 arguments:";
-      "\t\t1. a singluar test expression";
-      "\t\t2. a singluar then expression (if test evaluates true)";
-      "\t\t3. a singluar else expression (if test evalutates false)";
-      "\tInstead found: " ^ (sprintf "(if %s)" args);
-      "\tPlease use the correct form (if <test> <then> <else>)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "if forms must contain a test expression, an if expression and an else expression, ";
+      sprintf "but instead found: (if %s)" args;
+      "\n\tplease use the correct form (if <test> <then> <else>)"
     ])
   end
 
@@ -260,12 +272,13 @@ let parse_binding f_parse = function
       return (Node.Binding.from_node name e)
   | (first, second) -> begin
     let metadata = Form.metadata first in
+    let prefix = build_prefix metadata in
     let first = Form.to_string first in
     let second = Form.to_string second in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tA let binding must be a pair of a name and an expression";
-      "\tInstead found: " ^ (sprintf "[%s %s]" first second);
-      "\tPlease use the correct form (let [name1 expr1] <body>)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "a let binding must be a pair of a name and an expression, ";
+      sprintf "but instead found: [%s %s]" first second;
+      "\n\tplease use the correct form (let [name1 expr1] <body>)"
     ])
   end
 
@@ -278,11 +291,12 @@ let parse_bindings f_parse metadata bindings =
   if (List.length bindings mod 2) = 0 then
     List.fold_right fold_fn (List.as_pairs bindings) (Ok [])
   else
+    let prefix = build_prefix metadata in
     let raw = String.concat " " @@ List.map Form.to_string bindings in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tLet bindings must be pairs of a name and an expression";
-      "\tInstead found an odd number of forms: " ^ (sprintf "[%s]" raw);
-      "\tPlease use the correct form (let [name1 expr1 name2 expr2] <body>)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "let bindings must be pairs of a name and an expression, ";
+      sprintf "but nstead found an odd number of forms: [%s]" raw;
+      "\n\tplease use the correct form (let [name1 expr1 name2 expr2] <body>)"
     ])
 
 let parse_let f_parse metadata = function
@@ -292,13 +306,12 @@ let parse_let f_parse metadata = function
       (f_parse body) >>= fun b ->
       return (Node.Let (bi, b, metadata))
   | args -> begin
+    let prefix = build_prefix metadata in
     let args = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tLet forms must recieve 2 arguments:";
-      "\t\t1. a vector of variable binding pairs";
-      "\t\t2. a singluar body expression";
-      "\tInstead found: " ^ (sprintf "(let %s)" args);
-      "Please use the correct form (let [name expr] <body>)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "let forms must contain a vector of variable bindings and a singular body expression, ";
+      sprintf "but instead found: (let %s)" args;
+      "\n\tplease use the correct form (let [name expr] <body>)"
     ])
   end
 
@@ -309,13 +322,12 @@ let parse_cast f_parse metadata = function
     return (Node.Cast (t, e, metadata))
   end
   | args -> begin
+    let prefix = build_prefix metadata in
     let args = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tCast forms must recieve 2 arguments:";
-      "\t\t1. a type definition the expression will be cast to";
-      "\t\t2. a singluar expression";
-      "\tInstead found: " ^ (sprintf "(let %s)" args);
-      "Please use the correct form (cast type expr)"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "cast forms must contain a type definition and a singular expression, ";
+      sprintf "but instead found: (cast %s)" args;
+      "\n\tplease use the correct form (cast type expr)"
     ])
   end
 
@@ -348,11 +360,10 @@ let parse_fn_apply f_parse metadata fn args =
   return (Node.Apply (fn, args, metadata))
 
 let nested_error metadata =
-  Error (Cmpl_err.parse_errors metadata [
-    "\tThe following definition forms can only occur at the top-level";
-    "\t\t1. (def ...)";
-    "\t\t2. (defrecord ...)";
-    "\tInstead found a definition in a nested scope";
+  let prefix = build_prefix metadata in
+  Error (Cmpl_err.parse_errors metadata prefix [
+    "def and defrecord may occur only as top level expressions, ";
+    "instead found a definition in a nested scope"
   ])
 
 let parse_op f_parse meta op (args: Form.t list) =
@@ -372,11 +383,12 @@ let parse_cons f_parse metadata tipe = function
       (parse_bindings f_parse meta bindings) >>= fun bindings ->
       return (Node.Cons (type_expr, bindings, metadata))
   | args -> begin
+    let prefix = build_prefix metadata in
     let raw = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tA constructor form must be a valid record definttion";
-      "\tInstead found: " ^ (sprintf "(derecord %s)" raw);
-      "\tPlease use the correct form (defrecord Name [field type ...])"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "a constructor form must be a valid record definttion, ";
+      sprintf "but instead found: (defrecord %s)" raw;
+      "\n\tplease use the correct form (defrecord Name [field type ...])"
     ])
   end
 
@@ -391,39 +403,39 @@ let parse_list f_parse metadata = function
   | Form.Cons (tipe, meta) :: args -> parse_cons f_parse meta tipe args
   | Form.List (expr, meta) :: args -> parse_fn_apply f_parse meta expr args
   | args -> begin
+    let prefix = build_prefix metadata in
     let raw = String.concat " " @@ List.map Form.to_string args in
-    Error (Cmpl_err.parse_errors metadata [
-      "\tFailed to parse valid form";
-      "\tFound: " ^ (sprintf "%s" raw);
-      "\tPlease check your syntax"
+    Error (Cmpl_err.parse_errors metadata prefix [
+      sprintf "failed to parse invalid form: %s" raw;
+      "\n\tplease check your syntax"
     ])
   end
 
 let rec parse_form = function
-  | Form.Number (n, meta) -> Ok (Node.NumLit (n, meta))
-  | Form.String (s, meta) -> Ok (Node.StrLit (s, meta))
-  | Form.Symbol (s, meta) -> parse_symbol meta s
-  | Form.List (l, meta) -> parse_list parse_form meta l
-  | Form.Cons (_, meta) -> begin
-    Error (Cmpl_err.parse_errors meta [
-      "\tFound unexpected Constructor form";
-      "\tPlease check your syntax"
+  | Form.Number (num, metadata) -> Ok (Node.NumLit (num, metadata))
+  | Form.String (str, metadata) -> Ok (Node.StrLit (str, metadata))
+  | Form.Symbol (sym, metadata) -> parse_symbol metadata sym
+  | Form.List (lst, metadata) -> parse_list parse_form metadata lst
+  | Form.Cons (_, metadata) -> begin
+    let prefix = build_prefix metadata in
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "found unexpected constructor form";
+      "\n\tplease check your syntax"
     ])
   end
-  | Form.Vec (_, meta) -> begin
-    Error (Cmpl_err.parse_errors meta [
-      "\tFound unexpected Vector form";
-      "\tPlease check your syntax"
+  | Form.Vec (_, metadata) -> begin
+    let prefix = build_prefix metadata in
+    Error (Cmpl_err.parse_errors metadata prefix [
+      "found unexpected vector form";
+      "\n\tplease check your syntax"
     ])
   end
 
 let toplevel_error metadata raw =
-  Error (Cmpl_err.parse_errors metadata [
-    "\tTop-level forms must be one of:";
-    "\t\t1. (def ...)";
-    "\t\t1. (defrecord ...)";
-    "\tInstead found: " ^ raw;
-    "\tPlease use the correct forms at the top-level"
+  let prefix = build_prefix metadata in
+  Error (Cmpl_err.parse_errors metadata prefix [
+    sprintf "top-level forms must be either a def or defrecord, instead found %s" raw;
+    "\n\tplease use the correct forms at the top-level"
   ])
 
 let parse_toplevel = function

@@ -9,18 +9,29 @@ module RNode = Ast.Resolved_node
 
 type t = (RNode.t list, Cmpl_err.t) result
 
+let build_prefix { Metadata.line_num; char_num } =
+  sprintf "in expression at %d:%d" line_num char_num
+
 let resolve_symlit table scopes metadata name =
   let name = Symbol_table.resolve_name table (fun name ->
     List.exists (Scope.mem name) scopes) name
   in
   match name with
   | Ok name -> Ok (RNode.SymLit (name, metadata))
-  | Error e -> Error (Cmpl_err.name_error metadata @@ Symbol_table.err_string e)
+  | Error e ->
+      let prefix = build_prefix metadata in
+      Error (Cmpl_err.name_errors metadata prefix [
+        Symbol_table.err_string e
+      ])
 
 let resolve_type table tipe metadata =
   match Symbol_table.resolve_type table tipe with
   | Ok tipe -> Ok tipe
-  | Error e -> Error (Cmpl_err.name_error metadata @@ Symbol_table.err_string e)
+  | Error e ->
+      let prefix = build_prefix metadata in
+      Error (Cmpl_err.name_errors metadata prefix [
+        Symbol_table.err_string e
+      ])
 
 let resolve_rec table meta name fields =
   let fold_fn field fields =
@@ -109,8 +120,10 @@ let check_cons_fields fields tipe metadata =
       let field_exists cons_fields field =
         if List.exists ((=) field) cons_fields then Ok field
         else
-          let message = sprintf "%s is not a valid binding" @@ Type.Name.to_string field in
-          Error (Cmpl_err.name_error metadata message)
+          let prefix = build_prefix metadata in
+          Error (Cmpl_err.name_errors metadata prefix [
+            sprintf "%s is not a valid binding" @@ Type.Name.to_string field
+          ])
       in
       let fold_fn field fields =
         fields >>= fun fields ->
@@ -118,8 +131,10 @@ let check_cons_fields fields tipe metadata =
         return (field :: fields) in
       List.fold_right fold_fn fields (Ok [])
     else
-      let message = sprintf "Wrong number of bindings for constructor '%s'" @@ Type.Name.to_string name in
-      Error (Cmpl_err.name_error metadata message)
+      let prefix = build_prefix metadata in
+      Error (Cmpl_err.name_errors metadata prefix [
+        sprintf "Wrong number of bindings for constructor '%s'" @@ Type.Name.to_string name
+      ])
   end
   | _ -> assert false
 

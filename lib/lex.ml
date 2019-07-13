@@ -116,7 +116,7 @@ let lex_delimited line_num char_num input start delimiter terminal_fn input_fn =
     let rec lex_delimited' input output =
       match input with
       | [] ->
-          let message = sprintf "Unclosed expression found, expecting delimiter '%c'" delimiter in
+          let message = sprintf "unclosed expression found, expecting delimiter '%c'" delimiter in
           raise (SyntaxError (message, line_num, char_num))
       | { value; _ } :: xs when value = delimiter -> (xs, terminal_fn output)
       | _ ->
@@ -170,9 +170,9 @@ let lex_vec lex_fn line_num char_num input =
 let handle_unexpected_input line_num char_num input =
   let chars = Read_list.(List.map (fun e -> e.value) input) in
   let message = match chars with
-  | ')' :: _ -> "Found ')' where none was expected"
-  | ']' :: _ -> "Found ']' where none was expected"
-  | _ -> sprintf "Unrecognized form '%s'" (String.from_chars chars)
+  | ')' :: _ -> "found ')' where none was expected"
+  | ']' :: _ -> "found ']' where none was expected"
+  | _ -> sprintf "unrecognized form '%s'" (String.from_chars chars)
   in
   raise (SyntaxError (message, line_num, char_num))
 
@@ -201,4 +201,4 @@ let lex_forms input =
 let lex str =
   try Ok (lex_forms @@ Read_list.from_string str)
   with SyntaxError (message, line_num, char_num) ->
-    Error (Cmpl_err.SyntaxError { message; line_num; char_num })
+    Error (Cmpl_err.syntax_error line_num char_num message)

@@ -1,4 +1,5 @@
 open Printf
+open Thwack.Extensions
 open Thwack.Result
 
 module Node = Ast.Resolved_node
@@ -8,6 +9,9 @@ type t = ((Node.t * Type.t) list, Cmpl_err.t) result
 type u = (Type.t, Cmpl_err.t) result
 
 module Scope = Map.Make(String)
+
+let build_prefix message { Metadata.line_num; char_num } =
+  sprintf "in %s at %d:%d" message line_num char_num
 
 let is_compatible expected actual =
   expected = actual || expected == Type.Any
@@ -54,17 +58,22 @@ let chk_fn recur_fn scopes params rtype body metadata =
   match maybe_rtype with
   | Error e -> Error e
   | Ok actual_rtype when rtype = actual_rtype -> Ok actual_rtype
-  | Ok actual_rtype -> Error (Cmpl_err.type_errors metadata [
-    sprintf "fn return type expected %s" @@ Type.to_string rtype;
-    sprintf "but got actual type %s" @@ Type.to_string actual_rtype;
-  ])
+  | Ok actual_rtype ->
+      let prefix = build_prefix "function definition" metadata in
+      Error (Cmpl_err.type_errors metadata prefix [
+        sprintf "expected return type is %s, " @@ Type.to_string rtype;
+        sprintf "but actual return type found is %s" @@ Type.to_string actual_rtype
+      ])
 
 let cmp_tst_expr test_type metadata =
   match test_type with
   | Type.Bool -> Ok Type.Bool
-  | tipe -> Error (Cmpl_err.type_errors metadata [
-    sprintf "if-test-expr must evaluate to boolean, instead got %s" @@ Type.to_string tipe
-  ])
+  | tipe ->
+      let prefix = build_prefix "if test-expr" metadata in
+      Error (Cmpl_err.type_errors metadata prefix [
+        "if test-exprs must evaulate to a boolean value, ";
+        sprintf "instead received type of %s" @@ Type.to_string tipe
+      ])
 
 let chk_if_tst recur_fn scopes tst metadata =
   (recur_fn scopes tst) >>= fun ttype ->
@@ -74,10 +83,11 @@ let chk_if_tst recur_fn scopes tst metadata =
 let cmp_if_expr iff els metadata =
   if iff = els then Ok iff
   else if iff = Type.Any || els = Type.Any then Ok Type.Any
-  else Error (Cmpl_err.type_errors metadata [
-    "if-else-expr must evaluate to same result type";
-    sprintf "result of if-expr was %s" @@ Type.to_string iff;
-    sprintf "which is incompatible with else-expr type of %s" @@ Type.to_string els
+  else
+    let prefix = build_prefix "if expr" metadata in
+    Error (Cmpl_err.type_errors metadata prefix [
+      sprintf "result of if-expr was %s, " @@ Type.to_string iff;
+      sprintf "which is incompatible with else-expr result type %s" @@ Type.to_string els
   ])
 
 let chk_if recur_fn scopes tst iff els metadata =
@@ -110,18 +120,27 @@ let chk_let recur_fn scopes bindings body =
   return rtype
 
 let chk_param_types expected_types actual_types return_type metadata =
-  let chk_param_type expected actual =
-    if is_compatible expected actual then Ok return_type
-    else Error (Cmpl_err.type_errors metadata [
-      sprintf "function expected argument of type %s" @@ Type.to_string expected;
-      sprintf "instead received one of type %s" @@ Type.to_string actual
-    ])
+  let chk_param_type index (expected, actual) =
+    if is_compatible expected actual then None
+    else
+      let param_number = index + 1
+      and expected_type = Type.to_string expected
+      and actual_type = Type.to_string actual in
+      Some [
+        sprintf "function expected argument %d to be of type %s, " param_number expected_type;
+        sprintf "instead received actual argument of type %s\n\t" actual_type
+      ]
   in
-  let fold_fn expected actual = function
-    | Ok _ -> chk_param_type expected actual
-    | Error e -> Error e
+  let combine_results errors = function
+    | None -> errors
+    | Some error -> errors @ error
   in
-  List.fold_right2 fold_fn expected_types actual_types (Ok return_type)
+  let results = List.mapi chk_param_type @@ List.zip expected_types actual_types in
+  let errors = List.fold_left combine_results [] results in
+  if List.is_empty errors then Ok return_type
+  else
+    let prefix = build_prefix "function application" metadata in
+    Error (Cmpl_err.type_errors metadata prefix errors)
 
 let cmp_fn_types f_type p_act metadata =
   match f_type with
@@ -129,14 +148,17 @@ let cmp_fn_types f_type p_act metadata =
     if List.compare_lengths p_exp p_act = 0 then
       chk_param_types p_exp p_act rt metadata
     else
-      Error (Cmpl_err.type_errors metadata [
-        sprintf "function expected %d arguments" @@ List.length p_exp;
+      let prefix = build_prefix "function application" metadata in
+      Error (Cmpl_err.type_errors metadata prefix [
+        sprintf "function expected %d arguments, " @@ List.length p_exp;
         sprintf "but instead received %d" @@ List.length p_act
       ])
   end
-  | tipe -> Error (Cmpl_err.type_errors metadata [
-    sprintf "cannot apply not function type of %s" @@ Type.to_string tipe
-  ])
+  | tipe ->
+      let prefix = build_prefix "expression" metadata in
+      Error (Cmpl_err.type_errors metadata prefix [
+        sprintf "attempt to apply non-function type of %s" @@ Type.to_string tipe
+      ])
 
 let chk_apply recur_fn scopes fn args metadata =
   let fold_fn arg types =
@@ -149,12 +171,15 @@ let chk_apply recur_fn scopes fn args metadata =
   (cmp_fn_types atypes etypes metadata) >>= fun rtype ->
   return rtype
 
+(*TODO handle this more like function arguments*)
 let compare_cons_type name rtype cons metadata =
   match List.find_opt (fun c -> (fst c) = name) cons with
   | Some (_, tipe) when is_compatible tipe rtype -> Ok rtype
-  | Some (_, tipe) -> Error (Cmpl_err.type_errors metadata [
-    sprintf "record constructor expected type of %s" @@ Type.to_string tipe;
-    sprintf "instead received type of %s" @@ Type.to_string rtype
+  | Some (_, tipe) ->
+      let prefix = build_prefix "record constructor" metadata in
+      Error (Cmpl_err.type_errors metadata prefix [
+        sprintf "constructor expected type of %s, " @@ Type.to_string tipe;
+        sprintf "but instead received type of %s" @@ Type.to_string rtype
   ])
   | None -> assert false
 
@@ -175,17 +200,21 @@ let chk_cons recur_fn scopes tipe bindings metadata =
 let chk_record_type rectype metadata =
   match rectype with
   | Type.Rec (_, _, cons) -> Ok cons
-  | tipe -> Error (Cmpl_err.type_errors metadata [
-    "first arg to builtin 'get' must be record type";
-    sprintf "instead received %s" @@ Type.to_string tipe
+  | tipe ->
+      let prefix = build_prefix "record.get operation" metadata in
+      Error (Cmpl_err.type_errors metadata prefix [
+        "first arg to 'get' builtin must be record type, ";
+        sprintf "instead received %s" @@ Type.to_string tipe
   ])
 
 let chk_record_field cons field metadata =
   match List.find_opt (fun (name, _) -> name = field) cons with
   | Some (_, tipe) -> Ok (tipe)
-  | None -> Error (Cmpl_err.name_errors metadata [
-    sprintf "record does not have field %s" @@ Type.Name.to_string field
-  ])
+  | None ->
+      let prefix = build_prefix "record.get operation" metadata in
+      Error (Cmpl_err.name_errors metadata prefix [
+        sprintf "record does not have field %s" @@ Type.Name.to_string field
+      ])
 
 let chk_get table scopes record field metadata =
   match record with
@@ -199,10 +228,12 @@ let chk_get table scopes record field metadata =
 
 let compare_set_type actual expected metadata =
   if is_compatible expected actual then Ok actual
-  else Error (Cmpl_err.type_errors metadata [
-    sprintf "builtin 'set' expected type of %s" @@ Type.to_string expected;
-    sprintf "but instead received type of %s" @@ Type.to_string actual
-  ])
+  else
+    let prefix = build_prefix "record.set operation" metadata in
+    Error (Cmpl_err.type_errors metadata prefix [
+      sprintf "builtin 'set' expected type of %s, " @@ Type.to_string expected;
+      sprintf "but instead received type of %s" @@ Type.to_string actual
+    ])
 
 let chk_set recur_fn table scopes record field expr metadata =
   match record with
