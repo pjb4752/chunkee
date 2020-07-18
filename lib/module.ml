@@ -1,5 +1,6 @@
 open Printf
-open Thwack.Option
+open Thwack.Extensions.Option
+open Thwack.Extensions.Option.Syntax
 
 module VarNames = Set.Make(Var.Name)
 module VarTypes = Map.Make(Var.Name)
@@ -33,7 +34,7 @@ let path_list { name; _ } = Mod_name.path_list name
 
 (*TODO use Map.find_else ?*)
 let find_var { var_names; var_types; _ } name =
-  (VarNames.find_opt name var_names) >>= fun name ->
+  let* name = VarNames.find_opt name var_names in
   match VarTypes.find_opt name var_types with
   | Some tipe -> return (Var.make name tipe)
   | None -> assert false
@@ -51,7 +52,7 @@ let find_type { name; type_names; type_cons; _ } type_name =
   end
 
 let type_exists modul type_name =
-  Thwack.Option.is_some @@ find_type modul type_name
+  is_some @@ find_type modul type_name
 
 let define_var modul name tipe =
   let var_names = VarNames.add name modul.var_names in

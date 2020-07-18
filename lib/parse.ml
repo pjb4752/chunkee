@@ -1,7 +1,8 @@
 open Lex
 open Printf
-open Thwack.Result
 open Thwack.Extensions
+open Thwack.Extensions.Result
+open Thwack.Extensions.Result.Syntax
 
 module Node = Ast.Parsed_node
 
@@ -41,8 +42,8 @@ let parse_name_expr name meta =
 
 let parse_type_list parse_type_expr' types =
   List.fold_right (fun t types ->
-    types >>= fun types ->
-    (parse_type_expr' t) >>= fun t ->
+    let* types = types in
+    let* t = parse_type_expr' t in
     return (t :: types)) types (Ok [])
 
 let invalid_type_error raw metadata =
@@ -55,12 +56,12 @@ let invalid_type_error raw metadata =
 
 let rec parse_type_expr = function
   | Form.Symbol (tipe, metadata) -> begin
-      (parse_name_expr tipe metadata) >>= fun tipe ->
-      return (Type_expr.SimpleType tipe)
+    let* tipe = parse_name_expr tipe metadata in
+    return (Type_expr.SimpleType tipe)
   end
   | Form.Cons (tipe, metadata) -> begin
-      (parse_name_expr tipe metadata) >>= fun tipe ->
-      return (Type_expr.SimpleType tipe)
+    let* tipe = parse_name_expr tipe metadata in
+    return (Type_expr.SimpleType tipe)
   end
   | Form.Vec (types, metadata) -> begin
    match parse_type_list parse_type_expr types with
@@ -84,9 +85,9 @@ let rec parse_type_expr = function
 
 let parse_var_def = function
   | (Form.Symbol (name, _) :: tipe :: []) -> begin
-      (parse_type_expr tipe) >>= fun tipe ->
-      let name = Node.VarDef.Name.from_string name in
-      return (name, tipe)
+    let* tipe = (parse_type_expr tipe) in
+    let name = Node.VarDef.Name.from_string name in
+    return (name, tipe)
   end
   | first :: last :: [] -> begin
     let metadata = Form.metadata first in
@@ -103,8 +104,8 @@ let parse_var_def = function
 
 let parse_rec_fields fields metadata =
   let fold_fn (name, tipe) fields =
-    fields >>= fun fields ->
-    (parse_var_def [name; tipe]) >>= fun (name, tipe) ->
+    let* fields = fields in
+    let* (name, tipe) = parse_var_def [name; tipe] in
     let field = Node.VarDef.from_parts name tipe in
     return (field :: fields) in
   if (List.length fields mod 2) = 0 then
@@ -122,7 +123,7 @@ let parse_rec metadata = function
   | Form.Cons (name, _) :: Form.Vec (fields, meta) :: [] ->
       let name = Node.Name.from_string name in
       let fields = parse_rec_fields fields meta in
-      fields >>= fun fs ->
+      let* fs = fields in
       return (Node.Rec (name, fs, metadata))
   | args -> begin
     let prefix = build_prefix metadata in
@@ -145,7 +146,7 @@ let rec is_const_literal = function
 
 let parse_def f_parse metadata = function
   | Form.Symbol (name, _) :: expr :: [] when is_const_literal expr ->
-      (f_parse expr) >>= fun expr ->
+      let* expr = f_parse expr in
       let name = Node.Name.from_string name in
       return (Node.Def (name, expr, metadata))
   | Form.Symbol (name, _) :: expr :: [] -> begin
@@ -169,7 +170,7 @@ let parse_def f_parse metadata = function
 
 let parse_get metadata = function
   | Form.Symbol (record, meta) :: Form.Symbol (field, _) :: [] ->
-      (parse_name_expr record meta) >>= fun record ->
+      let* record = parse_name_expr record meta in
       let field = Node.Name.from_string field in
       let symlit = Node.SymLit (record, meta) in
       return (Node.Get (symlit, field, metadata))
@@ -185,8 +186,8 @@ let parse_get metadata = function
 
 let parse_set f_parse metadata = function
   | Form.Symbol (record, meta) :: Form.Symbol (field, _) :: expr :: [] ->
-      (parse_name_expr record meta) >>= fun record ->
-      (f_parse expr) >>= fun expr ->
+      let* record = parse_name_expr record meta in
+      let* expr = f_parse expr in
       let field = Node.Name.from_string field in
       let symlit = Node.SymLit (record, meta) in
       return (Node.Set (symlit, field, expr, metadata))
@@ -202,8 +203,8 @@ let parse_set f_parse metadata = function
 
 let parse_params metadata params =
   let fold_fn (name, tipe) params =
-    params >>= fun params ->
-    (parse_var_def [name; tipe]) >>= fun (name, tipe) ->
+    let* params = params in
+    let* (name, tipe) = parse_var_def [name; tipe] in
     let param = Node.VarDef.from_parts name tipe in
     return (param :: params) in
   if (List.length params mod 2) = 0 then
@@ -220,9 +221,9 @@ let parse_params metadata params =
 let parse_header metadata header =
   match List.rev header with
   | rtype :: Form.Vec (raw_params, meta) :: [] -> begin
-      (parse_params meta raw_params) >>= fun params ->
-      (parse_type_expr rtype) >>= fun rtype ->
-      return (params, rtype)
+    let* params = parse_params meta raw_params in
+    let* rtype = parse_type_expr rtype in
+    return (params, rtype)
   end
   | header -> begin
     let prefix = build_prefix metadata in
@@ -236,8 +237,8 @@ let parse_header metadata header =
 
 let parse_fn f_parse metadata = function
   | Form.Vec (raw_header, meta) :: raw_body :: [] ->
-      (parse_header meta raw_header) >>= fun (params, rtype) ->
-      (f_parse raw_body) >>= fun body ->
+      let* (params, rtype) = parse_header meta raw_header in
+      let* body = f_parse raw_body in
       return (Node.Fn (params, rtype, body, metadata))
   | args -> begin
     let prefix = build_prefix metadata in
@@ -251,9 +252,9 @@ let parse_fn f_parse metadata = function
 
 let parse_if f_parse metadata = function
   | raw_test :: raw_if :: raw_else :: [] ->
-      (f_parse raw_test) >>= fun t ->
-      (f_parse raw_if) >>= fun i ->
-      (f_parse raw_else) >>= fun e ->
+      let* t = f_parse raw_test in
+      let* i = f_parse raw_if in
+      let* e = f_parse raw_else in
       return (Node.If (t, i, e, metadata))
   | args -> begin
     let prefix = build_prefix metadata in
@@ -268,7 +269,7 @@ let parse_if f_parse metadata = function
 let parse_binding f_parse = function
   | (Form.Symbol (b, _), raw_expr) ->
       let name = Node.Binding.Name.from_string b in
-      (f_parse raw_expr) >>= fun e ->
+      let* e = f_parse raw_expr in
       return (Node.Binding.from_node name e)
   | (first, second) -> begin
     let metadata = Form.metadata first in
@@ -284,8 +285,8 @@ let parse_binding f_parse = function
 
 let parse_bindings f_parse metadata bindings =
   let fold_fn binding prior =
-    prior >>= fun bs ->
-    (parse_binding f_parse binding) >>= fun b ->
+    let* bs = prior in
+    let* b = parse_binding f_parse binding in
     return (b :: bs)
   in
   if (List.length bindings mod 2) = 0 then
@@ -302,8 +303,8 @@ let parse_bindings f_parse metadata bindings =
 let parse_let f_parse metadata = function
   | Form.Vec (bindings, meta) :: body :: [] ->
       let bindings = parse_bindings f_parse meta bindings in
-      bindings >>= fun bi ->
-      (f_parse body) >>= fun b ->
+      let* bi = bindings in
+      let* b = f_parse body in
       return (Node.Let (bi, b, metadata))
   | args -> begin
     let prefix = build_prefix metadata in
@@ -317,8 +318,8 @@ let parse_let f_parse metadata = function
 
 let parse_cast f_parse metadata = function
   | raw_type :: expr :: [] -> begin
-    (parse_type_expr raw_type) >>= fun t ->
-    (f_parse expr) >>= fun e ->
+    let* t = parse_type_expr raw_type in
+    let* e = f_parse expr in
     return (Node.Cast (t, e, metadata))
   end
   | args -> begin
@@ -333,30 +334,30 @@ let parse_cast f_parse metadata = function
 
 let parse_args f_parse args =
   let fold_fn arg prior =
-    prior >>= fun args ->
-    (f_parse arg) >>= fun a ->
+    let* args = prior in
+    let* a = f_parse arg in
     return (a :: args) in
   List.fold_right fold_fn args (Ok [])
 
 let parse_num_apply f_parse metadata num args =
-  (parse_args f_parse args) >>= fun args ->
+  let* args = parse_args f_parse args in
   let numlit = Node.NumLit (num, metadata) in
   return (Node.Apply (numlit, args, metadata))
 
 let parse_str_apply f_parse metadata str args =
-  (parse_args f_parse args) >>= fun args ->
+  let* args = parse_args f_parse args in
   let strlit = Node.StrLit (str, metadata) in
   return (Node.Apply (strlit, args, metadata))
 
 let parse_sym_apply f_parse metadata fn args =
-  (parse_name_expr fn metadata) >>= fun fn ->
-  (parse_args f_parse args) >>= fun args ->
+  let* fn = parse_name_expr fn metadata in
+  let* args = parse_args f_parse args in
   let symlit = Node.SymLit (fn, metadata) in
   return (Node.Apply (symlit, args, metadata))
 
 let parse_fn_apply f_parse metadata fn args =
-  (f_parse (Form.List (fn, metadata))) >>= fun fn ->
-  (parse_args f_parse args) >>= fun args ->
+  let* fn = f_parse (Form.List (fn, metadata)) in
+  let* args = parse_args f_parse args in
   return (Node.Apply (fn, args, metadata))
 
 let nested_error metadata =
@@ -378,9 +379,9 @@ let parse_op f_parse meta op (args: Form.t list) =
 
 let parse_cons f_parse metadata tipe = function
   | Form.Vec (bindings, meta) :: [] ->
-      (parse_name_expr tipe meta) >>= fun name_expr ->
+      let* name_expr = parse_name_expr tipe meta in
       let type_expr = Type_expr.SimpleType name_expr in
-      (parse_bindings f_parse meta bindings) >>= fun bindings ->
+      let* bindings = parse_bindings f_parse meta bindings in
       return (Node.Cons (type_expr, bindings, metadata))
   | args -> begin
     let prefix = build_prefix metadata in
@@ -393,7 +394,7 @@ let parse_cons f_parse metadata tipe = function
   end
 
 let parse_symbol metadata symbol =
-  (parse_name_expr symbol metadata) >>= fun symbol ->
+  let* symbol = parse_name_expr symbol metadata in
   return (Node.SymLit (symbol, metadata))
 
 let parse_list f_parse metadata = function
@@ -448,7 +449,7 @@ let parse_toplevel = function
 
 let parse forms =
   let fold_fn form forms =
-    forms >>= fun fs ->
-    (parse_toplevel form) >>= fun f ->
+    let* fs = forms in
+    let* f = parse_toplevel form in
     return (f :: fs) in
   List.fold_right fold_fn forms (Ok [])

@@ -1,5 +1,6 @@
 open Thwack.Extensions
-open Thwack.Option
+open Thwack.Extensions.Option
+open Thwack.Extensions.Option.Syntax
 open Printf
 
 module Lib_tree = struct
@@ -26,9 +27,9 @@ module Lib_tree = struct
           let head = List.hd paths in
           find' (Children.find_opt head node) (List.tl paths)
         | _ -> None in
-      tree >>= fun t ->
-      (match_fn t paths) >>= fun m ->
-      return m in
+      let* tree = tree in
+      let* modul = match_fn tree paths in
+      return modul in
     find' (Some tree) (Mod_name.to_list paths)
 
   let insert_module tree modul =

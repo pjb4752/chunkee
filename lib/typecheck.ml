@@ -1,6 +1,7 @@
 open Printf
 open Thwack.Extensions
-open Thwack.Result
+open Thwack.Extensions.Result
+open Thwack.Extensions.Result.Syntax
 
 module Node = Ast.Resolved_node
 
@@ -31,17 +32,15 @@ let chk_module_name table mod_name var_name =
   | Some tipe -> Ok tipe
 
 let chk_name table scopes name =
-  let tipe = match name with
+  match name with
   | Name.Var.Local name -> chk_local_name scopes name
-  | Name.Var.Module (mod_name, var_name) ->
-      chk_module_name table mod_name var_name in
-  tipe >>= fun tipe -> return tipe
+  | Name.Var.Module (mod_name, var_name) -> chk_module_name table mod_name var_name
 
 let process_params params =
   let fold_fn p ps =
     let (name, tipe) = Node.VarDef.to_tuple p in
     let name = Node.VarDef.Name.to_string name in
-    ps >>= fun ps ->
+    let* ps = ps in
     return ((name, tipe) :: ps) in
   match List.fold_right fold_fn params (Ok []) with
   | Error e -> Error e
@@ -52,8 +51,8 @@ let process_params params =
 
 let chk_fn recur_fn scopes params rtype body metadata =
   let maybe_rtype =
-    (process_params params) >>= fun (_, scope) ->
-    (recur_fn (scope :: scopes) body) >>= fun rtype ->
+    let* (_, scope) = process_params params in
+    let* rtype = recur_fn (scope ::scopes) body in
     return rtype in
   match maybe_rtype with
   | Error e -> Error e
@@ -76,8 +75,8 @@ let cmp_tst_expr test_type metadata =
       ])
 
 let chk_if_tst recur_fn scopes tst metadata =
-  (recur_fn scopes tst) >>= fun ttype ->
-  (cmp_tst_expr ttype metadata) >>= fun ttype ->
+  let* ttype = recur_fn scopes tst in
+  let* ttype = cmp_tst_expr ttype metadata in
   return ttype
 
 let cmp_if_expr iff els metadata =
@@ -91,10 +90,10 @@ let cmp_if_expr iff els metadata =
   ])
 
 let chk_if recur_fn scopes tst iff els metadata =
-  (chk_if_tst recur_fn scopes tst metadata) >>= fun _ ->
-  (recur_fn scopes iff) >>= fun itype ->
-  (recur_fn scopes els) >>= fun etype ->
-  (cmp_if_expr itype etype metadata) >>= fun rtype ->
+  let* _ = chk_if_tst recur_fn scopes tst metadata in
+  let* itype = recur_fn scopes iff in
+  let* etype = recur_fn scopes els in
+  let* rtype = cmp_if_expr itype etype metadata in
   return rtype
 
 let chk_binding recur_fn scopes binding =
@@ -115,8 +114,8 @@ let chk_let recur_fn scopes bindings body =
       | Error e -> Error e
       | Ok s -> chk_bindings s bs
     end in
-  (chk_bindings scopes bindings) >>= fun scopes ->
-  (recur_fn scopes body) >>= fun rtype ->
+  let* scopes = chk_bindings scopes bindings in
+  let* rtype = recur_fn scopes body in
   return rtype
 
 let chk_param_types expected_types actual_types return_type metadata =
@@ -162,13 +161,13 @@ let cmp_fn_types f_type p_act metadata =
 
 let chk_apply recur_fn scopes fn args metadata =
   let fold_fn arg types =
-    types >>= fun types ->
-    (recur_fn scopes arg) >>= fun tipe ->
+    let* types = types in
+    let* tipe = recur_fn scopes arg in
     return (tipe :: types) in
   let types = List.fold_right fold_fn args (Ok []) in
-  types >>= fun etypes ->
-  (recur_fn scopes fn) >>= fun atypes ->
-  (cmp_fn_types atypes etypes metadata) >>= fun rtype ->
+  let* etypes = types in
+  let* atypes = recur_fn scopes fn in
+  let* rtype = cmp_fn_types atypes etypes metadata in
   return rtype
 
 (*TODO handle this more like function arguments*)
@@ -187,13 +186,13 @@ let chk_cons recur_fn scopes tipe bindings metadata =
   match tipe with
   | Type.Rec (_, _, cons) -> begin
     let fold_fn binding rtypes =
-      rtypes >>= fun rtypes ->
+      let* rtypes = rtypes in
       let (name, expr) = Node.Binding.to_tuple binding in
-      (recur_fn scopes expr) >>= fun rtype ->
-      (compare_cons_type name rtype cons metadata) >>= fun rtype ->
+      let* rtype = recur_fn scopes expr in
+      let* rtype = compare_cons_type name rtype cons metadata in
       return (rtype :: rtypes) in
     let rtypes = List.fold_right fold_fn bindings (Ok []) in
-    rtypes >>= fun _ -> return tipe
+    let* _ = rtypes in return tipe
     end
   | _ -> assert false
 
@@ -219,9 +218,9 @@ let chk_record_field cons field metadata =
 let chk_get table scopes record field metadata =
   match record with
   | Node.SymLit (name, _) -> begin
-    (chk_name table scopes name) >>= fun rectype ->
-    (chk_record_type rectype metadata) >>= fun cons ->
-    (chk_record_field cons field metadata) >>= fun rtype ->
+    let* rectype = chk_name table scopes name in
+    let* cons = chk_record_type rectype metadata in
+    let* rtype = chk_record_field cons field metadata in
     return rtype
   end
   | _ -> assert false
@@ -238,17 +237,17 @@ let compare_set_type actual expected metadata =
 let chk_set recur_fn table scopes record field expr metadata =
   match record with
   | Node.SymLit (name, _) -> begin
-    (chk_name table scopes name) >>= fun rectype ->
-    (chk_record_type rectype metadata) >>= fun cons ->
-    (chk_record_field cons field metadata) >>= fun fieldtype ->
-    (recur_fn scopes expr) >>= fun exprtype ->
-    (compare_set_type exprtype fieldtype metadata) >>= fun _ ->
+    let* rectype = chk_name table scopes name in
+    let* cons = chk_record_type rectype metadata in
+    let* fieldtype = chk_record_field cons field metadata in
+    let* exprtype = recur_fn scopes expr in
+    let* _ = compare_set_type exprtype fieldtype metadata in
     return Type.Unit
   end
   | _ -> assert false
 
 let chk_cast recur_fn scopes tipe expr =
-  (recur_fn scopes expr) >>= fun _ ->
+  let* _ = recur_fn scopes expr in
   return tipe
 
 let check_node table node =
@@ -272,7 +271,7 @@ let check_node table node =
 let check_top_node table node =
   match node with
   | Node.Def (_, expr, _) -> begin
-    (check_node table expr) >>= fun tipe ->
+    let* tipe = check_node table expr in
     return tipe
   end
   | Node.Rec (name, _, _) -> begin
@@ -286,11 +285,11 @@ let check_top_node table node =
 
 let check_top_nodes table nodes =
   let fold_fn node nodes =
-    nodes >>= fun nodes ->
-    (check_top_node table node) >>= fun tipe ->
+    let* nodes = nodes in
+    let* tipe = check_top_node table node in
     return ((node, tipe) :: nodes) in
   List.fold_right fold_fn nodes (Ok [])
 
 let check table nodes =
-  (check_top_nodes table nodes) >>= fun nodes ->
+  let* nodes = check_top_nodes table nodes in
   return nodes

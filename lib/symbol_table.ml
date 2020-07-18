@@ -1,5 +1,6 @@
 open Printf
-open Thwack.Option
+open Thwack.Extensions.Option
+open Thwack.Extensions.Option.Syntax
 
 type t = {
   pervasive: Pervasive.t;
@@ -74,8 +75,8 @@ let resolve_unqualified_type modul lookup_fn tipe =
   | None -> begin
     let name = Type.Name.from_string tipe in
     let maybe_type =
-      lookup_fn >>= fun lookup_fn ->
-      (lookup_fn name) >>= fun tipe ->
+      let* lookup_fn = lookup_fn in
+      let* tipe = lookup_fn name in
       return tipe in
     match maybe_type with
     | Some tipe -> Ok tipe
@@ -90,27 +91,29 @@ let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
   | Type_expr.SimpleType tipe -> resolve_simple_type table lookup_fn tipe
   | Type_expr.FnType types ->
       let fold_fn types tipe =
-        Thwack.Result.(
-          types >>= fun types ->
-          (resolve_type table ~lookup_fn:lookup_fn tipe) >>= fun tipe ->
-          return (tipe :: types)) in
+        Thwack.Extensions.Result.(
+          Syntax.(
+            let* types = types in
+            let* tipe = resolve_type table ~lookup_fn:lookup_fn tipe in
+            return (tipe :: types))
+          ) in
       match List.fold_left fold_fn (Ok []) types with
       | Error e -> Error e
       | Ok (rtype :: ptypes) -> Ok (Type.Fn (List.rev ptypes, rtype))
       | Ok _ -> assert false
 
 let module_var table mod_name var_name =
-  (select_module table mod_name) >>= fun modul ->
-  (Module.find_var modul var_name) >>= fun var ->
+  let* modul = (select_module table mod_name) in
+  let* var = (Module.find_var modul var_name) in
   return var
 
 let module_vartype table mod_name var_name =
-  (module_var table mod_name var_name) >>= fun var ->
+  let* var = (module_var table mod_name var_name) in
   return (Var.tipe var)
 
 let module_type table mod_name type_name =
-  (select_module table mod_name) >>= fun modul ->
-  (Module.find_type modul type_name) >>= fun tipe ->
+  let* modul = (select_module table mod_name) in
+  let* tipe = (Module.find_type modul type_name) in
   return tipe
 
 let define_var table var tipe =

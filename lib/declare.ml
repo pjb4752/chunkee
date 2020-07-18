@@ -1,5 +1,6 @@
 open Printf
-open Thwack.Result
+open Thwack.Extensions.Result
+open Thwack.Extensions.Result.Syntax
 
 module Node = Ast.Parsed_node
 
@@ -55,7 +56,7 @@ let define_var table = function
         sprintf "var with name '%s' is already defined" @@ Node.Name.to_string name
       ])
     else (
-      (find_def_type table expr metadata) >>= fun tipe ->
+      let* tipe = find_def_type table expr metadata in
       return (Symbol_table.define_var table name tipe)
     )
   end
@@ -63,8 +64,8 @@ let define_var table = function
 
 let define_vars table vardefs =
   List.fold_right (fun vardef table ->
-    table >>= fun table ->
-    (define_var table vardef) >>= fun table ->
+    let* table = table in
+    let* table = define_var table vardef in
     return table) vardefs (Ok table)
 
 let declare_type typedecls mod_name = function
@@ -79,8 +80,8 @@ let declare_type typedecls mod_name = function
 
 let declare_types mod_name typedefs =
   List.fold_right (fun typedef typedecls ->
-    typedecls >>= fun typedecls ->
-    (declare_type typedecls mod_name typedef) >>= fun typedecls ->
+    let* typedecls = typedecls in
+    let* typedecls = declare_type typedecls mod_name typedef in
     return typedecls) typedefs (Ok TypeDecls.empty)
 
 let resolve_type table typedecls type_expr metadata =
@@ -100,11 +101,11 @@ let resolve_type table typedecls type_expr metadata =
 
 let resolve_constructor table typedecls fields metadata =
   let fold_fn field fields =
-    fields >>= fun fields ->
+    let* fields = fields in
     let (name, type_expr) = Node.VarDef.to_tuple field in
     let name = Node.VarDef.Name.to_string name in
-    (resolve_type table typedecls type_expr metadata) >>= fun tipe ->
-    (return ((Type.Name.from_string name, tipe) :: fields)) in
+    let* tipe = resolve_type table typedecls type_expr metadata in
+    return ((Type.Name.from_string name, tipe) :: fields) in
   List.fold_right fold_fn fields (Ok [])
 
 let define_record table typedecls name fields metadata =
@@ -121,8 +122,8 @@ let define_types table typedefs =
   | Error e -> Error e
   | Ok typedecls -> begin
     let fold_fn typedef table =
-      table >>= fun table ->
-      (define_type table typedecls typedef) >>= fun table ->
+      let* table = table in
+      let* table = define_type table typedecls typedef in
       return table in
     List.fold_right fold_fn typedefs (Ok table)
   end
@@ -135,6 +136,6 @@ let partition_defs nodes =
 
 let declare_toplevels table nodes =
   let (typedefs, vardefs) = partition_defs nodes in
-  (define_types table typedefs) >>= fun table ->
-  (define_vars table vardefs) >>= fun table ->
+  let* table = define_types table typedefs in
+  let* table = define_vars table vardefs in
   return table

@@ -1,6 +1,7 @@
 open Printf
 open Thwack.Extensions
-open Thwack.Result
+open Thwack.Extensions.Result
+open Thwack.Extensions.Result.Syntax
 
 module Scope = Set.Make(String)
 
@@ -35,41 +36,41 @@ let resolve_type table tipe metadata =
 
 let resolve_rec table meta name fields =
   let fold_fn field fields =
-    fields >>= fun fields ->
+    let* fields = fields in
     let (name, tipe) = PNode.VarDef.to_tuple field in
-    (resolve_type table tipe meta) >>= fun tipe ->
+    let* tipe = resolve_type table tipe meta in
     let field = RNode.VarDef.from_parts name tipe in
     return (field :: fields) in
-  (List.fold_right fold_fn fields (Ok [])) >>= fun fields ->
+  let* fields = List.fold_right fold_fn fields (Ok []) in
   return (RNode.Rec (name, fields, meta))
 
 let resolve_def recur_fn scopes meta name expr =
-  (recur_fn scopes expr) >>= fun expr ->
+  let* expr = recur_fn scopes expr in
   return (RNode.Def (name, expr, meta))
 
 let resolve_fn recur_fn table scopes meta params rtype body =
   let fold_fn var vars =
-    vars >>= fun vars ->
+    let* vars = vars in
     let (name, tipe) = PNode.VarDef.to_tuple var in
-    (resolve_type table tipe meta) >>= fun t ->
+    let* t = resolve_type table tipe meta in
     let var = RNode.VarDef.from_parts name t in
     return (var :: vars) in
   let map_fn var =
     let (name, _) = RNode.VarDef.to_tuple var in
     RNode.VarDef.Name.to_string name in
   let params = List.fold_right fold_fn params (Ok []) in
-  params >>= fun params ->
-    let param_names = List.map map_fn params in
-    let fn_scope = Scope.of_list param_names in
-    let scopes = fn_scope :: scopes in
-    (resolve_type table rtype meta) >>= fun rtype ->
-    (recur_fn scopes body) >>= fun body ->
-    return (RNode.Fn (params, rtype, body, meta))
+  let* params = params in
+  let param_names = List.map map_fn params in
+  let fn_scope = Scope.of_list param_names in
+  let scopes = fn_scope :: scopes in
+  let* rtype = resolve_type table rtype meta in
+  let* body = recur_fn scopes body in
+  return (RNode.Fn (params, rtype, body, meta))
 
 let resolve_if recur_fn scopes meta tst iff els =
-  (recur_fn scopes tst) >>= fun tst ->
-  (recur_fn scopes iff) >>= fun iff ->
-  (recur_fn scopes els) >>= fun els ->
+  let* tst = recur_fn scopes tst in
+  let* iff = recur_fn scopes iff in
+  let* els = recur_fn scopes els in
   return (RNode.If (tst, iff, els, meta))
 
 let resolve_binding recur_fn scopes binding =
@@ -98,18 +99,18 @@ let resolve_let recur_fn scopes meta bindings body =
   match resolve_bindings' scopes [] bindings with
   | Error e -> Error e
   | Ok (scopes, bindings) -> begin
-    (recur_fn scopes body) >>= fun body ->
+    let* body = recur_fn scopes body in
     return (RNode.Let (List.rev bindings, body, meta))
   end
 
 let resolve_apply recur_fn scopes meta fn args =
   let fold_fn resolved arg =
-    resolved >>= fun r ->
-    (recur_fn scopes arg) >>= fun a ->
+    let* r = resolved in
+    let* a = recur_fn scopes arg in
     return (a :: r) in
   let args = List.fold_left fold_fn (Ok []) args in
-  args >>= fun args ->
-  (recur_fn scopes fn) >>= fun fn ->
+  let* args = args in
+  let* fn = recur_fn scopes fn in
   return (RNode.Apply (fn, List.rev args, meta))
 
 let check_cons_fields fields tipe metadata =
@@ -126,8 +127,8 @@ let check_cons_fields fields tipe metadata =
           ])
       in
       let fold_fn field fields =
-        fields >>= fun fields ->
-        (field_exists cons_fields field) >>= fun field ->
+        let* fields = fields in
+        let* field = field_exists cons_fields field in
         return (field :: fields) in
       List.fold_right fold_fn fields (Ok [])
     else
@@ -140,24 +141,24 @@ let check_cons_fields fields tipe metadata =
 
 let resolve_exprs recur_fn scopes exprs =
   let fold_fn expr exprs =
-    exprs >>= fun exprs ->
-    (recur_fn scopes expr) >>= fun expr ->
+    let* exprs = exprs in
+    let* expr = recur_fn scopes expr in
     return (expr :: exprs) in
   List.fold_right fold_fn exprs (Ok [])
 
 let resolve_cons recur_fn table scopes meta tipe bindings =
-  (resolve_type table tipe meta) >>= fun tipe ->
+  let* tipe = resolve_type table tipe meta in
   let fields = List.map PNode.Binding.name bindings in
-  (check_cons_fields fields tipe meta) >>= fun fields ->
+  let* fields = check_cons_fields fields tipe meta in
   let exprs = List.map PNode.Binding.expr bindings in
-  (resolve_exprs recur_fn scopes exprs) >>= fun exprs ->
+  let* exprs = resolve_exprs recur_fn scopes exprs in
   let bindings = List.map2 RNode.Binding.from_node fields exprs in
   return (RNode.Cons (tipe, bindings, meta))
 
 let resolve_get table scopes record field =
   match record with
   | PNode.SymLit (name, meta) -> begin
-    (resolve_symlit table scopes meta name) >>= fun symlit ->
+    let* symlit = resolve_symlit table scopes meta name in
     return (RNode.Get (symlit, field, meta))
   end
   | _ -> assert false
@@ -165,15 +166,15 @@ let resolve_get table scopes record field =
 let resolve_set recur_fn table scopes record field expr =
   match record with
   | PNode.SymLit (name, meta) -> begin
-    (resolve_symlit table scopes meta name) >>= fun symlit ->
-    (recur_fn scopes expr) >>= fun expr ->
+    let* symlit = resolve_symlit table scopes meta name in
+    let* expr = recur_fn scopes expr in
     return (RNode.Set (symlit, field, expr, meta))
   end
   | _ -> assert false
 
 let resolve_cast recur_fn table scopes meta tipe expr =
-  (resolve_type table tipe meta) >>= fun tipe ->
-  (recur_fn scopes expr) >>= fun expr ->
+  let* tipe = resolve_type table tipe meta in
+  let* expr = recur_fn scopes expr in
   return (RNode.Cast (tipe, expr, meta))
 
 let resolve_node table node =
@@ -195,8 +196,8 @@ let resolve_node table node =
 
 let resolve_nodes table nodes =
   let fold_fn node nodes =
-    nodes >>= fun nodes ->
-    (resolve_node table node) >>= fun node ->
+    let* nodes = nodes in
+    let* node = resolve_node table node in
     return (node :: nodes) in
   List.fold_right fold_fn nodes (Ok [])
 
