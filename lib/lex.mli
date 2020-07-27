@@ -16,4 +16,8 @@ module Form : sig
   val debug_string: t -> string
 end
 
-val lex: string -> (Form.t list, Cmpl_err.t) result
+type t = (Form.t list, Cmpl_err.t) result
+
+val lex: string -> t
+
+val debug_string: t -> string

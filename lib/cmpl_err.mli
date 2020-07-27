@@ -20,4 +20,3 @@ val definition_errors: Metadata.t -> string -> string list -> t
 val name_errors: Metadata.t -> string -> string list -> t
 
 val type_errors: Metadata.t -> string -> string list -> t
-

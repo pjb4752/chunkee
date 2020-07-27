@@ -32,16 +32,18 @@ module Form = struct
     | List (_, meta) -> meta
     | Vec (_, meta) -> meta
 
-  let debug_string form =
-    let string_of_list l = String.concat " " (List.map to_string l) in
+  let rec debug_string form =
+    let string_of_list l = String.concat " " (List.map debug_string l) in
     match form with
-    | Number (n, _) -> sprintf "(number %.2f)" n
-    | String (s, _) -> sprintf "(string %s)" s
-    | Symbol (s, _) -> sprintf "(symbol %s)" s
-    | Cons (s, _) -> sprintf "(cons %s)" s
-    | List (l, _) -> sprintf "(list %s)" (string_of_list l)
-    | Vec (v, _) -> sprintf "(vec %s)" (string_of_list v)
+    | Number (n, m) -> sprintf "(Number %.2f, %s)" n @@ Metadata.debug_string m
+    | String (s, m) -> sprintf "(String %s, %s)" s @@ Metadata.debug_string m
+    | Symbol (s, m) -> sprintf "(Symbol %s, %s)" s @@ Metadata.debug_string m
+    | Cons (s, m) -> sprintf "(Cons %s, %s)" s @@ Metadata.debug_string m
+    | List (l, m) -> sprintf "(List %s, %s)" (string_of_list l) @@ Metadata.debug_string m
+    | Vec (v, m) -> sprintf "(Vec %s, %s)" (string_of_list v) @@ Metadata.debug_string m
 end
+
+type t = (Form.t list, Cmpl_err.t) result
 
 let whitespace = [' '; '\t'; '\n']
 let digits = ['0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9']
@@ -202,3 +204,10 @@ let lex str =
   try Ok (lex_forms @@ Read_list.from_string str)
   with SyntaxError (message, line_num, char_num) ->
     Error (Cmpl_err.syntax_error line_num char_num message)
+
+let debug_string result =
+  let forms_to_string forms =
+    let forms = List.map Form.debug_string forms in
+    sprintf "Ok([%s])" @@ String.concat "; " forms
+  in
+  Result.to_string result forms_to_string Cmpl_err.to_string
