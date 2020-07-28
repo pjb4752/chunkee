@@ -32,15 +32,15 @@ module Form = struct
     | List (_, meta) -> meta
     | Vec (_, meta) -> meta
 
-  let rec debug_string form =
-    let string_of_list l = String.concat " " (List.map debug_string l) in
+  let rec inspect form =
+    let string_of_list l = String.concat " " (List.map inspect l) in
     match form with
-    | Number (n, m) -> sprintf "(Number %.2f, %s)" n @@ Metadata.debug_string m
-    | String (s, m) -> sprintf "(String %s, %s)" s @@ Metadata.debug_string m
-    | Symbol (s, m) -> sprintf "(Symbol %s, %s)" s @@ Metadata.debug_string m
-    | Cons (s, m) -> sprintf "(Cons %s, %s)" s @@ Metadata.debug_string m
-    | List (l, m) -> sprintf "(List %s, %s)" (string_of_list l) @@ Metadata.debug_string m
-    | Vec (v, m) -> sprintf "(Vec %s, %s)" (string_of_list v) @@ Metadata.debug_string m
+    | Number (n, m) -> sprintf "Number(%.2f, %s)" n @@ Metadata.inspect m
+    | String (s, m) -> sprintf "String(%s, %s)" s @@ Metadata.inspect m
+    | Symbol (s, m) -> sprintf "Symbol(%s, %s)" s @@ Metadata.inspect m
+    | Cons (s, m) -> sprintf "Cons(%s, %s)" s @@ Metadata.inspect m
+    | List (l, m) -> sprintf "List(%s, %s)" (string_of_list l) @@ Metadata.inspect m
+    | Vec (v, m) -> sprintf "Vec(%s, %s)" (string_of_list v) @@ Metadata.inspect m
 end
 
 type t = (Form.t list, Cmpl_err.t) result
@@ -205,9 +205,7 @@ let lex str =
   with SyntaxError (message, line_num, char_num) ->
     Error (Cmpl_err.syntax_error line_num char_num message)
 
-let debug_string result =
+let inspect result =
   let forms_to_string forms =
-    let forms = List.map Form.debug_string forms in
-    sprintf "Ok([%s])" @@ String.concat "; " forms
-  in
+    String.concat "; " @@ List.map Form.inspect forms in
   Result.to_string result forms_to_string Cmpl_err.to_string

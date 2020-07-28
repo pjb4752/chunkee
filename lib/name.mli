@@ -6,4 +6,6 @@ module Var : sig
     | Module of Mod_name.t * V.Name.t
 
   val to_string: t -> string
+
+  val inspect: t -> string
 end

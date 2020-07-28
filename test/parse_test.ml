@@ -1,182 +1,48 @@
+open Chunkee
 open Chunkee.Lex
+open Chunkee.Metadata
 open Chunkee.Parse
 open OUnit2
-open Test_helper
+
+let assert_parses_to expected tokens =
+  assert_equal ~printer:inspect (Ok expected) (parse tokens)
 
 let assert_true value = assert_equal value true
 
 let suite =
   "Parse suite">::: [
-    "parse number literal">::
+    "parse simple def">::
       (fun _ ->
-        assert_equal
-          (parse_form (Form.Number 55.0))
-          (Ok (Node.NumLit 55.0))
-        );
-
-    "parse string literal">::
-      (fun _ ->
-        assert_equal
-          (parse_form (Form.String "hello cat"))
-          (Ok (Node.StrLit "hello cat"))
-        );
-
-    "parse symbol literal">::
-      (fun _ ->
-        assert_equal
-          (parse_form (Form.Symbol "foofoo"))
-          (Ok (make_bare_sym "foofoo"))
-        );
-
-        (*
-    "parse valid rec form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "defrec";
-          Form.Symbol "hello";
-          Form.Vec [Form.Symbol "x"; Form.Symbol "num"];
-        ] in
-        let name = Node.Name.from_string "hello" in
-        let var_def = make_p_var_def "x" "num" in
-        assert_equal
-          (parse_form form)
-          (Ok (Node.Rec (name, [var_def])))
-      );
-      *)
-
-      (*
-    "parse valid def form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "def";
-          Form.Symbol "x";
-          Form.Number 55.0
-        ] in
+        let init_metadata = { line_num = 1; char_num = 1 } in
+        let expr_metadata = { line_num = 1; char_num = 6 } in
+        let def = Form.Symbol ("def", init_metadata) in
+        let variable = Form.Symbol ("x", { line_num = 1; char_num = 4 }) in
+        let expression = Form.String ("hello", expr_metadata) in
+        let def_form = Form.List ([def; variable; expression], init_metadata) in
         let name = Node.Name.from_string "x" in
-        let node = Node.NumLit 55.0 in
-        assert_equal
-          (parse_form form)
-          (Ok (Node.Def (name, node)))
-        );
-        *)
-
-    "parse invalid def form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "def"; Form.Symbol "x";
-        ] in
-        assert_true (Thwack.Result.is_error (parse_form form))
-        );
-
-        (*
-    "parse valid fn form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "fn";
-          Form.Vec [
-            Form.Vec [Form.Symbol "a"; Form.Symbol "num"];
-          ];
-          Form.Symbol "a"
-        ] in
-        let param0 = make_p_var_def "a" "num" in
-        assert_equal
-          (parse_form form)
-          (Ok (Node.Fn ([param0], make_type_expr "num", make_bare_sym "a")))
-      );
-      *)
-
-    "parse invalid fn form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "fn"; Form.Symbol "a"
-        ] in
-        assert_true (Thwack.Result.is_error (parse_form form))
+        let expression_node = Node.StrLit ("hello", expr_metadata) in
+        assert_parses_to [Node.Def (name, expression_node, init_metadata)] [def_form]
       );
 
-    "parse valid if form">::
+    "parse defrecord">::
       (fun _ ->
-        let form = Form.List [
-          Form.Symbol "if";
-            Form.Symbol "a"; Form.Symbol "b"; Form.Symbol "c"
-        ] in
-        let tst = make_bare_sym "a" in
-        let iff = make_bare_sym "b" in
-        let els = make_bare_sym "c" in
-        assert_equal
-          (parse_form form)
-          (Ok (Node.If (tst, iff, els)))
-      );
+        let init_metadata = { line_num = 1; char_num = 1 } in
+        let defrecord = Form.Symbol ("defrec", init_metadata) in
+        let record_name = Form.Cons ("TestRecord", { line_num = 1; char_num = 10 }) in
+        let name1 = Form.Symbol ("field1", { line_num = 1; char_num = 15 }) in
+        let type1 = Form.Symbol ("num", { line_num = 1; char_num = 20 }) in
+        let name2 = Form.Symbol ("field2", { line_num = 1; char_num = 15 }) in
+        let type2 = Form.Symbol ("str", { line_num = 1; char_num = 20 }) in
+        let fields = Form.Vec ([name1; type1; name2; type2], { line_num = 1; char_num = 15 }) in
+        let defrecord_form = Form.List ([defrecord; record_name; fields], init_metadata) in
 
-    "parse invalid if form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "if";
-            Form.Symbol "a"; Form.Symbol "b";
-        ] in
-        assert_true (Thwack.Result.is_error (parse_form form))
-      );
-
-    "parse valid let form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "let";
-            Form.Vec [Form.Symbol "a"; Form.Number 5.0];
-            Form.Symbol "a";
-        ] in
-        let name = Node.Binding.Name.from_string "a" in
-        let binding = Node.Binding.from_node name (Node.NumLit 5.0) in
-        assert_equal
-          (parse_form form)
-          (Ok (Node.Let ([binding], (make_bare_sym "a"))))
-      );
-
-    "parse invalid let form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "let";
-            Form.List [Form.Symbol "a"];
-            Form.Symbol "a";
-        ] in
-        assert_true (Thwack.Result.is_error (parse_form form))
-      );
-
-    "parse valid apply form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "+"; Form.Symbol "a"; Form.Symbol "b";
-        ] in
-        assert_equal
-          (parse_form form)
-          (Ok (Node.Apply (make_bare_sym "+",
-            [make_bare_sym "a"; make_bare_sym "b"])))
-      );
-
-      (*
-    "parse apply form of anonymous function">::
-      (fun _ ->
-        let fn = Form.List [
-          Form.Symbol "fn";
-          Form.Vec [
-            Form.Vec [Form.Symbol "a"; Form.Symbol "num"];
-          ];
-          Form.Symbol "a"
-        ] in
-        let form = Form.List [fn; Form.Number 5.0] in
-        let param0 = make_p_var_def "a" "num" in
-        let fn_node = Node.Fn ([param0], make_type_expr "num", make_bare_sym "a") in
-        assert_equal
-          (parse_form form)
-          (Ok (Node.Apply (fn_node, [Node.NumLit 5.0])))
-      );
-      *)
-
-    "parse valid cast form">::
-      (fun _ ->
-        let form = Form.List [
-          Form.Symbol "cast"; Form.Symbol "num"; Form.Symbol "a"
-        ] in
-        assert_equal
-          (parse_form form)
-          (Ok (Node.Cast (make_type_expr "num" , make_bare_sym "a")))
+        let record_name = Node.Name.from_string "TestRecord" in
+        let name1 = Node.Name.from_string "field1" in
+        let type1 = Type_expr.SimpleType (Name_expr.BareName "num") in
+        let name2 = Node.Name.from_string "field2" in
+        let type2 = Type_expr.SimpleType (Name_expr.BareName "str") in
+        let fields = [Node.VarDef.from_parts name1 type1; Node.VarDef.from_parts name2 type2] in
+        let expected = Node.Rec (record_name, fields, init_metadata) in
+        assert_parses_to [expected] [defrecord_form]
       );
   ]

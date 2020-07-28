@@ -2,6 +2,8 @@ module type ShowableType = sig
   type t
 
   val to_string: t -> string
+
+  val inspect: t -> string
 end
 
 module type N = sig
@@ -58,6 +60,8 @@ module type N = sig
     | Cast of type_expr_t * t * Metadata.t
 
   val to_string: t -> string
+
+  val inspect: t -> string
 end
 
 module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) :

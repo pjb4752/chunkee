@@ -14,3 +14,5 @@ and rec_cons_t = (Name.t * t) list
 val find_builtin: string -> t option
 
 val to_string: t -> string
+
+val inspect: t -> string

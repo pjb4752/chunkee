@@ -4,6 +4,8 @@ module type ShowableType = sig
   type t
 
   val to_string: t -> string
+
+  val inspect: t -> string
 end
 
 module type N = sig
@@ -61,6 +63,7 @@ module type N = sig
 
   val to_string: t -> string
 
+  val inspect: t -> string
 end
 
 module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
@@ -90,6 +93,9 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
 
     let to_string expr_to_string { name; expr; } =
       sprintf "(%s %s)" (Name.to_string name) (expr_to_string expr)
+
+    let inspect inspect' { name; expr; } =
+      sprintf "Binding(%s, %s)" (Name.to_string name) (inspect' expr)
   end
 
   module VarDef = struct
@@ -109,6 +115,11 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
       let name = Name.to_string name in
       let tipe = TypeExpr.to_string tipe in
       sprintf "[%s %s]" name tipe
+
+    let inspect { name; tipe; } =
+      let name = Name.to_string name in
+      let tipe = TypeExpr.inspect tipe in
+      sprintf "VarDef({ name = %s; tipe = %s })" name tipe
   end
 
   type t =
@@ -209,4 +220,86 @@ let rec to_string node =
   | Get (record, field, _) -> get_to_string record field
   | Set (record, field, expr, _) -> set_to_string record field expr
   | Cast (tipe, expr, _) -> cast_to_string tipe expr
+
+let inspect_numlit value metadata =
+  sprintf "NumLit(%.2f, %s)" value @@ Metadata.inspect metadata
+
+let inspect_strlit value metadata =
+  sprintf "StrLit(\"%s\", %s)" value @@ Metadata.inspect metadata
+
+let inspect_symlit value metadata =
+  sprintf "SymLit(%s, %s)" (NameExpr.to_string value) @@ Metadata.inspect metadata
+
+let inspect_rec name fields metadata =
+  let fields = List.map VarDef.inspect fields in
+  let fields = String.concat "; " fields in
+  sprintf "Rec(%s, [%s], %s)" (Name.to_string name) fields @@ (Metadata.inspect metadata)
+
+let inspect_def inspect' name body metadata =
+  sprintf "Def(%s, %s, %s)" (Name.to_string name) (inspect' body) @@ Metadata.inspect metadata
+
+let inspect_fn inspect' params return_type body metadata =
+  let params = List.map VarDef.inspect params in
+  let params = String.concat "; " params in
+  let return_type = TypeExpr.to_string return_type in
+  sprintf "Fn([%s], %s, %s, %s)" params return_type (inspect' body) @@ Metadata.inspect metadata
+
+let inspect_if inspect' test_expr if_expr else_expr metadata =
+  let test_expr = inspect' test_expr in
+  let if_expr = inspect' if_expr in
+  let else_expr = inspect' else_expr in
+  sprintf "If(%s, %s, %s, %s)" test_expr if_expr else_expr @@ Metadata.inspect metadata
+
+let inspect_let inspect' bindings body metadata =
+  let bindings = List.map (Binding.inspect inspect') bindings in
+  let bindings = String.concat "; " bindings in
+  sprintf "Let([%s], %s, %s)" bindings (inspect' body) @@ Metadata.inspect metadata
+
+let inspect_apply inspect' fn arguments metadata =
+  let arguments = List.map inspect' arguments in
+  let arguments = String.concat "; " arguments in
+  sprintf "Apply([%s], %s, %s)" (inspect' fn) arguments @@ Metadata.inspect metadata
+
+let inspect_cons inspect' cons_type bindings metadata =
+  let bindings = List.map (Binding.inspect inspect') bindings in
+  let bindings = String.concat "; " bindings in
+  sprintf "Cons(%s, [%s], %s)" (TypeExpr.to_string cons_type) bindings @@ Metadata.inspect metadata
+
+let inspect_get inspect' record field metadata =
+  sprintf "Get(%s, %s, %s)" (inspect' record) (Name.to_string field) @@ Metadata.inspect metadata
+
+let inspect_set inspect' record field expression metadata =
+  let record = inspect' record in
+  let field = Name.to_string field in
+  let expression = inspect' expression in
+  sprintf "Set(%s, %s, %s, %s)" record field expression @@ Metadata.inspect metadata
+
+let inspect_cast inspect' target_type expression metadata =
+  let target_type = TypeExpr.to_string target_type in
+  sprintf "Cast(%s, %s, %s)" target_type (inspect' expression) @@ Metadata.inspect metadata
+
+let rec inspect node =
+  let inspect_def = inspect_def inspect in
+  let inspect_fn = inspect_fn inspect in
+  let inspect_if = inspect_if inspect in
+  let inspect_let = inspect_let inspect in
+  let inspect_apply = inspect_apply inspect in
+  let inspect_cons = inspect_cons inspect in
+  let inspect_get = inspect_get inspect in
+  let inspect_set = inspect_set inspect in
+  let inspect_cast = inspect_cast inspect in
+  match node with
+  | NumLit (value, metadata) -> inspect_numlit value metadata
+  | StrLit (value, metadata) -> inspect_strlit value metadata
+  | SymLit (value, metadata) -> inspect_symlit value metadata
+  | Rec (name, fields, metadata) -> inspect_rec name fields metadata
+  | Def (name, body, metadata) -> inspect_def name body metadata
+  | Fn (params, return_type, body, metadata) -> inspect_fn params return_type body metadata
+  | If (test_expr, if_expr, else_expr, metadata) -> inspect_if test_expr if_expr else_expr metadata
+  | Let (bindings, body, metadata) -> inspect_let bindings body metadata
+  | Apply (fn, arguments, metadata) -> inspect_apply fn arguments metadata
+  | Cons (cons_type, bindings, metadata) -> inspect_cons cons_type bindings metadata
+  | Get (record, field, metadata) -> inspect_get record field metadata
+  | Set (record, field, expression, metadata) -> inspect_set record field expression metadata
+  | Cast (target_type, expression, metadata) -> inspect_cast target_type expression metadata
 end

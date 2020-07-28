@@ -2,10 +2,10 @@ open Chunkee.Lex
 open OUnit2
 
 let assert_lexes_to expected str =
-  assert_equal ~printer:debug_string (Ok expected) (lex str)
+  assert_equal ~printer:inspect (Ok expected) (lex str)
 
 let assert_lexes_with_error expected str =
-  assert_equal ~printer:debug_string (Error expected) (lex str)
+  assert_equal ~printer:inspect (Error expected) (lex str)
 
 let suite =
   "Lex suite">::: [

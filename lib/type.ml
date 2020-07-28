@@ -45,3 +45,28 @@ let rec to_string tipe =
   | List -> "list"
   | Rec (mod_name, name, _) -> rec_to_string mod_name name
   | Fn (param_types, ret_type) -> fn_to_string param_types ret_type
+
+let inspect_rec inspect' module_name name fields =
+  let module_name = Mod_name.inspect module_name in
+  let name = Name.to_string name in
+  let fields = List.map (fun (_, field_type) -> inspect' field_type) fields in
+  let fields = sprintf "[%s]" (String.concat "; " fields) in
+  sprintf "Rec(%s, %s, %s)" module_name name fields
+
+let inspect_fn inspect' param_types return_type =
+  let types = List.append param_types [return_type] in
+  let types = List.map inspect' types in
+  sprintf "[%s]" (String.concat "; " types)
+
+let rec inspect tipe =
+  let inspect_rec = inspect_rec inspect in
+  let inspect_fn = inspect_fn inspect in
+  match tipe with
+  | Unit -> "Unit"
+  | Any -> "Any"
+  | Num -> "Num"
+  | Str -> "Str"
+  | Bool -> "Bool"
+  | List -> "List"
+  | Rec (module_name, name, fields) -> inspect_rec module_name name fields
+  | Fn (param_types, return_type) -> inspect_fn param_types return_type

@@ -6,6 +6,8 @@ open Thwack.Extensions.Result.Syntax
 
 module Node = Ast.Parsed_node
 
+type t = (Node.t list, Cmpl_err.t) result
+
 let build_prefix { Metadata.line_num; char_num } =
   sprintf "in expression at %d:%d" line_num char_num
 
@@ -453,3 +455,8 @@ let parse forms =
     let* f = parse_toplevel form in
     return (f :: fs) in
   List.fold_right fold_fn forms (Ok [])
+
+let inspect result =
+  let nodes_to_string nodes =
+    String.concat "; " @@ List.map Node.inspect nodes in
+  Result.to_string result nodes_to_string Cmpl_err.to_string

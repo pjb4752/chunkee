@@ -4,3 +4,4 @@ type t =
 
 val to_string: t -> string
 
+val inspect: t -> string

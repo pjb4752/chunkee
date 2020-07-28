@@ -19,3 +19,5 @@ val path_list: t -> Name.t list
 val to_string: t -> string
 
 val to_list: t -> Name.t list
+
+val inspect: t -> string

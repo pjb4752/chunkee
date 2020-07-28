@@ -13,11 +13,11 @@ module Form : sig
 
   val metadata: t -> Metadata.t
 
-  val debug_string: t -> string
+  val inspect: t -> string
 end
 
 type t = (Form.t list, Cmpl_err.t) result
 
 val lex: string -> t
 
-val debug_string: t -> string
+val inspect: t -> string
