@@ -1,5 +1,3 @@
-module Name = Id
-
 type t =
   | Unit
   | Any
@@ -7,9 +5,9 @@ type t =
   | Str
   | Bool
   | List
-  | Rec of Mod_name.t * Name.t * rec_cons_t
+  | Rec of Mod_name.t * Identifier.t * rec_cons_t
   | Fn of t list * t
-and rec_cons_t = (Name.t * t) list
+and rec_cons_t = (Identifier.t * t) list
 
 val find_builtin: string -> t option
 

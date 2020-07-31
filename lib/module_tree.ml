@@ -4,7 +4,7 @@ open Thwack.Extensions.Option.Syntax
 open Printf
 
 module Lib_tree = struct
-  module Children = Map.Make(Mod_name.Name)
+  module Children = Map.Make(Mod_name.Segment)
 
   type t =
     | Node of t Children.t
@@ -71,7 +71,7 @@ module Lib_tree = struct
 
   let rec to_string tree =
     let fold_fn k v prior =
-      let name = Mod_name.Name.to_string k in
+      let name = Mod_name.Segment.to_string k in
       sprintf "(%s %s)" name (to_string v) :: prior in
     let string_of_children children = Children.fold fold_fn children [] in
     match tree with

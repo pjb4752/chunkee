@@ -2,11 +2,11 @@ open Printf
 open Thwack.Extensions.Option
 open Thwack.Extensions.Option.Syntax
 
-module VarNames = Set.Make(Var.Name)
-module VarTypes = Map.Make(Var.Name)
+module VarNames = Set.Make(Identifier)
+module VarTypes = Map.Make(Identifier)
 
-module TypeNames = Set.Make(Type.Name)
-module TypeCons = Map.Make(Type.Name)
+module TypeNames = Set.Make(Identifier)
+module TypeCons = Map.Make(Identifier)
 
 type t = {
   name: Mod_name.t;
@@ -67,10 +67,10 @@ let define_record modul type_name cons =
 let to_string { name; var_names; var_types; type_names; _ } =
   let var_to_string vn =
     match VarTypes.find_opt vn var_types with
-    | None -> sprintf "%s %s" (Var.Name.to_string vn) "none"
-    | Some t -> sprintf "%s %s" (Var.Name.to_string vn) (Type.to_string t) in
+    | None -> sprintf "%s %s" (Identifier.to_string vn) "none"
+    | Some t -> sprintf "%s %s" (Identifier.to_string vn) (Type.to_string t) in
   let type_to_string tn =
-    Type.Name.to_string tn in
+    Identifier.to_string tn in
   let var_names = VarNames.elements var_names in
   let var_names = String.concat " " (List.map var_to_string var_names) in
   let type_names = TypeNames.elements type_names in

@@ -6,7 +6,7 @@ type err_t =
 
 type exists_in_scope = string -> bool
 
-type exists_in_decls = Type.Name.t -> Type.t option
+type exists_in_decls = Identifier.t -> Type.t option
 
 val make: Pervasive.t -> Module.t -> t
 
@@ -16,15 +16,15 @@ val resolve_name: t -> exists_in_scope -> Name_expr.t -> (Name.Var.t, err_t) res
 
 val resolve_type: t -> ?lookup_fn:exists_in_decls option -> Type_expr.t -> (Type.t, err_t) result
 
-val module_var: t -> Mod_name.t -> Var.Name.t -> Var.t option
+val module_var: t -> Mod_name.t -> Identifier.t -> Var.t option
 
-val module_vartype: t -> Mod_name.t -> Var.Name.t -> Type.t option
+val module_vartype: t -> Mod_name.t -> Identifier.t -> Type.t option
 
-val module_type: t -> Mod_name.t -> Type.Name.t -> Type.t option
+val module_type: t -> Mod_name.t -> Identifier.t -> Type.t option
 
-val define_var: t -> Var.Name.t -> Type.t -> t
+val define_var: t -> Identifier.t -> Type.t -> t
 
-val define_record: t -> Type.Name.t -> Type.rec_cons_t -> t
+val define_record: t -> Identifier.t -> Type.rec_cons_t -> t
 
 val to_string: t -> string
 

@@ -57,7 +57,7 @@ let resolve_fn recur_fn table scopes meta params rtype body =
     return (var :: vars) in
   let map_fn var =
     let (name, _) = RNode.VarDef.to_tuple var in
-    RNode.VarDef.Name.to_string name in
+    Identifier.to_string name in
   let params = List.fold_right fold_fn params (Ok []) in
   let* params = params in
   let param_names = List.map map_fn params in
@@ -81,7 +81,7 @@ let resolve_binding recur_fn scopes binding =
     (*TODO we should always create new scope for each binding*)
     let binding = RNode.Binding.from_node name expr in
     let current_scope = List.hd_else scopes Scope.empty in
-    let name = PNode.Binding.Name.to_string name in
+    let name = Identifier.to_string name in
     let new_scope = Scope.add name current_scope in
     match scopes with
     | [] -> Ok ([new_scope], binding)
@@ -123,7 +123,7 @@ let check_cons_fields fields tipe metadata =
         else
           let prefix = build_prefix metadata in
           Error (Cmpl_err.name_errors metadata prefix [
-            sprintf "%s is not a valid binding" @@ Type.Name.to_string field
+            sprintf "%s is not a valid binding" @@ Identifier.to_string field
           ])
       in
       let fold_fn field fields =
@@ -134,7 +134,7 @@ let check_cons_fields fields tipe metadata =
     else
       let prefix = build_prefix metadata in
       Error (Cmpl_err.name_errors metadata prefix [
-        sprintf "Wrong number of bindings for constructor '%s'" @@ Type.Name.to_string name
+        sprintf "Wrong number of bindings for constructor '%s'" @@ Identifier.to_string name
       ])
   end
   | _ -> assert false

@@ -15,7 +15,7 @@ let parse_qual_name name metadata =
   match String.split_on_char '/' name with
   | mod_name :: name :: [] -> begin
     let mod_parts = String.split_on_char '.' mod_name in
-    let mod_parts = List.map (Mod_name.Name.from_string) mod_parts in
+    let mod_parts = List.map (Mod_name.Segment.from_string) mod_parts in
     match List.rev mod_parts with
     | mod_name :: path_parts -> begin
       let mod_path = Mod_name.Path.from_list path_parts in
@@ -88,7 +88,7 @@ let rec parse_type_expr = function
 let parse_var_def = function
   | (Form.Symbol (name, _) :: tipe :: []) -> begin
     let* tipe = (parse_type_expr tipe) in
-    let name = Node.VarDef.Name.from_string name in
+    let name = Identifier.from_string name in
     return (name, tipe)
   end
   | first :: last :: [] -> begin
@@ -123,7 +123,7 @@ let parse_rec_fields fields metadata =
 
 let parse_rec metadata = function
   | Form.Cons (name, _) :: Form.Vec (fields, meta) :: [] ->
-      let name = Node.Name.from_string name in
+      let name = Identifier.from_string name in
       let fields = parse_rec_fields fields meta in
       let* fs = fields in
       return (Node.Rec (name, fs, metadata))
@@ -149,7 +149,7 @@ let rec is_const_literal = function
 let parse_def f_parse metadata = function
   | Form.Symbol (name, _) :: expr :: [] when is_const_literal expr ->
       let* expr = f_parse expr in
-      let name = Node.Name.from_string name in
+      let name = Identifier.from_string name in
       return (Node.Def (name, expr, metadata))
   | Form.Symbol (name, _) :: expr :: [] -> begin
     let prefix = build_prefix metadata in
@@ -173,7 +173,7 @@ let parse_def f_parse metadata = function
 let parse_get metadata = function
   | Form.Symbol (record, meta) :: Form.Symbol (field, _) :: [] ->
       let* record = parse_name_expr record meta in
-      let field = Node.Name.from_string field in
+      let field = Identifier.from_string field in
       let symlit = Node.SymLit (record, meta) in
       return (Node.Get (symlit, field, metadata))
   | args -> begin
@@ -190,7 +190,7 @@ let parse_set f_parse metadata = function
   | Form.Symbol (record, meta) :: Form.Symbol (field, _) :: expr :: [] ->
       let* record = parse_name_expr record meta in
       let* expr = f_parse expr in
-      let field = Node.Name.from_string field in
+      let field = Identifier.from_string field in
       let symlit = Node.SymLit (record, meta) in
       return (Node.Set (symlit, field, expr, metadata))
   | args -> begin
@@ -270,7 +270,7 @@ let parse_if f_parse metadata = function
 
 let parse_binding f_parse = function
   | (Form.Symbol (b, _), raw_expr) ->
-      let name = Node.Binding.Name.from_string b in
+      let name = Identifier.from_string b in
       let* e = f_parse raw_expr in
       return (Node.Binding.from_node name e)
   | (first, second) -> begin

@@ -1,7 +1,5 @@
 open Printf
 
-module Name = Id
-
 type t =
   | Unit
   | Any
@@ -9,9 +7,9 @@ type t =
   | Str
   | Bool
   | List
-  | Rec of Mod_name.t * Name.t * rec_cons_t
+  | Rec of Mod_name.t * Identifier.t * rec_cons_t
   | Fn of t list * t
-and rec_cons_t = (Name.t * t) list
+and rec_cons_t = (Identifier.t * t) list
 
 let type_of_str s =
   if s = "unit" then Some Unit
@@ -26,7 +24,7 @@ let find_builtin s = type_of_str s
 
 let rec_to_string mod_name name =
   let mod_name = Mod_name.to_string mod_name in
-  let name = Name.to_string name in
+  let name = Identifier.to_string name in
   sprintf "(rec %s/%s)" mod_name name
 
 let fn_to_string to_string' param_types ret_type =
@@ -48,7 +46,7 @@ let rec to_string tipe =
 
 let inspect_rec inspect' module_name name fields =
   let module_name = Mod_name.inspect module_name in
-  let name = Name.to_string name in
+  let name = Identifier.inspect name in
   let fields = List.map (fun (_, field_type) -> inspect' field_type) fields in
   let fields = sprintf "[%s]" (String.concat "; " fields) in
   sprintf "Rec(%s, %s, %s)" module_name name fields

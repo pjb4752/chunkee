@@ -14,7 +14,7 @@ type err_t =
 
 type exists_in_scope = string -> bool
 
-type exists_in_decls = Type.Name.t -> Type.t option
+type exists_in_decls = Identifier.t -> Type.t option
 
 let make (pervasive: Pervasive.t) modul =
   let tree = Module_tree.empty in
@@ -35,10 +35,10 @@ let select_module { tree; modul; _ } mod_name =
   else Module_tree.find_module tree mod_name
 
 let resolve_module_name modul name =
-  let name = Var.Name.from_string name in
+  let name = Identifier.from_string name in
   let mod_name = Module.name modul in
   if Module.var_exists modul name then Ok (Name.Var.Module (mod_name, name))
-  else undefined_name_error (Var.Name.to_string name)
+  else undefined_name_error (Identifier.to_string name)
 
 let resolve_qualified_name table mod_name name =
   match select_module table mod_name with
@@ -59,7 +59,7 @@ let resolve_name table exists_in_scope = function
   end
 
 let resolve_module_type modul tipe =
-  let name = Type.Name.from_string tipe in
+  let name = Identifier.from_string tipe in
   match Module.find_type modul name with
   | Some tipe -> Ok tipe
   | None -> undefined_name_error tipe
@@ -73,7 +73,7 @@ let resolve_unqualified_type modul lookup_fn tipe =
   match Type.find_builtin tipe with
   | Some tipe -> Ok tipe
   | None -> begin
-    let name = Type.Name.from_string tipe in
+    let name = Identifier.from_string tipe in
     let maybe_type =
       let* lookup_fn = lookup_fn in
       let* tipe = lookup_fn name in

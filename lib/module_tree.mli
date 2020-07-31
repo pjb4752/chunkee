@@ -1,5 +1,5 @@
 module Lib_tree : sig
-  module Children : Map.S with type key = Mod_name.Name.t
+  module Children : Map.S with type key = Mod_name.Segment.t
 
   type t =
     | Node of t Children.t

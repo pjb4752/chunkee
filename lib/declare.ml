@@ -9,7 +9,7 @@ type t = (Symbol_table.t, Cmpl_err.t) result
 type declarations =
   | Record of Mod_name.t
 
-module TypeDecls = Map.Make(Type.Name)
+module TypeDecls = Map.Make(Identifier)
 
 let build_prefix { Metadata.line_num; char_num } =
   sprintf "in expression at %d:%d" line_num char_num
@@ -53,7 +53,7 @@ let define_var table = function
     if var_exists table name then
       let prefix = build_prefix metadata in
       Error (Cmpl_err.definition_errors metadata prefix [
-        sprintf "var with name '%s' is already defined" @@ Node.Name.to_string name
+        sprintf "var with name '%s' is already defined" @@ Identifier.to_string name
       ])
     else (
       let* tipe = find_def_type table expr metadata in
@@ -73,7 +73,7 @@ let declare_type typedecls mod_name = function
       if TypeDecls.mem name typedecls then
         let prefix = build_prefix metadata in
         Error (Cmpl_err.definition_errors metadata prefix [
-          sprintf "type with name '%s' is already defined" @@ Type.Name.to_string name
+          sprintf "type with name '%s' is already defined" @@ Identifier.to_string name
         ])
       else Ok (TypeDecls.add name (Record mod_name) typedecls)
   | _ -> assert false
@@ -103,9 +103,9 @@ let resolve_constructor table typedecls fields metadata =
   let fold_fn field fields =
     let* fields = fields in
     let (name, type_expr) = Node.VarDef.to_tuple field in
-    let name = Node.VarDef.Name.to_string name in
+    let name = Identifier.to_string name in
     let* tipe = resolve_type table typedecls type_expr metadata in
-    return ((Type.Name.from_string name, tipe) :: fields) in
+    return ((Identifier.from_string name, tipe) :: fields) in
   List.fold_right fold_fn fields (Ok [])
 
 let define_record table typedecls name fields metadata =

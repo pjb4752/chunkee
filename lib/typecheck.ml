@@ -39,7 +39,7 @@ let chk_name table scopes name =
 let process_params params =
   let fold_fn p ps =
     let (name, tipe) = Node.VarDef.to_tuple p in
-    let name = Node.VarDef.Name.to_string name in
+    let name = Identifier.to_string name in
     let* ps = ps in
     return ((name, tipe) :: ps) in
   match List.fold_right fold_fn params (Ok []) with
@@ -101,7 +101,7 @@ let chk_binding recur_fn scopes binding =
   match recur_fn scopes expr with
   | Error e -> Error e
   | Ok tipe -> begin
-    let name = Node.Binding.Name.to_string name in
+    let name = Identifier.to_string name in
     let (scope: 'a Scope.t) = Scope.add name tipe Scope.empty in
     Ok (scope :: scopes)
   end
@@ -212,7 +212,7 @@ let chk_record_field cons field metadata =
   | None ->
       let prefix = build_prefix "record.get operation" metadata in
       Error (Cmpl_err.name_errors metadata prefix [
-        sprintf "record does not have field %s" @@ Type.Name.to_string field
+        sprintf "record does not have field %s" @@ Identifier.to_string field
       ])
 
 let chk_get table scopes record field metadata =

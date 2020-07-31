@@ -19,7 +19,7 @@ let suite =
         let variable = Form.Symbol ("x", { line_num = 1; char_num = 4 }) in
         let expression = Form.String ("hello", expr_metadata) in
         let def_form = Form.List ([def; variable; expression], init_metadata) in
-        let name = Node.Name.from_string "x" in
+        let name = Identifier.from_string "x" in
         let expression_node = Node.StrLit ("hello", expr_metadata) in
         assert_parses_to [Node.Def (name, expression_node, init_metadata)] [def_form]
       );
@@ -36,10 +36,10 @@ let suite =
         let fields = Form.Vec ([name1; type1; name2; type2], { line_num = 1; char_num = 15 }) in
         let defrecord_form = Form.List ([defrecord; record_name; fields], init_metadata) in
 
-        let record_name = Node.Name.from_string "TestRecord" in
-        let name1 = Node.Name.from_string "field1" in
+        let record_name = Identifier.from_string "TestRecord" in
+        let name1 = Identifier.from_string "field1" in
         let type1 = Type_expr.SimpleType (Name_expr.BareName "num") in
-        let name2 = Node.Name.from_string "field2" in
+        let name2 = Identifier.from_string "field2" in
         let type2 = Type_expr.SimpleType (Name_expr.BareName "str") in
         let fields = [Node.VarDef.from_parts name1 type1; Node.VarDef.from_parts name2 type2] in
         let expected = Node.Rec (record_name, fields, init_metadata) in

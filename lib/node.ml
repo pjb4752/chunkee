@@ -9,39 +9,29 @@ module type ShowableType = sig
 end
 
 module type N = sig
-
   type name_expr_t
-
   type type_expr_t
 
-  module Name = Id
-
   module Binding: sig
-
-    module Name = Id
-
     type 'a t
 
-    val from_node: Name.t -> 'a -> 'a t
+    val from_node: Identifier.t -> 'a -> 'a t
 
-    val name: 'a t -> Name.t
+    val name: 'a t -> Identifier.t
 
     val expr: 'a t -> 'a
 
-    val to_tuple: 'a t -> Name.t * 'a
+    val to_tuple: 'a t -> Identifier.t * 'a
 
     val to_string: ('a -> string) -> 'a t -> string
   end
 
   module VarDef: sig
-
-    module Name = Id
-
     type t
 
-    val from_parts: Name.t -> type_expr_t -> t
+    val from_parts: Identifier.t -> type_expr_t -> t
 
-    val to_tuple: t -> Name.t * type_expr_t
+    val to_tuple: t -> Identifier.t * type_expr_t
 
     val to_string: t -> string
   end
@@ -50,15 +40,15 @@ module type N = sig
     | NumLit of float * Metadata.t
     | StrLit of string * Metadata.t
     | SymLit of name_expr_t * Metadata.t
-    | Rec of Name.t * VarDef.t list * Metadata.t
-    | Def of Name.t * t * Metadata.t
+    | Rec of Identifier.t * VarDef.t list * Metadata.t
+    | Def of Identifier.t * t * Metadata.t
     | Fn of VarDef.t list * type_expr_t * t * Metadata.t
     | If of t * t * t * Metadata.t
     | Let of t Binding.t list * t * Metadata.t
     | Apply of t * t list * Metadata.t
     | Cons of type_expr_t * t Binding.t list * Metadata.t
-    | Get of t * Name.t * Metadata.t
-    | Set of t * Name.t * t * Metadata.t
+    | Get of t * Identifier.t * Metadata.t
+    | Set of t * Identifier.t * t * Metadata.t
     | Cast of type_expr_t * t * Metadata.t
 
   val to_string: t -> string
@@ -67,19 +57,12 @@ module type N = sig
 end
 
 module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
-
   type name_expr_t = NameExpr.t
-
   type type_expr_t = TypeExpr.t
 
-  module Name = Id
-
   module Binding = struct
-
-    module Name = Id
-
     type 'a t = {
-      name: Name.t;
+      name: Identifier.t;
       expr: 'a;
     }
 
@@ -92,18 +75,15 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
     let to_tuple { name; expr; } = (name, expr)
 
     let to_string expr_to_string { name; expr; } =
-      sprintf "(%s %s)" (Name.to_string name) (expr_to_string expr)
+      sprintf "(%s %s)" (Identifier.to_string name) (expr_to_string expr)
 
     let inspect inspect' { name; expr; } =
-      sprintf "Binding(%s, %s)" (Name.to_string name) (inspect' expr)
+      sprintf "Binding(%s, %s)" (Identifier.inspect name) (inspect' expr)
   end
 
   module VarDef = struct
-
-    module Name = Id
-
     type t = {
-      name: Name.t;
+      name: Identifier.t;
       tipe: type_expr_t
     }
 
@@ -112,12 +92,12 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
     let to_tuple { name; tipe; } = (name, tipe)
 
     let to_string { name; tipe; } =
-      let name = Name.to_string name in
+      let name = Identifier.to_string name in
       let tipe = TypeExpr.to_string tipe in
       sprintf "[%s %s]" name tipe
 
     let inspect { name; tipe; } =
-      let name = Name.to_string name in
+      let name = Identifier.inspect name in
       let tipe = TypeExpr.inspect tipe in
       sprintf "VarDef({ name = %s; tipe = %s })" name tipe
   end
@@ -126,15 +106,15 @@ module Make (NameExpr: ShowableType) (TypeExpr: ShowableType) = struct
     | NumLit of float * Metadata.t
     | StrLit of string * Metadata.t
     | SymLit of name_expr_t * Metadata.t
-    | Rec of Name.t * VarDef.t list * Metadata.t
-    | Def of Name.t * t * Metadata.t
+    | Rec of Identifier.t * VarDef.t list * Metadata.t
+    | Def of Identifier.t * t * Metadata.t
     | Fn of VarDef.t list * type_expr_t * t * Metadata.t
     | If of t * t * t * Metadata.t
     | Let of t Binding.t list * t * Metadata.t
     | Apply of t * t list * Metadata.t
     | Cons of type_expr_t * t Binding.t list * Metadata.t
-    | Get of t * Name.t * Metadata.t
-    | Set of t * Name.t * t * Metadata.t
+    | Get of t * Identifier.t * Metadata.t
+    | Set of t * Identifier.t * t * Metadata.t
     | Cast of type_expr_t * t * Metadata.t
 
 let numlit_to_string numlit =
@@ -149,10 +129,10 @@ let symlit_to_string symlit =
 let rec_to_string name fields =
   let fields = List.map VarDef.to_string fields in
   let fields = String.concat " " fields in
-  sprintf "(defrec %s (fields %s))" (Name.to_string name) fields
+  sprintf "(defrec %s (fields %s))" (Identifier.to_string name) fields
 
 let def_to_string to_string' name expr =
-  let name = Name.to_string name in
+  let name = Identifier.to_string name in
   sprintf "(def %s %s)" name (to_string' expr)
 
 let fn_to_string to_string' params rtype body =
@@ -183,12 +163,12 @@ let cons_to_string to_string' tipe bindings =
 
 let get_to_string to_string' record field =
   let record = to_string' record in
-  let field = Name.to_string field in
+  let field = Identifier.to_string field in
   sprintf "(get %s %s)" record field
 
 let set_to_string to_string' record field expr =
   let record = to_string' record in
-  let field = Name.to_string field in
+  let field = Identifier.to_string field in
   let expr = to_string' expr in
   sprintf "(set! %s %s %s)" record field expr
 
@@ -233,10 +213,10 @@ let inspect_symlit value metadata =
 let inspect_rec name fields metadata =
   let fields = List.map VarDef.inspect fields in
   let fields = String.concat "; " fields in
-  sprintf "Rec(%s, [%s], %s)" (Name.to_string name) fields @@ (Metadata.inspect metadata)
+  sprintf "Rec(%s, [%s], %s)" (Identifier.inspect name) fields @@ (Metadata.inspect metadata)
 
 let inspect_def inspect' name body metadata =
-  sprintf "Def(%s, %s, %s)" (Name.to_string name) (inspect' body) @@ Metadata.inspect metadata
+  sprintf "Def(%s, %s, %s)" (Identifier.inspect name) (inspect' body) @@ Metadata.inspect metadata
 
 let inspect_fn inspect' params return_type body metadata =
   let params = List.map VarDef.inspect params in
@@ -266,11 +246,11 @@ let inspect_cons inspect' cons_type bindings metadata =
   sprintf "Cons(%s, [%s], %s)" (TypeExpr.to_string cons_type) bindings @@ Metadata.inspect metadata
 
 let inspect_get inspect' record field metadata =
-  sprintf "Get(%s, %s, %s)" (inspect' record) (Name.to_string field) @@ Metadata.inspect metadata
+  sprintf "Get(%s, %s, %s)" (inspect' record) (Identifier.inspect field) @@ Metadata.inspect metadata
 
 let inspect_set inspect' record field expression metadata =
   let record = inspect' record in
-  let field = Name.to_string field in
+  let field = Identifier.inspect field in
   let expression = inspect' expression in
   sprintf "Set(%s, %s, %s, %s)" record field expression @@ Metadata.inspect metadata
 
