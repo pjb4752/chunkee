@@ -1,7 +1,7 @@
 module Var : sig
   type t =
     | Local of string
-    | Module of Mod_name.t * Identifier.t
+    | Module of Module_name.t * Identifier.t
 
   val to_string: t -> string
 

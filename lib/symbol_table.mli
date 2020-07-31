@@ -16,11 +16,11 @@ val resolve_name: t -> exists_in_scope -> Name_expr.t -> (Name.Var.t, err_t) res
 
 val resolve_type: t -> ?lookup_fn:exists_in_decls option -> Type_expr.t -> (Type.t, err_t) result
 
-val module_var: t -> Mod_name.t -> Identifier.t -> Var.t option
+val module_var: t -> Module_name.t -> Identifier.t -> Var.t option
 
-val module_vartype: t -> Mod_name.t -> Identifier.t -> Type.t option
+val module_vartype: t -> Module_name.t -> Identifier.t -> Type.t option
 
-val module_type: t -> Mod_name.t -> Identifier.t -> Type.t option
+val module_type: t -> Module_name.t -> Identifier.t -> Type.t option
 
 val define_var: t -> Identifier.t -> Type.t -> t
 

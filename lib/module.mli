@@ -1,14 +1,14 @@
 type t
 
-val from_name: Mod_name.t -> t
+val with_name: Module_name.t -> t
 
-val from_parts: Mod_name.Path.t -> Mod_name.Segment.t -> t
+val with_path_and_base: Module_name.Path.t -> Module_name.Segment.t -> t
 
-val name: t -> Mod_name.t
+val name: t -> Module_name.t
 
-val short_name: t -> Mod_name.Segment.t
+val basename: t -> Module_name.Segment.t
 
-val path_list: t -> Mod_name.Segment.t list
+val path_segments: t -> Module_name.Segment.t list
 
 val find_var: t -> Identifier.t -> Var.t option
 

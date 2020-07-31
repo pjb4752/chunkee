@@ -13,14 +13,14 @@ let build_prefix { Metadata.line_num; char_num } =
 
 let parse_qual_name name metadata =
   match String.split_on_char '/' name with
-  | mod_name :: name :: [] -> begin
-    let mod_parts = String.split_on_char '.' mod_name in
-    let mod_parts = List.map (Mod_name.Segment.from_string) mod_parts in
-    match List.rev mod_parts with
-    | mod_name :: path_parts -> begin
-      let mod_path = Mod_name.Path.from_list path_parts in
-      let mod_name = Mod_name.make mod_path mod_name in
-      Ok (Name_expr.QualName (mod_name, name))
+  | module_name :: object_name :: [] -> begin
+    let module_segments = String.split_on_char '.' module_name in
+    let module_segments = List.map (Module_name.Segment.from_string) module_segments in
+    match List.rev module_segments with
+    | basename :: segments -> begin
+      let module_path = Module_name.Path.from_segments segments in
+      let module_name = Module_name.from_path_and_base module_path basename in
+      Ok (Name_expr.QualName (module_name, object_name))
     end
     | _ ->
         let prefix = build_prefix metadata in

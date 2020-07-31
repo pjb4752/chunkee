@@ -9,14 +9,14 @@ module TypeNames = Set.Make(Identifier)
 module TypeCons = Map.Make(Identifier)
 
 type t = {
-  name: Mod_name.t;
+  name: Module_name.t;
   var_names: VarNames.t;
   var_types: Type.t VarTypes.t;
   type_names: TypeNames.t;
   type_cons: Type.rec_cons_t TypeCons.t;
 }
 
-let from_name name = {
+let with_name name = {
   name;
   var_names = VarNames.empty;
   var_types = VarTypes.empty;
@@ -24,13 +24,13 @@ let from_name name = {
   type_cons = TypeCons.empty;
 }
 
-let from_parts path name = from_name (Mod_name.make path name)
+let with_path_and_base path base = with_name (Module_name.from_path_and_base path base)
 
 let name { name; _ } = name
 
-let short_name { name; _ } = Mod_name.short_name name
+let basename { name; _ } = Module_name.base name
 
-let path_list { name; _ } = Mod_name.path_list name
+let path_segments { name; _ } = Module_name.path_segments name
 
 (*TODO use Map.find_else ?*)
 let find_var { var_names; var_types; _ } name =
@@ -75,5 +75,5 @@ let to_string { name; var_names; var_types; type_names; _ } =
   let var_names = String.concat " " (List.map var_to_string var_names) in
   let type_names = TypeNames.elements type_names in
   let type_names = String.concat " " (List.map type_to_string type_names) in
-  let name = Mod_name.to_string name in
+  let name = Module_name.to_string name in
   sprintf "(module %s (vars [%s]) (types [%s])" name var_names type_names

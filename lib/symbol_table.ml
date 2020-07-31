@@ -26,24 +26,24 @@ let current_module { modul; _ } = modul
 let undefined_name_error name =
   Error (NameError (sprintf "%s is undefined" name))
 
-let undefined_module_error mod_name =
-  let mod_name = Mod_name.to_string mod_name in
-  Error (ModuleError (sprintf "unknown module %s" mod_name))
+let undefined_module_error module_name =
+  let module_name = Module_name.to_string module_name in
+  Error (ModuleError (sprintf "unknown module %s" module_name))
 
-let select_module { tree; modul; _ } mod_name =
-  if (Module.name modul) = mod_name then Some modul
-  else Module_tree.find_module tree mod_name
+let select_module { tree; modul; _ } module_name =
+  if (Module.name modul) = module_name then Some modul
+  else Module_tree.find_module tree module_name
 
 let resolve_module_name modul name =
   let name = Identifier.from_string name in
-  let mod_name = Module.name modul in
-  if Module.var_exists modul name then Ok (Name.Var.Module (mod_name, name))
+  let module_name = Module.name modul in
+  if Module.var_exists modul name then Ok (Name.Var.Module (module_name, name))
   else undefined_name_error (Identifier.to_string name)
 
-let resolve_qualified_name table mod_name name =
-  match select_module table mod_name with
+let resolve_qualified_name table module_name name =
+  match select_module table module_name with
   | Some modul -> resolve_module_name modul name
-  | None -> undefined_module_error mod_name
+  | None -> undefined_module_error module_name
 
 let resolve_unqualified_name { pervasive; modul; _ } name =
   match resolve_module_name pervasive.modul name with
@@ -51,8 +51,8 @@ let resolve_unqualified_name { pervasive; modul; _ } name =
   | Ok name -> Ok name
 
 let resolve_name table exists_in_scope = function
-  | Name_expr.QualName (mod_name, name) ->
-      resolve_qualified_name table mod_name name
+  | Name_expr.QualName (module_name, name) ->
+      resolve_qualified_name table module_name name
   | Name_expr.BareName name -> begin
     if exists_in_scope name then Ok (Name.Var.Local name)
     else resolve_unqualified_name table name
@@ -64,10 +64,10 @@ let resolve_module_type modul tipe =
   | Some tipe -> Ok tipe
   | None -> undefined_name_error tipe
 
-let resolve_qualified_type table mod_name tipe =
-  match select_module table mod_name with
+let resolve_qualified_type table module_name tipe =
+  match select_module table module_name with
   | Some modul -> resolve_module_type modul tipe
-  | None -> undefined_module_error mod_name
+  | None -> undefined_module_error module_name
 
 let resolve_unqualified_type modul lookup_fn tipe =
   match Type.find_builtin tipe with
@@ -84,7 +84,7 @@ let resolve_unqualified_type modul lookup_fn tipe =
   end
 
 let resolve_simple_type table lookup_fn = function
-  | Name_expr.QualName (mod_name, tipe) -> resolve_qualified_type table mod_name tipe
+  | Name_expr.QualName (module_name, tipe) -> resolve_qualified_type table module_name tipe
   | Name_expr.BareName tipe -> resolve_unqualified_type table.modul lookup_fn tipe
 
 let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
@@ -102,17 +102,17 @@ let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
       | Ok (rtype :: ptypes) -> Ok (Type.Fn (List.rev ptypes, rtype))
       | Ok _ -> assert false
 
-let module_var table mod_name var_name =
-  let* modul = (select_module table mod_name) in
+let module_var table module_name var_name =
+  let* modul = (select_module table module_name) in
   let* var = (Module.find_var modul var_name) in
   return var
 
-let module_vartype table mod_name var_name =
-  let* var = (module_var table mod_name var_name) in
+let module_vartype table module_name var_name =
+  let* var = (module_var table module_name var_name) in
   return (Var.tipe var)
 
-let module_type table mod_name type_name =
-  let* modul = (select_module table mod_name) in
+let module_type table module_name type_name =
+  let* modul = (select_module table module_name) in
   let* tipe = (Module.find_type modul type_name) in
   return tipe
 

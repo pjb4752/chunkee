@@ -7,7 +7,7 @@ module Node = Ast.Parsed_node
 type t = (Symbol_table.t, Cmpl_err.t) result
 
 type declarations =
-  | Record of Mod_name.t
+  | Record of Module_name.t
 
 module TypeDecls = Map.Make(Identifier)
 

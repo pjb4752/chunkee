@@ -5,7 +5,7 @@ type t =
   | Str
   | Bool
   | List
-  | Rec of Mod_name.t * Identifier.t * rec_cons_t
+  | Rec of Module_name.t * Identifier.t * rec_cons_t
   | Fn of t list * t
 and rec_cons_t = (Identifier.t * t) list
 
