@@ -1,16 +1,13 @@
 type t =
   | Unit
   | Any
-  | Num
-  | Str
+  | Number
+  | String
   | Bool
   | List
-  | Rec of Module_name.t * Identifier.t * rec_cons_t
-  | Fn of t list * t
-and rec_cons_t = (Identifier.t * t) list
+  | Record of (Identifier.t * t) list
+  | Function of t list * t
 
 val find_builtin: string -> t option
-
-val to_string: t -> string
 
 val inspect: t -> string

@@ -99,7 +99,7 @@ let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
           ) in
       match List.fold_left fold_fn (Ok []) types with
       | Error e -> Error e
-      | Ok (rtype :: ptypes) -> Ok (Type.Fn (List.rev ptypes, rtype))
+      | Ok (rtype :: ptypes) -> Ok (Type.Function (List.rev ptypes, rtype))
       | Ok _ -> assert false
 
 let module_var table module_name var_name =
@@ -120,14 +120,10 @@ let define_var table var tipe =
   let new_modul = Module.define_var table.modul var tipe in
   { table with modul = new_modul }
 
-let define_record table name cons =
-  let new_modul = Module.define_record table.modul name cons in
-  { table with modul = new_modul }
-
-let to_string { tree; modul; _ } =
-  let tree = Module_tree.to_string tree in
-  let modul = Module.to_string modul in
-  sprintf "(symbol-table (tree %s) (current %s))" tree modul
+let inspect { tree; modul; _ } =
+  let tree = Module_tree.inspect tree in
+  let modul = Module.inspect modul in
+  sprintf "SymbolTable(%s, %s)" tree modul
 
 let err_string = function
   | ModuleError message -> message

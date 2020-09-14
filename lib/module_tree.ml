@@ -69,14 +69,14 @@ module Lib_tree = struct
           end in
     Node (update' tree (Module.path_segments modul) modul)
 
-  let rec to_string tree =
-    let fold_fn k v prior =
-      let name = Module_name.Segment.to_string k in
-      sprintf "(%s %s)" name (to_string v) :: prior in
-    let string_of_children children = Children.fold fold_fn children [] in
+  let rec inspect tree =
+    let fold_fn name_segment subtree prior =
+      let name = Module_name.Segment.inspect name_segment in
+      sprintf "Child(%s, %s)" name (inspect subtree) :: prior in
+    let inspect_children children = Children.fold fold_fn children [] in
     match tree with
-    | Node cs -> sprintf "(node %s)" (String.concat " " (string_of_children cs))
-    | Leaf modul -> sprintf "(leaf %s)" (Module.to_string modul)
+    | Node cs -> sprintf "Node(%s)" (String.concat " " (inspect_children cs))
+    | Leaf modul -> sprintf "Leaf(%s)" (Module.inspect modul)
 end
 
 type t = Lib_tree.t
@@ -92,5 +92,5 @@ let insert_module lib_tree modul =
 let update_module lib_tree modul =
   Lib_tree.update_module lib_tree modul
 
-let to_string lib_tree =
-  Lib_tree.to_string lib_tree
+let inspect lib_tree =
+  Lib_tree.inspect lib_tree

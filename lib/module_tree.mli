@@ -16,4 +16,4 @@ val insert_module: t -> Module.t -> t
 
 val update_module: t -> Module.t -> t
 
-val to_string: t -> string
+val inspect: t -> string

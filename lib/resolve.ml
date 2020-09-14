@@ -8,198 +8,202 @@ module Scope = Set.Make(String)
 module PNode = Ast.Parsed_node
 module RNode = Ast.Resolved_node
 
-type t = (RNode.t list, Cmpl_err.t) result
+type t = (RNode.t, Cmpl_err.t) result
 
-let build_prefix { Metadata.line_num; char_num } =
+let build_error_prefix { Metadata.line_num; char_num } =
   sprintf "in expression at %d:%d" line_num char_num
 
-let resolve_symlit table scopes metadata name =
-  let name = Symbol_table.resolve_name table (fun name ->
+let resolve_symbol symbol_table scopes metadata name =
+  let name = Symbol_table.resolve_name symbol_table (fun name ->
     List.exists (Scope.mem name) scopes) name
   in
   match name with
-  | Ok name -> Ok (RNode.SymLit (name, metadata))
-  | Error e ->
-      let prefix = build_prefix metadata in
+  | Ok name -> Ok (RNode.Symbol (name, metadata))
+  | Error error ->
+      let prefix = build_error_prefix metadata in
       Error (Cmpl_err.name_errors metadata prefix [
-        Symbol_table.err_string e
+        Symbol_table.err_string error
       ])
 
-let resolve_type table tipe metadata =
-  match Symbol_table.resolve_type table tipe with
-  | Ok tipe -> Ok tipe
-  | Error e ->
-      let prefix = build_prefix metadata in
+let resolve_type symbol_table metadata parsed_type =
+  match Symbol_table.resolve_type symbol_table parsed_type with
+  | Ok resolved_type -> Ok resolved_type
+  | Error error ->
+      let prefix = build_error_prefix metadata in
       Error (Cmpl_err.name_errors metadata prefix [
-        Symbol_table.err_string e
+        Symbol_table.err_string error
       ])
 
-let resolve_rec table meta name fields =
-  let fold_fn field fields =
-    let* fields = fields in
-    let (name, tipe) = PNode.VarDef.to_tuple field in
-    let* tipe = resolve_type table tipe meta in
-    let field = RNode.VarDef.from_parts name tipe in
-    return (field :: fields) in
-  let* fields = List.fold_right fold_fn fields (Ok []) in
-  return (RNode.Rec (name, fields, meta))
+let resolve_record symbol_table metadata fields =
+  let fold_fn parsed_field resolved_fields =
+    let* resolved_fields = resolved_fields in
+    let (name, parsed_type) = PNode.VarDef.to_tuple parsed_field in
+    let* resolved_type = resolve_type symbol_table metadata parsed_type in
+    let resolved_field = RNode.VarDef.from_parts name resolved_type in
+    return (resolved_field :: resolved_fields) in
+  let* resolved_fields = List.fold_right fold_fn fields (Ok []) in
+  return (RNode.Rec (resolved_fields, metadata))
 
-let resolve_def recur_fn scopes meta name expr =
-  let* expr = recur_fn scopes expr in
-  return (RNode.Def (name, expr, meta))
+let resolve_def recur_fn scopes metadata name expression_node =
+  let* expression_node = recur_fn scopes expression_node in
+  return (RNode.Def (name, expression_node, metadata))
 
-let resolve_fn recur_fn table scopes meta params rtype body =
-  let fold_fn var vars =
-    let* vars = vars in
-    let (name, tipe) = PNode.VarDef.to_tuple var in
-    let* t = resolve_type table tipe meta in
-    let var = RNode.VarDef.from_parts name t in
-    return (var :: vars) in
-  let map_fn var =
-    let (name, _) = RNode.VarDef.to_tuple var in
-    Identifier.to_string name in
-  let params = List.fold_right fold_fn params (Ok []) in
-  let* params = params in
-  let param_names = List.map map_fn params in
-  let fn_scope = Scope.of_list param_names in
-  let scopes = fn_scope :: scopes in
-  let* rtype = resolve_type table rtype meta in
-  let* body = recur_fn scopes body in
-  return (RNode.Fn (params, rtype, body, meta))
+let resolve_function recur_fn symbol_table scopes metadata parameters return_type body_node =
+  let resolve_vars parsed_var resolved_vars =
+    let* resolved_vars = resolved_vars in
+    let (name, parsed_type) = PNode.VarDef.to_tuple parsed_var in
+    let* resolved_type = resolve_type symbol_table metadata parsed_type in
+    let resolved_var = RNode.VarDef.from_parts name resolved_type in
+    return (resolved_var :: resolved_vars) in
+  let extract_var_name resolved_var =
+    RNode.VarDef.to_tuple resolved_var |> fst |> Identifier.to_string in
+  let* parameters = List.fold_right resolve_vars parameters (Ok []) in
+  let parameter_names = List.map extract_var_name parameters in
+  let function_scope = Scope.of_list parameter_names in
+  let scopes = function_scope :: scopes in
+  let* return_type = resolve_type symbol_table metadata return_type in
+  let* body_node = recur_fn scopes body_node in
+  return (RNode.Fn (parameters, return_type, body_node, metadata))
 
-let resolve_if recur_fn scopes meta tst iff els =
-  let* tst = recur_fn scopes tst in
-  let* iff = recur_fn scopes iff in
-  let* els = recur_fn scopes els in
-  return (RNode.If (tst, iff, els, meta))
+let resolve_if recur_fn scopes metadata test_node if_node else_node =
+  let* test_node = recur_fn scopes test_node in
+  let* if_node = recur_fn scopes if_node in
+  let* else_node = recur_fn scopes else_node in
+  return (RNode.If (test_node, if_node, else_node, metadata))
 
 let resolve_binding recur_fn scopes binding =
-  let (name, expr) = PNode.Binding.to_tuple binding in
-  match recur_fn scopes expr with
+  let (name, node) = PNode.Binding.to_tuple binding in
+  match recur_fn scopes node with
   | Error e -> Error e
-  | Ok expr -> begin
+  | Ok node -> begin
     (*TODO we should always create new scope for each binding*)
-    let binding = RNode.Binding.from_node name expr in
+    let binding = RNode.Binding.from_node name node in
     let current_scope = List.hd_else scopes Scope.empty in
     let name = Identifier.to_string name in
-    let new_scope = Scope.add name current_scope in
+    let updated_scope = Scope.add name current_scope in
     match scopes with
-    | [] -> Ok ([new_scope], binding)
-    | _ :: tl -> Ok (new_scope :: tl, binding)
+    | [] -> Ok ([updated_scope], binding)
+    | _ :: previous_scopes -> Ok (updated_scope :: previous_scopes, binding)
   end
 
-let resolve_let recur_fn scopes meta bindings body =
+let resolve_let recur_fn scopes metadata bindings body_node =
   let rec resolve_bindings' scopes resolved = function
     | [] -> Ok (scopes, resolved)
-    | b :: bs -> begin
-      match resolve_binding recur_fn scopes b with
+    | binding :: bindings -> begin
+      match resolve_binding recur_fn scopes binding with
       | Error e -> Error e
-      | Ok (s, b) -> resolve_bindings' s (b :: resolved) bs
+      | Ok (updated_scopes, binding) -> resolve_bindings' updated_scopes (binding :: resolved) bindings
     end in
   match resolve_bindings' scopes [] bindings with
   | Error e -> Error e
   | Ok (scopes, bindings) -> begin
-    let* body = recur_fn scopes body in
-    return (RNode.Let (List.rev bindings, body, meta))
+    let* body_node = recur_fn scopes body_node in
+    return (RNode.Let (List.rev bindings, body_node, metadata))
   end
 
-let resolve_apply recur_fn scopes meta fn args =
-  let fold_fn resolved arg =
-    let* r = resolved in
-    let* a = recur_fn scopes arg in
-    return (a :: r) in
-  let args = List.fold_left fold_fn (Ok []) args in
-  let* args = args in
-  let* fn = recur_fn scopes fn in
-  return (RNode.Apply (fn, List.rev args, meta))
+let resolve_apply recur_fn scopes metadata function_node arguments =
+  let resolve_arguments resolved argument =
+    let* resolved = resolved in
+    let* argument = recur_fn scopes argument in
+    return (argument :: resolved) in
+  let* arguments = List.fold_left resolve_arguments (Ok []) arguments in
+  let* function_node = recur_fn scopes function_node in
+  return (RNode.Apply (function_node, List.rev arguments, metadata))
 
-let check_cons_fields fields tipe metadata =
-  match tipe with
-  | Type.Rec (_, name, cons) -> begin
-    let cons_fields = List.map fst cons in
-    if (List.compare_lengths cons_fields fields) = 0 then
-      let field_exists cons_fields field =
-        if List.exists ((=) field) cons_fields then Ok field
+let check_record_fields metadata record_type given_names =
+  match record_type with
+  | Type.Record defined_fields -> begin
+    let defined_names = List.map fst defined_fields in
+    if (List.compare_lengths defined_names given_names) = 0 then
+      let field_exists defined_names given_name =
+        if List.exists ((=) given_name) defined_names then Ok given_name
         else
-          let prefix = build_prefix metadata in
+          let prefix = build_error_prefix metadata in
           Error (Cmpl_err.name_errors metadata prefix [
-            sprintf "%s is not a valid binding" @@ Identifier.to_string field
+            sprintf "%s is not a valid record field" @@ Identifier.to_string given_name
           ])
       in
-      let fold_fn field fields =
-        let* fields = fields in
-        let* field = field_exists cons_fields field in
-        return (field :: fields) in
-      List.fold_right fold_fn fields (Ok [])
+      let check_fields_exist given_name existing_names =
+        let* existing_names = existing_names in
+        let* existing_name = field_exists defined_names given_name in
+        return (existing_name :: existing_names) in
+      List.fold_right check_fields_exist given_names (Ok [])
     else
-      let prefix = build_prefix metadata in
+      let prefix = build_error_prefix metadata in
       Error (Cmpl_err.name_errors metadata prefix [
-        sprintf "Wrong number of bindings for constructor '%s'" @@ Identifier.to_string name
+        sprintf "Wrong number of fields for given for record"
       ])
   end
   | _ -> assert false
 
-let resolve_exprs recur_fn scopes exprs =
-  let fold_fn expr exprs =
-    let* exprs = exprs in
-    let* expr = recur_fn scopes expr in
-    return (expr :: exprs) in
-  List.fold_right fold_fn exprs (Ok [])
+let resolve_record_expressions recur_fn scopes expression_nodes =
+  let resolve_expressions expression_node resolved_nodes =
+    let* resolved_nodes = resolved_nodes in
+    let* resolved_node = recur_fn scopes expression_node in
+    return (resolved_node :: resolved_nodes) in
+  List.fold_right resolve_expressions expression_nodes (Ok [])
 
-let resolve_cons recur_fn table scopes meta tipe bindings =
-  let* tipe = resolve_type table tipe meta in
-  let fields = List.map PNode.Binding.name bindings in
-  let* fields = check_cons_fields fields tipe meta in
-  let exprs = List.map PNode.Binding.expr bindings in
-  let* exprs = resolve_exprs recur_fn scopes exprs in
-  let bindings = List.map2 RNode.Binding.from_node fields exprs in
-  return (RNode.Cons (tipe, bindings, meta))
+let resolve_cons recur_fn symbol_table scopes metadata record_type fields =
+  let* record_type = resolve_type symbol_table metadata record_type in
+  let given_fields = List.map PNode.Binding.name fields in
+  let* existing_fields = check_record_fields metadata record_type given_fields in
+  let field_expressions = List.map PNode.Binding.expr fields in
+  let* resolved_expressions = resolve_record_expressions recur_fn scopes field_expressions in
+  let resolved_fields = List.map2 RNode.Binding.from_node existing_fields resolved_expressions in
+  return (RNode.Cons (record_type, resolved_fields, metadata))
 
-let resolve_get table scopes record field =
+let resolve_get symbol_table scopes record field =
   match record with
-  | PNode.SymLit (name, meta) -> begin
-    let* symlit = resolve_symlit table scopes meta name in
-    return (RNode.Get (symlit, field, meta))
+  | PNode.Symbol (name, metadata) -> begin
+    let* symbol = resolve_symbol symbol_table scopes metadata name in
+    return (RNode.Get (symbol, field, metadata))
   end
   | _ -> assert false
 
-let resolve_set recur_fn table scopes record field expr =
+let resolve_set recur_fn symbol_table scopes record field expression_node =
   match record with
-  | PNode.SymLit (name, meta) -> begin
-    let* symlit = resolve_symlit table scopes meta name in
-    let* expr = recur_fn scopes expr in
-    return (RNode.Set (symlit, field, expr, meta))
+  | PNode.Symbol (name, metadata) -> begin
+    let* symbol = resolve_symbol symbol_table scopes metadata name in
+    let* expression_node = recur_fn scopes expression_node in
+    return (RNode.Set (symbol, field, expression_node, metadata))
   end
   | _ -> assert false
 
-let resolve_cast recur_fn table scopes meta tipe expr =
-  let* tipe = resolve_type table tipe meta in
-  let* expr = recur_fn scopes expr in
-  return (RNode.Cast (tipe, expr, meta))
+let resolve_cast recur_fn symbol_table scopes metadata casted_type expression_node =
+  let* casted_type = resolve_type symbol_table metadata casted_type in
+  let* expression_node = recur_fn scopes expression_node in
+  return (RNode.Cast (casted_type, expression_node, metadata))
 
-let resolve_node table node =
+let resolve_node symbol_table node =
   let rec resolve' scopes = function
-    | PNode.NumLit (n, meta) -> Ok (RNode.NumLit (n, meta))
-    | PNode.StrLit (s, meta) -> Ok (RNode.StrLit (s, meta))
-    | PNode.SymLit (name, meta) -> resolve_symlit table scopes meta name
-    | PNode.Rec (name, fields, meta) -> resolve_rec table meta name fields
-    | PNode.Def (var, expr, meta) -> resolve_def resolve' scopes meta var expr
-    | PNode.Fn (params, rtype, body, meta) -> resolve_fn resolve' table scopes meta params rtype body
-    | PNode.If (tst, iff, els, meta) -> resolve_if resolve' scopes meta tst iff els
-    | PNode.Let (bindings, body, meta) -> resolve_let resolve' scopes meta bindings body
-    | PNode.Apply (fn, args, meta) -> resolve_apply resolve' scopes meta fn args
-    | PNode.Cons (tipe, bindings, meta) -> resolve_cons resolve' table scopes meta tipe bindings
-    | PNode.Get (record, field, _) -> resolve_get table scopes record field
-    | PNode.Set (record, field, expr, _) -> resolve_set resolve' table scopes record field expr
-    | PNode.Cast (tipe, expr, meta) -> resolve_cast resolve' table scopes meta tipe expr in
+    | PNode.NumLit (value, metadata) ->
+        Ok (RNode.NumLit (value, metadata))
+    | PNode.StrLit (value, metadata) ->
+        Ok (RNode.StrLit (value, metadata))
+    | PNode.Symbol (value, metadata) ->
+        resolve_symbol symbol_table scopes metadata value
+    | PNode.Rec (fields, metadata) ->
+        resolve_record symbol_table metadata fields
+    | PNode.Def (var, expression_node, metadata) ->
+        resolve_def resolve' scopes metadata var expression_node
+    | PNode.Fn (parameters, return_type, body_node, metadata) ->
+        resolve_function resolve' symbol_table scopes metadata parameters return_type body_node
+    | PNode.If (test_node, if_node, else_node, metadata) ->
+        resolve_if resolve' scopes metadata test_node if_node else_node
+    | PNode.Let (bindings, body_node, metadata) ->
+        resolve_let resolve' scopes metadata bindings body_node
+    | PNode.Apply (function_node, arguments, metadata) ->
+        resolve_apply resolve' scopes metadata function_node arguments
+    | PNode.Cons (record_type, bindings, metadata) ->
+        resolve_cons resolve' symbol_table scopes metadata record_type bindings
+    | PNode.Get (record, field, _) ->
+        resolve_get symbol_table scopes record field
+    | PNode.Set (record, field, expression, _) ->
+        resolve_set resolve' symbol_table scopes record field expression
+    | PNode.Cast (casted_type, expression_node, metadata) ->
+        resolve_cast resolve' symbol_table scopes metadata casted_type expression_node
+    | PNode.Type _ -> assert false in
   resolve' [] node
 
-let resolve_nodes table nodes =
-  let fold_fn node nodes =
-    let* nodes = nodes in
-    let* node = resolve_node table node in
-    return (node :: nodes) in
-  List.fold_right fold_fn nodes (Ok [])
-
-let resolve table nodes =
-  resolve_nodes table nodes
+let inspect node =
+  Result.to_string node RNode.inspect Cmpl_err.to_string

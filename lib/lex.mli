@@ -1,17 +1,18 @@
-exception SyntaxError of string * int * int
+exception SyntaxError of int * int * string
 
 module Form : sig
   type t =
-    | Number of float * Metadata.t
-    | String of string * Metadata.t
-    | Symbol of string * Metadata.t
-    | Cons of string * Metadata.t
-    | List of t list * Metadata.t
-    | Vec of t list * Metadata.t
-
-  val to_string: t -> string
+    | Number of Metadata.t * float
+    | String of Metadata.t * string
+    | Symbol of Metadata.t * string
+    | List of Metadata.t * t list
+    | Vector of Metadata.t * t list
+    | Record of Metadata.t * t list
+    | Extension of Metadata.t * t
 
   val metadata: t -> Metadata.t
+
+  val to_string: t -> string
 
   val inspect: t -> string
 end

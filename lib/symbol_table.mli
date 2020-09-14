@@ -24,8 +24,6 @@ val module_type: t -> Module_name.t -> Identifier.t -> Type.t option
 
 val define_var: t -> Identifier.t -> Type.t -> t
 
-val define_record: t -> Identifier.t -> Type.rec_cons_t -> t
-
-val to_string: t -> string
+val inspect: t -> string
 
 val err_string: err_t -> string

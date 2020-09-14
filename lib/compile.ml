@@ -3,22 +3,29 @@ open Thwack.Extensions.Result.Syntax
 
 module Node = Ast.Resolved_node
 
-type t = (Symbol_table.t * (Node.t * Type.t) list, Cmpl_err.t) result
+type t = (Symbol_table.t * Node.t list, Cmpl_err.t) result
 
 let lex = Lex.lex
 
-let parse = Parse.parse
+let parse_node = Parse.parse_node
 
-let declare = Declare.declare_toplevels
+let declare_node = Declare.declare_node
 
-let resolve = Resolve.resolve
+let resolve_node = Resolve.resolve_node
 
-let typecheck = Typecheck.check
+let typecheck_node = Typecheck.check_node
+
+let compile_form symbol_table form =
+  let* parsed_node = parse_node form in
+  let* symbol_table = declare_node symbol_table parsed_node in
+  let* resolved_node = resolve_node symbol_table parsed_node in
+  let* _ = typecheck_node symbol_table resolved_node in
+  return (symbol_table, resolved_node)
 
 let compile_module symbol_table source =
   let* forms = lex source in
-  let* nodes = parse forms in
-  let* symbol_table = declare symbol_table nodes in
-  let* nodes = resolve symbol_table nodes in
-  let* nodes = typecheck symbol_table nodes in
-  return (symbol_table, nodes)
+  let compile_nodes form accumulated_results =
+    let* (symbol_table, final_nodes) = accumulated_results in
+    let* (symbol_table, final_node) = compile_form symbol_table form in
+    return (symbol_table, final_node :: final_nodes) in
+  List.fold_right compile_nodes forms (Ok (symbol_table, []))

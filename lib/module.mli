@@ -21,7 +21,4 @@ val type_exists: t -> Identifier.t -> bool
 (* TODO use Var here? *)
 val define_var: t -> Identifier.t -> Type.t -> t
 
-(*TODO use VarDef here instead of tuple*)
-val define_record: t -> Identifier.t -> Type.rec_cons_t -> t
-
-val to_string: t -> string
+val inspect: t -> string
