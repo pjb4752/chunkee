@@ -1,6 +1,6 @@
-open Thwack.Extensions
-open Thwack.Extensions.Option
-open Thwack.Extensions.Option.Syntax
+open Common.Extensions
+open Common.Extensions.Option
+open Common.Extensions.Option.Syntax
 open Printf
 
 module Lib_tree = struct

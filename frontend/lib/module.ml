@@ -1,6 +1,6 @@
 open Printf
-open Thwack.Extensions.Option
-open Thwack.Extensions.Option.Syntax
+open Common.Extensions.Option
+open Common.Extensions.Option.Syntax
 
 module VariableNames = Set.Make(Identifier)
 module VariableTypes = Map.Make(Identifier)

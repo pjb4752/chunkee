@@ -1,0 +1,10 @@
+(executables
+  (names tests)
+  (libraries
+    backend
+    frontend
+    ounit))
+
+(alias
+  (name runtest)
+  (action (run ./tests.exe)))

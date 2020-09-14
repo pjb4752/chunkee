@@ -1,6 +1,9 @@
 (executables
   (names tests)
-   (libraries chunkee ounit thwack))
+  (libraries
+    backend
+    common
+    ounit))
 
 (alias
   (name runtest)

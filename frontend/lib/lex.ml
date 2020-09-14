@@ -1,7 +1,7 @@
 open Printf
-open Thwack.Extensions
+open Common.Extensions
 
-module Read_list = Thwack.Read_list
+module Read_list = Common.Read_list
 
 exception SyntaxError of int * int * string
 
@@ -214,4 +214,4 @@ let lex str =
 let inspect result =
   let forms_to_string forms =
     String.concat "; " @@ List.map Form.inspect forms in
-  Result.to_string result forms_to_string Cmpl_err.to_string
+  Result.inspect result forms_to_string Cmpl_err.to_string

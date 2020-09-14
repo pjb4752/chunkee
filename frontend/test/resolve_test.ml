@@ -66,7 +66,7 @@ let suite =
     "resolve undefined symbol literal">::
       (fun context ->
         let resolved = resolve_node t1 m2 (make_bare_sym "hooie") in
-        assert_true (Thwack.Result.is_error resolved)
+        assert_true (Common.Result.is_error resolved)
       );
 
     "resolve symbol literal in def">::

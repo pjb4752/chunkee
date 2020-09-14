@@ -1,6 +1,6 @@
 open Printf
-open Thwack.Extensions.Result
-open Thwack.Extensions.Result.Syntax
+open Common.Extensions.Result
+open Common.Extensions.Result.Syntax
 
 module Node = Ast.Parsed_node
 
@@ -31,7 +31,7 @@ let find_variable_type symbol_table expression metadata =
   | Node.NumLit _ -> Ok Type.Number
   | Node.StrLit _ -> Ok Type.String
   | Node.Fn (params, return_type, _, _) -> find_function_type symbol_table params return_type metadata
-  | Node.Rec (fields, _) -> find_record_type symbol_table fields metadata
+  (*| Node.Rec (fields, _) -> find_record_type symbol_table fields metadata*)
   | _ -> assert false
 
 let define_variable symbol_table = function

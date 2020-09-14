@@ -1,7 +1,7 @@
 open Printf
-open Thwack.Extensions
-open Thwack.Extensions.Result
-open Thwack.Extensions.Result.Syntax
+open Common.Extensions
+open Common.Extensions.Result
+open Common.Extensions.Result.Syntax
 
 module Node = Ast.Resolved_node
 

@@ -1,0 +1,9 @@
+(executables
+  (names main)
+  (libraries
+    frontend
+    backend))
+
+(install
+  (section bin)
+  (files (main.exe as chunkee)))

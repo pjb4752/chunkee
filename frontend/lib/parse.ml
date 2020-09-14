@@ -1,8 +1,8 @@
 open Lex
 open Printf
-open Thwack.Extensions
-open Thwack.Extensions.Result
-open Thwack.Extensions.Result.Syntax
+open Common.Extensions
+open Common.Extensions.Result
+open Common.Extensions.Result.Syntax
 
 module Node = Ast.Parsed_node
 
@@ -410,4 +410,4 @@ let parse_node = function
   | form -> toplevel_error (Form.metadata form) (Form.to_string form)
 
 let inspect result =
-  Result.to_string result Node.inspect Cmpl_err.to_string
+  Result.inspect result Node.inspect Cmpl_err.to_string

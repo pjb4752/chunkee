@@ -1,7 +1,7 @@
 open Printf
-open Thwack.Extensions
-open Thwack.Extensions.Result
-open Thwack.Extensions.Result.Syntax
+open Common.Extensions
+open Common.Extensions.Result
+open Common.Extensions.Result.Syntax
 
 module Scope = Set.Make(String)
 
@@ -206,4 +206,4 @@ let resolve_node symbol_table node =
   resolve' [] node
 
 let inspect node =
-  Result.to_string node RNode.inspect Cmpl_err.to_string
+  Result.inspect node RNode.inspect Cmpl_err.to_string

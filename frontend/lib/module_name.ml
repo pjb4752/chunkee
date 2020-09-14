@@ -1,5 +1,5 @@
 open Printf
-open Thwack.Extensions
+open Common.Extensions
 
 module Segment = struct
   type t = string

@@ -1,6 +1,6 @@
 open Printf
-open Thwack.Extensions.Option
-open Thwack.Extensions.Option.Syntax
+open Common.Extensions.Option
+open Common.Extensions.Option.Syntax
 
 type t = {
   pervasive: Pervasive.t;
@@ -91,7 +91,7 @@ let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
   | Type_expr.SimpleType tipe -> resolve_simple_type table lookup_fn tipe
   | Type_expr.FnType types ->
       let fold_fn types tipe =
-        Thwack.Extensions.Result.(
+        Common.Extensions.Result.(
           Syntax.(
             let* types = types in
             let* tipe = resolve_type table ~lookup_fn:lookup_fn tipe in
