@@ -10,15 +10,15 @@ let lua_modules = [
 ]
 
 let find_lua_module name =
-  List.find_opt (fun modul -> (Lua_module.name modul) = name) lua_modules
+  List.find_opt (fun lua_module -> (Lua_module.name lua_module) = name) lua_modules
 
 let pervasive_module = Lua_module.to_compiler_module lua_common
 
 let pervasive = { Pervasive.modul = pervasive_module }
 
 let compiler_modules =
-  List.fold_left (fun tree modul ->
-    Lua_module.to_compiler_module modul |> Module_tree.insert_module tree
+  List.fold_left (fun tree current_module ->
+    Lua_module.to_compiler_module current_module |> Module_tree.insert_module tree
   ) Module_tree.empty lua_modules
 
 (*let is_infix_op qual_name var_name =*)

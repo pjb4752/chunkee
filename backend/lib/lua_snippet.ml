@@ -1,75 +1,75 @@
 open Printf
 
-type expr = string
-type unit_stmt = string
-type result_stmt = { var: string; stmt: string }
+type expression = string
+type unit_statement = string
+type result_statement = { variable: string; statement: string }
 
 type t =
-  | Expr of t list * expr
-  | UnitStmt of t list * unit_stmt
-  | ResultStmt of t list * result_stmt
+  | Expression of t list * expression
+  | UnitStatement of t list * unit_statement
+  | ResultStatement of t list * result_statement
 
-let make_expr expr = Expr ([], expr)
+let make_expression expression = Expression ([], expression)
 
-let make_unit_stmt stmt = UnitStmt ([], stmt)
+let make_unit_statement statement = UnitStatement ([], statement)
 
-let make_result_stmt var stmt = ResultStmt ([], { var; stmt })
+let make_result_statement variable statement = ResultStatement ([], { variable; statement })
 
-let insert_preamble snippet p =
+let insert_preamble snippet preamble =
   match snippet with
-  | Expr (ps, expr) -> Expr (p :: ps, expr)
-  | UnitStmt (ps, stmt) -> UnitStmt (p :: ps, stmt)
-  | ResultStmt (ps, stmt) -> ResultStmt (p :: ps, stmt)
+  | Expression (snippets, expression) -> Expression (preamble :: snippets, expression)
+  | UnitStatement (snippets, statement) -> UnitStatement (preamble :: snippets, statement)
+  | ResultStatement (snippets, statement) -> ResultStatement (preamble :: snippets, statement)
 
-let is_expr = function
-  | Expr _ -> true
-  | UnitStmt _ -> false
-  | ResultStmt _ -> false
+let is_expression = function
+  | Expression _ -> true
+  | UnitStatement _ -> false
+  | ResultStatement _ -> false
 
-let is_stmt snippet = not (is_expr snippet)
+let is_statement snippet = not (is_expression snippet)
 
 let preamble_string snippet =
   let rec preamble_string' strings = function
-    | Expr (snippets, _) ->
+    | Expression (snippets, _) ->
         List.fold_left preamble_string' strings snippets
-    | UnitStmt (snippets, _) ->
+    | UnitStatement (snippets, _) ->
         List.fold_left preamble_string' strings snippets
-    | ResultStmt (snippets, { stmt; _ }) ->
-        List.fold_left preamble_string' (stmt :: strings) snippets in
+    | ResultStatement (snippets, { statement; _ }) ->
+        List.fold_left preamble_string' (statement :: strings) snippets in
   String.concat "\n" (preamble_string' [] snippet)
 
-let result_expr = function
-  | Expr (_, expr) -> expr
-  | ResultStmt (_, { var; _ }) -> var
-  | UnitStmt _ -> assert false
+let result_expression = function
+  | Expression (_, expression) -> expression
+  | ResultStatement (_, { variable; _ }) -> variable
+  | UnitStatement _ -> assert false
 
 let result_string target preamble snippet =
-  let result = result_expr snippet in
+  let result = result_expression snippet in
   if preamble = "" then sprintf "%s %s" target result
   else if target = "" then sprintf "%s" preamble
   else sprintf "%s\n%s %s" preamble target result
 
-let stmt_string preamble stmt =
-  if preamble = "" then sprintf "%s" stmt
-  else sprintf "%s\n%s" preamble stmt
+let statement_string preamble statement =
+  if preamble = "" then sprintf "%s" statement
+  else sprintf "%s\n%s" preamble statement
 
 let lua_string ?target:(target="return") snippet =
   let preamble = preamble_string snippet in
   match snippet with
-  | Expr _ | ResultStmt _ -> result_string target preamble snippet
-  | UnitStmt (_, stmt) -> stmt_string preamble stmt
+  | Expression _ | ResultStatement _ -> result_string target preamble snippet
+  | UnitStatement (_, statement) -> statement_string preamble statement
 
-let rec to_string snippet =
+let rec inspect snippet =
   let sprintf_snippets snippets =
-    List.map to_string snippets |> (String.concat ", ") in
+    List.map inspect snippets |> (String.concat ", ") in
   match snippet with
-  | Expr (snippets, expr) ->
+  | Expression (snippets, expression) ->
       let snippets = sprintf_snippets snippets in
-      sprintf "Expr ([%s], %s)" snippets expr
-  | UnitStmt (snippets, stmt) ->
+      sprintf "Expression ([%s], %s)" snippets expression
+  | UnitStatement (snippets, statement) ->
       let snippets = sprintf_snippets snippets in
-      sprintf "UnitStmt ([%s], %s)" snippets stmt
-  | ResultStmt (snippets, { var; stmt }) ->
+      sprintf "UnitStatement ([%s], %s)" snippets statement
+  | ResultStatement (snippets, { variable; statement }) ->
       let snippets = sprintf_snippets snippets in
-      sprintf "ResultStmt ([%s], { var: %s, stmt: %s })" snippets var stmt
+      sprintf "ResultStatement ([%s], { variable: %s, statement: %s })" snippets variable statement
 

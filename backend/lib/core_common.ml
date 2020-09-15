@@ -7,34 +7,34 @@ let name =
   Module_name.from_path_and_base path name
 
 let constants = [
-  Lua_var.make_const "true" Type.Bool;
-  Lua_var.make_const "false" Type.Bool;
+  Lua_var.make_constant "true" Type.Bool;
+  Lua_var.make_constant "false" Type.Bool;
 ]
 
 let functions = [
-  Lua_var.make_fn "print" (Type.Function ([Type.String], Type.Unit))
+  Lua_var.make_function "print" (Type.Function ([Type.String], Type.Unit))
 ]
 
-let math_fntype = Type.Function ([Type.Number; Type.Number], Type.Number)
-let bool_fntype = Type.Function ([Type.Number; Type.Number], Type.Bool)
+let arithmatic_type = Type.Function ([Type.Number; Type.Number], Type.Number)
+let logic_type = Type.Function ([Type.Number; Type.Number], Type.Bool)
 
-let math_operators = [
-  Lua_var.make_simple_op "+" "core_common.add" math_fntype;
-  Lua_var.make_simple_op "-" "core_common.sub" math_fntype;
-  Lua_var.make_simple_op "*" "core_common.mlt" math_fntype;
-  Lua_var.make_simple_op "/" "core_common.div" math_fntype;
-  Lua_var.make_simple_op "%" "core_common.mod" math_fntype;
+let arithmatic_operators = [
+  Lua_var.make_simple_operator "+" "core_common.add" arithmatic_type;
+  Lua_var.make_simple_operator "-" "core_common.sub" arithmatic_type;
+  Lua_var.make_simple_operator "*" "core_common.mlt" arithmatic_type;
+  Lua_var.make_simple_operator "/" "core_common.div" arithmatic_type;
+  Lua_var.make_simple_operator "%" "core_common.mod" arithmatic_type;
 ]
 
-let bool_operators = [
-  Lua_var.make_mapped_op "==" "core_common.eq" "=" bool_fntype;
-  Lua_var.make_simple_op ">" "core_common.gtn" bool_fntype;
-  Lua_var.make_simple_op ">=" "core_common.gte" bool_fntype;
-  Lua_var.make_simple_op "<" "core_common.ltn" bool_fntype;
-  Lua_var.make_simple_op "<=" "core_common.lte" bool_fntype;
-  Lua_var.make_mapped_op "=~" "core_common.neq" "not=" bool_fntype;
+let logic_operators = [
+  Lua_var.make_mapped_operator "==" "core_common.eq" "=" logic_type;
+  Lua_var.make_simple_operator ">" "core_common.gtn" logic_type;
+  Lua_var.make_simple_operator ">=" "core_common.gte" logic_type;
+  Lua_var.make_simple_operator "<" "core_common.ltn" logic_type;
+  Lua_var.make_simple_operator "<=" "core_common.lte" logic_type;
+  Lua_var.make_mapped_operator "=~" "core_common.neq" "not=" logic_type;
 ]
 
-let operators = math_operators @ bool_operators
+let operators = arithmatic_operators @ logic_operators
 
 let vars = constants @ functions @ operators

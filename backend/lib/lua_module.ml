@@ -1,35 +1,34 @@
 open Frontend
 open Common.Extensions
 
-type compiler_module_t = Module.t
-
 type t = {
   name: Module_name.t;
-  vars: Lua_var.t list;
+  variables: Lua_var.t list;
 }
 
-let make name vars = { name; vars }
+let make name variables = { name; variables }
 
 let name { name; _ } = name
 
-let find_operator { vars; _ } compiler_name =
+let find_operator { variables; _ } compiler_name =
   let rec find' = function
     | [] -> None
-    | var :: vars -> begin
-      match Lua_var.compiler_operator var compiler_name with
+    | current_variable :: remaining_variables -> begin
+      match Lua_var.lua_operator current_variable compiler_name with
       | Some lua_operator -> Some lua_operator
-      | None -> find' vars
+      | None -> find' remaining_variables
     end in
-  find' vars
+  find' variables
 
 let operator_exists modul compiler_name =
   Option.is_some @@ find_operator modul compiler_name
 
-let compiler_var modul var =
-  let name = Lua_var.compiler_name var and tipe = Lua_var.tipe var in
-  let name = Identifier.from_string name in
-  Module.define_var modul name tipe
+let compiler_variable compiler_module variable =
+  let compiler_name = Lua_var.compiler_name variable in
+  let compiler_type = Lua_var.compiler_type variable in
+  let compiler_name = Identifier.from_string compiler_name in
+  Module.define_var compiler_module compiler_name compiler_type
 
-let to_compiler_module { name; vars } =
+let to_compiler_module { name; variables } =
   let mempty = Module.with_name name in
-  List.fold_left compiler_var mempty vars
+  List.fold_left compiler_variable mempty variables
