@@ -1,3 +1,9 @@
+(*
+ * An interface for a module written in Lua.
+ *
+ * Requires the name the module is given in the compiler, and the list of definitions exposed by the module.
+ *)
+
 type t
 
 val make: Frontend.Module_name.t -> Lua_definition.t list -> t

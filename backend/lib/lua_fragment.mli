@@ -1,3 +1,12 @@
+(*
+ * A Lua source fragment.
+ *
+ * Three forms exist:
+ *   expression - a Lua fragment that is an expression
+ *   result statement - a Lua fragment that is a statement, but must capture its result as an expession
+ *   unit statement - a Lua fragment that does not have to capture its result
+ *)
+
 type t
 
 val make_expression: string -> t

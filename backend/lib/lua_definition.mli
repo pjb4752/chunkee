@@ -1,3 +1,9 @@
+(*
+ * A representation of an object defined in Lua source.
+ *
+ * Can be either a constant value, a function name, or an operator symbol.
+ *)
+
 type t
 
 val make_constant: string -> Frontend.Type.t -> t
