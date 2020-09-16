@@ -62,8 +62,8 @@ let emit_name ?wrap_ops:(wrap_ops=true) = function
   | Name.Var.Module (module_name, variable_name) ->
     let variable_name = Identifier.to_string variable_name in
     match find_operator module_name variable_name with
-    | Some operator when wrap_ops -> Lua_operator.wrapper_name operator
-    | Some operator -> Lua_operator.lua_name operator
+    | Some operator when wrap_ops -> Lua_operator.wrapper_function_name operator
+    | Some operator -> Lua_operator.name operator
     | None -> escape_name variable_name
 
 let emit_symbol ?wrap_ops:(wrap_ops=true) value =

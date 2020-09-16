@@ -1,18 +1,18 @@
 open Frontend
 
-let lua_common = Core_common.(Lua_module.make name vars)
+let common_module = Common_module.(Lua_module.make compiler_name definitions)
 
-let lua_list = Core_list.(Lua_module.make name vars)
+let list_module = List_module.(Lua_module.make compiler_name definitions)
 
 let lua_modules = [
-  lua_common;
-  lua_list;
+  common_module;
+  list_module;
 ]
 
 let find_lua_module name =
-  List.find_opt (fun lua_module -> (Lua_module.name lua_module) = name) lua_modules
+  List.find_opt (fun lua_module -> (Lua_module.compiler_name lua_module) = name) lua_modules
 
-let pervasive_module = Lua_module.to_compiler_module lua_common
+let pervasive_module = Lua_module.to_compiler_module common_module
 
 let pervasive = { Pervasive.modul = pervasive_module }
 

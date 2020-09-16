@@ -1,17 +1,17 @@
 type t = {
-  lua_name: string;
+  name: string;
   compiler_name: string;
-  wrapper_name: string;
+  wrapper_function_name: string;
 }
 
-let make_simple name wrapper_name =
-  { lua_name = name; compiler_name = name; wrapper_name; }
+let make name wrapper_function_name =
+  { name; compiler_name = name; wrapper_function_name; }
 
-let make_mapped lua_name wrapper_name compiler_name =
-  { lua_name; compiler_name; wrapper_name }
+let make_with_mapping name wrapper_function_name compiler_name =
+  { name; compiler_name; wrapper_function_name }
 
-let lua_name { lua_name; _ } = lua_name
+let name { name; _ } = name
 
 let compiler_name { compiler_name; _ } = compiler_name
 
-let wrapper_name { wrapper_name; _ } = wrapper_name
+let wrapper_function_name { wrapper_function_name; _ } = wrapper_function_name
