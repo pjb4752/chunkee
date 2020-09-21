@@ -1,7 +1,9 @@
 module Node = Ast.Parsed_node
 
-type t = (Node.t, Cmpl_err.t) result
+module Result : sig
+  type t = (Node.t, Cmpl_err.t) result
 
-val parse_node: Lex.Form.t -> t
+  val inspect: t -> string
+end
 
-val inspect: t -> string
+val parse_node: Lex.Form.t -> Result.t

@@ -1,32 +1,32 @@
-open Chunkee.Lex
+open Frontend.Lex
 open OUnit2
 
 let assert_lexes_to expected str =
-  assert_equal ~printer:inspect (Ok expected) (lex str)
+  assert_equal ~printer:Result.inspect (Ok expected) (lex str)
 
 let assert_lexes_with_error expected str =
-  assert_equal ~printer:inspect (Error expected) (lex str)
+  assert_equal ~printer:Result.inspect (Error expected) (lex str)
 
 let suite =
   "Lex suite">::: [
     "lex single number form">::
       (fun _ ->
-        assert_lexes_to [Form.Number (55.0, { line_num = 1; char_num = 1 })] "55"
+        assert_lexes_to [Form.Number ({ line_num = 1; char_num = 1 }, "55", 55.0)] "55"
       );
 
     "lex single number form with whitespace">::
       (fun _ ->
-        assert_lexes_to [Form.Number (55.0, { line_num = 1; char_num = 3 })] "\t 55 \t"
+        assert_lexes_to [Form.Number ({ line_num = 1; char_num = 3 }, "55", 55.0)] "\t 55 \t"
       );
 
     "lex single string form">::
       (fun _ ->
-        assert_lexes_to [Form.String ("hello", { line_num = 1; char_num = 1 })] "\"hello\""
+        assert_lexes_to [Form.String ({ line_num = 1; char_num = 1 }, "\"hello\"", "hello")] "\"hello\""
       );
 
     "lex single string form with spaces">::
       (fun _ ->
-        assert_lexes_to [Form.String ("hello", { line_num = 1; char_num = 3 })] "\t \"hello\" \t"
+        assert_lexes_to [Form.String ({ line_num = 1; char_num = 3 }, "\"hello\"", "hello")] "\t \"hello\" \t"
       );
 
     "lex unterminated string">::
@@ -38,28 +38,29 @@ let suite =
 
     "lex symbol form">::
       (fun _ ->
-        assert_lexes_to [Form.Symbol ("fat?", { line_num = 1; char_num = 1 })] "fat?"
+        assert_lexes_to [Form.Symbol ({ line_num = 1; char_num = 1 }, "fat?", "fat?")] "fat?"
       );
 
     "lex symbol form with spaces">::
       (fun _ ->
-        assert_lexes_to [Form.Symbol ("fat?", { line_num = 1; char_num = 3 })] "\t fat? \t"
+        assert_lexes_to [Form.Symbol ({ line_num = 1; char_num = 3 }, "fat?", "fat?")] "\t fat? \t"
       );
 
     "lex single list form">::
       (fun _ ->
-        let plus = Form.Symbol ("+", { line_num = 1; char_num = 2 }) in
-        let one = Form.Number (1.0, { line_num = 1; char_num = 4 }) in
-        let two = Form.Number (2.0, { line_num = 1; char_num = 6 }) in
-        assert_lexes_to [Form.List([plus; one; two], { line_num = 1; char_num = 1 })] "(+ 1 2)"
+        let plus = Form.Symbol ({ line_num = 1; char_num = 2 }, "+", "+") in
+        let one = Form.Number ({ line_num = 1; char_num = 4 }, "1", 1.0) in
+        let two = Form.Number ({ line_num = 1; char_num = 6 }, "2", 2.0) in
+        assert_lexes_to [Form.List({ line_num = 1; char_num = 1 }, "(+ 1 2)", [plus; one; two])] "(+ 1 2)"
       );
 
     "lex list form with extra spaces">::
       (fun _ ->
-        let plus = Form.Symbol ("+", { line_num = 1; char_num = 7 }) in
-        let one = Form.Number (1.0, { line_num = 1; char_num = 9 }) in
-        let two = Form.Number (2.0, { line_num = 1; char_num = 13 }) in
-        assert_lexes_to [Form.List([plus; one; two], { line_num = 1; char_num = 3 })] "  (   + 1   2   )  "
+        let plus = Form.Symbol ({ line_num = 1; char_num = 5 }, "+", "+") in
+        let one = Form.Number ({ line_num = 1; char_num = 7 }, "1", 1.0) in
+        let two = Form.Number ({ line_num = 2; char_num = 3 }, "2", 2.0) in
+        assert_lexes_to [Form.List({ line_num = 1; char_num = 1 }, "(   + 1 \n  2   )", [plus; one; two])]
+        "(   + 1 \n  2   )  "
       );
 
     "lex unterminated string">::
@@ -73,35 +74,44 @@ let suite =
       (fun _ ->
         let str = String.concat "\n" [
           "(def do-math (fn [[x num y num] num]";
-            "(let [first x";
-            "      second y]";
-              "(+ first (- second 5)))))";
+          "  (let [first x";
+          "        second y]";
+          "    (+ first (- second 5)))))";
         ] in
-        let def = Form.Symbol ("def", { line_num = 1; char_num = 2 }) in
-        let do_math = Form.Symbol ("do-math", { line_num = 1; char_num = 6 }) in
-        let fn = Form.Symbol ("fn", { line_num = 1; char_num = 15 }) in
-        let x_arg = Form.Symbol ("x", { line_num = 1; char_num = 20 }) in
-        let x_num = Form.Symbol ("num", { line_num = 1; char_num = 22 }) in
-        let y_arg = Form.Symbol ("y", { line_num = 1; char_num = 26 }) in
-        let y_num = Form.Symbol ("num", { line_num = 1; char_num = 28 }) in
-        let fn_args = Form.Vec ([x_arg; x_num; y_arg; y_num], { line_num = 1; char_num = 19 }) in
-        let fn_ret = Form.Symbol ("num", { line_num = 1; char_num = 33 }) in
-        let fn_spec = Form.Vec ([fn_args; fn_ret], { line_num = 1; char_num = 18 }) in
-        let lets = Form.Symbol ("let", { line_num = 2; char_num = 2 }) in
-        let let_first = Form.Symbol ("first", { line_num = 2; char_num = 7 }) in
-        let let_x = Form.Symbol ("x", { line_num = 2; char_num = 13 }) in
-        let let_second = Form.Symbol ("second", { line_num = 3; char_num = 7 }) in
-        let let_y = Form.Symbol ("y", { line_num = 3; char_num = 14 }) in
-        let let_binds = Form.Vec ([let_first; let_x; let_second; let_y], { line_num = 2; char_num = 6 }) in
-        let plus = Form.Symbol ("+", { line_num = 4; char_num = 2 }) in
-        let first = Form.Symbol ("first", { line_num = 4; char_num = 4 }) in
-        let minus = Form.Symbol ("-", { line_num = 4; char_num = 11 }) in
-        let second = Form.Symbol ("second", { line_num = 4; char_num = 13 }) in
-        let five = Form.Number (5.00, { line_num = 4; char_num = 20 }) in
-        let subtract = Form.List ([minus; second; five], { line_num = 4; char_num = 10 }) in
-        let add = Form.List ([plus; first; subtract], { line_num = 4; char_num = 1 }) in
-        let let_form = Form.List ([lets; let_binds; add], { line_num = 2; char_num = 1 }) in
-        let fn_form = Form.List([fn; fn_spec; let_form], { line_num = 1; char_num = 14 }) in
-        assert_lexes_to [Form.List ([def; do_math; fn_form], { line_num = 1; char_num = 1 })] str
+        let def = Form.Symbol ({ line_num = 1; char_num = 2 }, "def", "def") in
+        let do_math = Form.Symbol ({ line_num = 1; char_num = 6 }, "do-math", "do-math") in
+        let fn = Form.Symbol ({ line_num = 1; char_num = 15 }, "fn", "fn") in
+        let x_arg = Form.Symbol ({ line_num = 1; char_num = 20 }, "x", "x") in
+        let x_num = Form.Symbol ({ line_num = 1; char_num = 22 }, "num", "num") in
+        let y_arg = Form.Symbol ({ line_num = 1; char_num = 26 }, "y", "y") in
+        let y_num = Form.Symbol ({ line_num = 1; char_num = 28 }, "num", "num") in
+        let fn_args = Form.Vector ({ line_num = 1; char_num = 19 }, "[x num y num]",
+          [x_arg; x_num; y_arg; y_num]) in
+        let fn_ret = Form.Symbol ({ line_num = 1; char_num = 33 }, "num", "num") in
+        let fn_spec = Form.Vector ({ line_num = 1; char_num = 18 }, "[[x num y num] num]", [fn_args; fn_ret]) in
+        let lets = Form.Symbol ({ line_num = 2; char_num = 4 }, "let", "let") in
+        let let_first = Form.Symbol ({ line_num = 2; char_num = 9 }, "first", "first") in
+        let let_x = Form.Symbol ({ line_num = 2; char_num = 15 }, "x", "x") in
+        let let_second = Form.Symbol ({ line_num = 3; char_num = 9 }, "second", "second") in
+        let let_y = Form.Symbol ({ line_num = 3; char_num = 16 }, "y", "y") in
+        let let_binds = Form.Vector ({ line_num = 2; char_num = 8 }, "[first x\n        second y]",
+          [let_first; let_x; let_second; let_y]) in
+        let plus = Form.Symbol ({ line_num = 4; char_num = 6 }, "+", "+") in
+        let first = Form.Symbol ({ line_num = 4; char_num = 8 }, "first", "first") in
+        let minus = Form.Symbol ({ line_num = 4; char_num = 15 }, "-", "-") in
+        let second = Form.Symbol ({ line_num = 4; char_num = 17 }, "second", "second") in
+        let five = Form.Number ({ line_num = 4; char_num = 24 }, "5", 5.00) in
+        let subtract = Form.List ({ line_num = 4; char_num = 14 }, "(- second 5)", [minus; second; five]) in
+        let add = Form.List ({ line_num = 4; char_num = 5 }, "(+ first (- second 5))",
+          [plus; first; subtract]) in
+        let let_form = Form.List ({ line_num = 2; char_num = 3 },
+          "(let [first x\n        second y]\n    (+ first (- second 5)))",
+          [lets; let_binds; add]) in
+        let fn_form = Form.List({ line_num = 1; char_num = 14 },
+          "(fn [[x num y num] num]\n  (let [first x\n        second y]\n    (+ first (- second 5))))",
+          [fn; fn_spec; let_form]) in
+        assert_lexes_to [Form.List ({ line_num = 1; char_num = 1 },
+          "(def do-math (fn [[x num y num] num]\n  (let [first x\n        second y]\n    (+ first (- second 5)))))",
+          [def; do_math; fn_form])] str
       );
   ]

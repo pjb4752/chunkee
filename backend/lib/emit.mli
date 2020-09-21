@@ -1,7 +1,7 @@
 val emit_require: Frontend.Module_name.t -> string
 
-val emit_node: Name_gen.t -> Frontend.Ast.Resolved_node.t -> Lua_fragment.t
+val emit_lua_fragment: Name_gen.t -> Frontend.Ast.Resolved_node.t -> Lua_fragment.t
 
-val emit_typed_node: (Frontend.Ast.Resolved_node.t * Frontend.Type.t) -> string
+val emit_node_string: Frontend.Ast.Resolved_node.t -> string
 
-val emit: (Frontend.Ast.Resolved_node.t * Frontend.Type.t) list -> string list
+val emit_node_strings: Frontend.Ast.Resolved_node.t list -> string list

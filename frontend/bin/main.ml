@@ -20,7 +20,7 @@ let create_module path_segments name =
   let path_segments = List.map Frontend.Module_name.Segment.from_string path_segments in
   let module_path = Frontend.Module_name.Path.from_segments path_segments in
   let module_name = Frontend.Module_name.Segment.from_string name in
-  Frontend.Module.from_path_and_base module_path module_name
+  Frontend.Module.with_path_and_base module_path module_name
 
 let compile_module table source =
   Frontend.Compile.compile_module table source
@@ -33,7 +33,7 @@ let compile filename =
   match compile_module table source with
   | Error e -> Frontend.Cmpl_err.to_string e
   | Ok (_, nodes) ->
-      let lua = Backend.Emit.emit nodes in
+      let lua = Backend.Emit.emit_node_strings nodes in
       String.concat "\n\n" lua
 
 let main () =

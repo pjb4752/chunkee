@@ -212,8 +212,8 @@ let emit_set recursively_emit name_generator record field expression =
   end
   | _ -> assert false
 
-let rec emit_node name_generator node =
-  let recursively_emit = emit_node in
+let rec emit_lua_fragment name_generator node =
+  let recursively_emit = emit_lua_fragment in
   match node with
   | Node.NumLit (value, _) -> emit_number value
   | Node.StrLit (value, _) -> emit_string value
@@ -239,8 +239,8 @@ let rec emit_node name_generator node =
       recursively_emit name_generator expression
   | Node.Type _ -> assert false
 
-let emit_typed_node (node, _) =
+let emit_node_string node =
   let generator = Name_gen.generator in
-  Lua_fragment.lua_string ~target:"" (emit_node generator node)
+  Lua_fragment.lua_string ~target:"" (emit_lua_fragment generator node)
 
-let emit nodes = List.map emit_typed_node nodes
+let emit_node_strings nodes = List.map emit_node_string nodes

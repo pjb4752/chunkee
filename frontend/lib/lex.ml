@@ -7,47 +7,67 @@ exception SyntaxError of int * int * string
 
 module Form = struct
   type t =
-    | Number of Metadata.t * float
-    | String of Metadata.t * string
-    | Symbol of Metadata.t * string
-    | List of Metadata.t * t list
-    | Vector of Metadata.t * t list
-    | Record of Metadata.t * t list
-    | Extension of Metadata.t * t
+    | Number of Metadata.t * string * float
+    | String of Metadata.t * string * string
+    | Symbol of Metadata.t * string * string
+    | List of Metadata.t * string * t list
+    | Vector of Metadata.t * string * t list
+    | Record of Metadata.t * string * t list
+    | Extension of Metadata.t * string * t
 
   let metadata = function
-    | Number (metadata, _) -> metadata
-    | String (metadata, _) -> metadata
-    | Symbol (metadata, _) -> metadata
-    | List (metadata, _) -> metadata
-    | Vector (metadata, _) -> metadata
-    | Record (metadata, _) -> metadata
-    | Extension (metadata, _) -> metadata
+    | Number (metadata, _, _) -> metadata
+    | String (metadata, _, _) -> metadata
+    | Symbol (metadata, _, _) -> metadata
+    | List (metadata, _, _) -> metadata
+    | Vector (metadata, _, _) -> metadata
+    | Record (metadata, _, _) -> metadata
+    | Extension (metadata, _, _) -> metadata
 
-  let rec to_string form =
-    let string_of_list l = String.concat " " (List.map to_string l) in
-    match form with
-    | Number (_, value) -> sprintf "%.2f" value
-    | String (_, value) -> sprintf "\"%s\"" value
-    | Symbol (_, value) -> sprintf "%s" value
-    | List (_, value) -> sprintf "(%s)" (string_of_list value)
-    | Vector (_, value) -> sprintf "[%s]" (string_of_list value)
-    | Record (_, value) -> sprintf "{%s}" (string_of_list value)
-    | Extension (_, value) -> sprintf "^%s" (to_string value)
+  let raw_source = function
+    | Number (_, raw_source, _) -> raw_source
+    | String (_, raw_source, _) -> raw_source
+    | Symbol (_, raw_source, _) -> raw_source
+    | List (_, raw_source, _) -> raw_source
+    | Vector (_, raw_source, _) -> raw_source
+    | Record (_, raw_source, _) -> raw_source
+    | Extension (_, raw_source, _) -> raw_source
 
   let rec inspect form =
     let inspect_list l = String.concat " " (List.map inspect l) in
     match form with
-    | Number (metadata, value) -> sprintf "Number(%s, %.2f)" (Metadata.inspect metadata) value
-    | String (metadata, value) -> sprintf "String(%s, %s)" (Metadata.inspect metadata) value
-    | Symbol (metadata, value) -> sprintf "Symbol(%s, %s)" (Metadata.inspect metadata) value
-    | List (metadata, value) -> sprintf "List(%s, %s)" (Metadata.inspect metadata) (inspect_list value)
-    | Vector (metadata, value) -> sprintf "Vector(%s, %s)" (Metadata.inspect metadata) (inspect_list value)
-    | Record (metadata, value) -> sprintf "Record(%s, %s)" (Metadata.inspect metadata) (inspect_list value)
-    | Extension (metadata, value) -> sprintf "Extension(%s, %s)" (Metadata.inspect metadata) (inspect value)
+    | Number (metadata, raw_source, value) ->
+        sprintf "Number(%s, %s, %.5f)" (Metadata.inspect metadata) raw_source value
+    | String (metadata, raw_source, value) ->
+        sprintf "String(%s, %s, %s)" (Metadata.inspect metadata) raw_source value
+    | Symbol (metadata, raw_source, value) ->
+        sprintf "Symbol(%s, %s, %s)" (Metadata.inspect metadata) raw_source value
+    | List (metadata, raw_source, value) ->
+        sprintf "List(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect_list value)
+    | Vector (metadata, raw_source, value) ->
+        sprintf "Vector(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect_list value)
+    | Record (metadata, raw_source, value) ->
+        sprintf "Record(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect_list value)
+    | Extension (metadata, raw_source, value) ->
+        sprintf "Extension(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect value)
 end
 
-type t = (Form.t list, Cmpl_err.t) result
+module Result = struct
+  type t = (Form.t list, Cmpl_err.t) result
+
+  let inspect result =
+    let forms_to_string forms =
+      String.concat "; " @@ List.map Form.inspect forms
+    in
+    Result.inspect result forms_to_string Cmpl_err.to_string
+end
+
+type 'a lex_config_t = {
+  starting_value: 'a;
+  delimiter: char;
+  form_builder: ('a -> string -> Form.t);
+  input_handler: (Read_list.t -> string -> 'a -> (Read_list.t * string * 'a))
+}
 
 let whitespace = [' '; '\t'; '\n']
 let digits = ['0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9']
@@ -71,107 +91,142 @@ let is_vector_opening_char = is_char_of ['[']
 let is_record_opening_char = is_char_of ['{']
 let is_extension_starting_char = is_char_of ['^']
 
-let rec remove_blank input =
-  match input with
-  | [] -> []
-  | x :: xs when not (is_blank_char Read_list.(x.value)) -> x :: xs
-  | _ :: xs -> remove_blank xs
-
-let lex_form input assemble_form char_matches =
-  let rec lex_form' input output =
+let remove_blank input =
+  let rec remove_blank' input removed_chars =
     match input with
-    | [] -> assemble_form input output
-    | { Read_list.value; _ } :: _ when char_matches value -> assemble_form input output
-    | { Read_list.value; _ } :: xs -> lex_form' xs (String.append_char output value) in
-  lex_form' input ""
+    | [] -> ([], removed_chars)
+    | current_char :: remaining_chars when not (is_blank_char Read_list.(current_char.value)) ->
+        (current_char :: remaining_chars, removed_chars)
+    | removed_char :: remaining_chars ->
+        remove_blank' remaining_chars (removed_char.value :: removed_chars)
+  in
+  remove_blank' input []
+
+let lex_simple_form input_chars form_builder char_predicate =
+  let assemble_result input_chars output_string =
+    (input_chars, output_string, form_builder output_string)
+  in
+  let rec lex_simple_form' input_chars output_string =
+    match input_chars with
+    | [] -> assemble_result input_chars output_string
+    | { Read_list.value; _ } :: _ when char_predicate value -> assemble_result input_chars output_string
+    | { Read_list.value; _ } :: remaining_chars -> begin
+      let output_string = String.append_char output_string value in
+      lex_simple_form' remaining_chars output_string
+    end
+  in
+  lex_simple_form' input_chars ""
 
 (* TODO: needs better handling of decimal points, preceding +/- *)
-let lex_number line_num char_num input =
-  let assemble_form input output =
+let lex_number line_num char_num input_chars =
+  let form_builder output_string =
     let metadata = { Metadata.line_num; char_num } in
-    (input, Form.Number (metadata, float_of_string output)) in
+    Form.Number (metadata, output_string, float_of_string output_string)
+  in
   let is_not_digit = (fun c -> not (is_digit_char c)) in
-  lex_form input assemble_form is_not_digit
+  lex_simple_form input_chars form_builder is_not_digit
 
-let lex_symbol line_num char_num input =
-  let assemble_form input output =
+let lex_symbol line_num char_num input_chars =
+  let form_builder output_string =
     let metadata = { Metadata.line_num; char_num } in
-    (input, Form.Symbol (metadata, output)) in
+    Form.Symbol (metadata, output_string, output_string)
+  in
   let is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
-  lex_form input assemble_form is_not_symbol_char
+  lex_simple_form input_chars form_builder is_not_symbol_char
 
-let lex_delimited line_num char_num input start delimiter assemble_form handle_input_char =
-  Read_list.(
-    let rec lex_delimited' input output =
-      match input with
-      | [] ->
-          let message = sprintf "unclosed expression found, expecting delimiter '%c'" delimiter in
-          raise (SyntaxError (line_num, char_num, message))
-      | { value; _ } :: xs when value = delimiter -> (xs, assemble_form output)
-      | _ ->
-          let (new_input, new_output) = handle_input_char input output in
-          lex_delimited' new_input new_output in
-    lex_delimited' input start
-  )
+let lex_delimited line_num char_num input_chars raw_source config =
+  let rec lex_delimited' input_chars raw_source output =
+    match input_chars with
+    | [] ->
+        let message = sprintf "unclosed expression found, expecting delimiter '%c'" config.delimiter in
+        raise (SyntaxError (line_num, char_num, message))
+    | { Read_list.value; _ } :: remaining_chars when value = config.delimiter ->
+        let raw_source = String.append_char raw_source value in
+        (remaining_chars, raw_source, config.form_builder output raw_source)
+    | _ -> begin
+      let (input_chars, raw_source, output) = config.input_handler input_chars raw_source output in
+      lex_delimited' input_chars raw_source output
+    end
+  in
+  lex_delimited' input_chars raw_source config.starting_value
 
-let lex_string line_num char_num input =
-  Read_list.(
-    let assemble_form output =
-      Form.String ({ line_num; char_num }, output) in
-    let handle_input_char input out =
-      match input with
-      | [] -> assert false
-      | { value; _ } :: xs -> (xs, String.append_char out value) in
-    match input with
+let lex_string line_num char_num input_chars =
+  let form_builder output_string raw_source =
+    Form.String ({ line_num; char_num }, raw_source, output_string)
+  in
+  let input_handler input_chars raw_source output_string =
+    match input_chars with
     | [] -> assert false
-    | { line_num; char_num; _ } :: xs ->
-        lex_delimited line_num char_num xs "" '"' assemble_form handle_input_char
-  )
+    | { Read_list.value; _ } :: remaining_chars -> begin
+        let raw_source = String.append_char raw_source value in
+        let output_string = String.append_char output_string value in
+        (remaining_chars, raw_source, output_string)
+    end
+  in
+  match input_chars with
+  | [] -> assert false
+  | { Read_list.value; line_num; char_num; } :: remaining_chars -> begin
+    let lexer_config = { starting_value = ""; delimiter = '"'; form_builder; input_handler } in
+    let raw_source = String.append_char "" value in
+    lex_delimited line_num char_num remaining_chars raw_source lexer_config
+  end
 
-let lex_collection lex_fn input assemble_form final_char =
-  Read_list.(
-    let handle_input_char = (fun input output ->
-      match input with
-      | [] -> assert false
-      | { value; _ } :: _ when (is_blank_char value) ->
-          let new_input = remove_blank input in (new_input, output)
-      | _ ->
-          let (new_input, form) = lex_fn input in
-          (new_input, form :: output)) in
-    match input with
+let lex_collection recursively_lex input_chars form_builder final_char =
+  let input_handler input_chars raw_source output_forms =
+    match input_chars with
     | [] -> assert false
-    | { line_num; char_num; _ } :: xs ->
-        lex_delimited line_num char_num xs [] final_char assemble_form handle_input_char
-  )
+    | { Read_list.value; _ } :: _ when (is_blank_char value) -> begin
+        let (input_chars, removed_chars) = remove_blank input_chars in
+        let raw_source = List.fold_right (fun removed_char raw_source ->
+          String.append_char raw_source removed_char
+        ) removed_chars raw_source in
+        (input_chars, raw_source, output_forms)
+    end
+    | _ -> begin
+      let (input_chars, sub_raw_source, form) = recursively_lex input_chars in
+      (input_chars, String.concat "" [raw_source; sub_raw_source], form :: output_forms)
+    end
+  in
+  match input_chars with
+  | [] -> assert false
+  | { Read_list.value; line_num; char_num; } :: remaining_chars -> begin
+    let lexer_config = { starting_value = []; delimiter = final_char; form_builder; input_handler } in
+    let raw_source = String.append_char "" value in
+    lex_delimited line_num char_num remaining_chars raw_source lexer_config
+  end
 
-let lex_list lex_fn line_num char_num input =
-  let assemble_form output =
+(* TODO capture original raw text as part of collection Form*)
+let lex_list recursively_lex line_num char_num input_chars =
+  let form_builder output_forms raw_source =
     let metadata = { Metadata.line_num; char_num } in
-    Form.List (metadata, List.rev output) in
-  lex_collection lex_fn input assemble_form ')'
+    Form.List (metadata, raw_source, List.rev output_forms)
+  in
+  lex_collection recursively_lex input_chars form_builder ')'
 
-let lex_vector lex_fn line_num char_num input =
-  let assemble_form output =
+let lex_vector recursively_lex line_num char_num input_chars =
+  let form_builder output_forms raw_source =
     let metadata = { Metadata.line_num; char_num } in
-    Form.Vector (metadata, List.rev output) in
-  lex_collection lex_fn input assemble_form ']'
+    Form.Vector (metadata, raw_source, List.rev output_forms)
+  in
+  lex_collection recursively_lex input_chars form_builder ']'
 
-let lex_record lex_fn line_num char_num input =
-  let assemble_form output =
+let lex_record recursively_lex line_num char_num input_chars =
+  let form_builder output_forms raw_source =
     let metadata = { Metadata.line_num; char_num } in
-    Form.Record (metadata, List.rev output) in
-  lex_collection lex_fn input assemble_form '}'
+    Form.Record (metadata, raw_source, List.rev output_forms)
+  in
+  lex_collection recursively_lex input_chars form_builder '}'
 
-let lex_extension lex_fn line_num char_num input =
-  match input with
+let lex_extension recursively_lex line_num char_num input_chars =
+  match input_chars with
   | [] -> begin
     let message = sprintf "unexpected end of input after extension char ^" in
     raise (SyntaxError (line_num, char_num, message))
   end
   | _ :: raw_extension -> begin
-    let (new_input, extension_form) = lex_fn raw_extension in
+    let (input_chars, raw_source, extension_form) = recursively_lex raw_extension in
     let metadata = { Metadata.line_num; char_num } in
-    (new_input, Form.Extension (metadata, extension_form))
+    (input_chars, raw_source, Form.Extension (metadata, raw_source, extension_form))
   end
 
 let handle_unexpected_input line_num char_num input =
@@ -183,35 +238,39 @@ let handle_unexpected_input line_num char_num input =
   in
   raise (SyntaxError (line_num, char_num, message))
 
-let rec try_lex input =
-  let { Read_list.value; line_num; char_num } = List.hd input in
-  if is_digit_char value then lex_number line_num char_num input
-  else if is_string_delimiter_char value then lex_string line_num char_num input
-  else if is_symbol_starting_char value then lex_symbol line_num char_num input
-  else if is_list_opening_char value then lex_list try_lex line_num char_num input
-  else if is_vector_opening_char value then lex_vector try_lex line_num char_num input
-  else if is_record_opening_char value then lex_record try_lex line_num char_num input
-  else if is_extension_starting_char value then lex_extension try_lex line_num char_num input
-  else handle_unexpected_input line_num char_num input
+let rec try_lex input_chars =
+  let recursively_lex = try_lex in
+  let { Read_list.value; line_num; char_num } = List.hd input_chars in
+  if is_digit_char value then
+    lex_number line_num char_num input_chars
+  else if is_string_delimiter_char value then
+    lex_string line_num char_num input_chars
+  else if is_symbol_starting_char value then
+    lex_symbol line_num char_num input_chars
+  else if is_list_opening_char value then
+    lex_list recursively_lex line_num char_num input_chars
+  else if is_vector_opening_char value then
+    lex_vector recursively_lex line_num char_num input_chars
+  else if is_record_opening_char value then
+    lex_record recursively_lex line_num char_num input_chars
+  else if is_extension_starting_char value then
+    lex_extension recursively_lex line_num char_num input_chars
+  else
+    handle_unexpected_input line_num char_num input_chars
 
-let lex_forms input =
-  Read_list.(
-    let rec lex_list' input forms =
-      match input with
-      | [] -> List.rev forms
-      | { value; _ } :: xs when is_blank_char value -> lex_list' xs forms
-      | _ ->
-          let (new_input, new_form) = try_lex input in
-          lex_list' new_input (new_form :: forms) in
-    lex_list' input []
-  )
+let lex_forms input_chars =
+  let rec lex_forms' input_chars forms =
+    match input_chars with
+    | [] -> List.rev forms
+    | { Read_list.value; _ } :: remaining_chars when is_blank_char value -> lex_forms' remaining_chars forms
+    | _ -> begin
+      let (new_input, _, new_form) = try_lex input_chars in
+      lex_forms' new_input (new_form :: forms)
+    end
+  in
+  lex_forms' input_chars []
 
 let lex str =
   try Ok (lex_forms @@ Read_list.from_string str)
   with SyntaxError (line_num, char_num, message) ->
     Error (Cmpl_err.syntax_error line_num char_num message)
-
-let inspect result =
-  let forms_to_string forms =
-    String.concat "; " @@ List.map Form.inspect forms in
-  Result.inspect result forms_to_string Cmpl_err.to_string

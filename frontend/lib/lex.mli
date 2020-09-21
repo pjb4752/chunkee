@@ -2,23 +2,25 @@ exception SyntaxError of int * int * string
 
 module Form : sig
   type t =
-    | Number of Metadata.t * float
-    | String of Metadata.t * string
-    | Symbol of Metadata.t * string
-    | List of Metadata.t * t list
-    | Vector of Metadata.t * t list
-    | Record of Metadata.t * t list
-    | Extension of Metadata.t * t
+    | Number of Metadata.t * string * float
+    | String of Metadata.t * string * string
+    | Symbol of Metadata.t * string * string
+    | List of Metadata.t * string * t list
+    | Vector of Metadata.t * string * t list
+    | Record of Metadata.t * string * t list
+    | Extension of Metadata.t * string * t
 
   val metadata: t -> Metadata.t
 
-  val to_string: t -> string
+  val raw_source: t -> string
 
   val inspect: t -> string
 end
 
-type t = (Form.t list, Cmpl_err.t) result
+module Result : sig
+  type t = (Form.t list, Cmpl_err.t) result
 
-val lex: string -> t
+  val inspect: t -> string
+end
 
-val inspect: t -> string
+val lex: string -> Result.t
