@@ -5,6 +5,8 @@
     common
     ounit))
 
+(include_subdirs unqualified)
+
 (alias
   (name runtest)
   (action (run ./tests.exe)))
