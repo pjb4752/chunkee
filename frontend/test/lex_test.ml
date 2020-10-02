@@ -4,7 +4,9 @@ open OUnit2
 let assert_lexes_to expected str =
   assert_equal ~printer:Result.inspect (Ok expected) (lex str)
 
-let assert_lexes_with_error expected str = assert_equal ~printer:Result.inspect (Error expected) (lex str) 
+let assert_lexes_with_error expected str =
+  assert_equal ~printer:Result.inspect (Error expected) (lex str)
+
 let suite =
   "Lex suite">::: [
     "lex single number form">::
@@ -68,8 +70,33 @@ let suite =
         assert_lexes_with_error (SyntaxError { line_num = 1; char_num = 1; prefix ; message })  "(+ 1 2"
       );
 
-    "lex complex nested forms">::
+    "lex def statement">::
       (fun _ ->
-        assert_lexes_to [Lex_function.form] Lex_function.source
+        assert_lexes_to [Lex_def.form] Lex_def.source
+      );
+
+    "lex let expression">::
+      (fun _ ->
+        assert_lexes_to [Lex_let.form] Lex_let.source
+      );
+
+    "lex if expression">::
+      (fun _ ->
+        assert_lexes_to [Lex_if.form] Lex_if.source
+      );
+
+    "lex fn expression">::
+      (fun _ ->
+        assert_lexes_to [Lex_fn.form] Lex_fn.source
+      );
+
+    "lex record literal">::
+      (fun _ ->
+        assert_lexes_to [Lex_record.form] Lex_record.source
+      );
+
+    "lex extension expression">::
+      (fun _ ->
+        assert_lexes_to [Lex_extension.form] Lex_extension.source
       );
   ]

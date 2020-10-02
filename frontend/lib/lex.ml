@@ -226,6 +226,7 @@ let lex_extension recursively_lex line_num char_num input_chars =
   | _ :: raw_extension -> begin
     let (input_chars, raw_source, extension_form) = recursively_lex raw_extension in
     let metadata = { Metadata.line_num; char_num } in
+    let raw_source = "^" ^ raw_source in
     (input_chars, raw_source, Form.Extension (metadata, raw_source, extension_form))
   end
 
