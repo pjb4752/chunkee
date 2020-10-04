@@ -1,25 +1,19 @@
-open Lex_helpers
+open Frontend.Lex
 
 let source = "(fn [[x num] num] (+ x 5))"
 
-let fn_name_form = make_symbol_form 1 2 "fn"
-
-let x_arg_form = make_symbol_form 1 7 "x"
-
-let x_num_form = make_symbol_form 1 9 "num"
-
-let args_form = make_vector_form 1 6 "[x num]" [x_arg_form; x_num_form]
-
-let ret_form = make_symbol_form 1 14 "num"
-
-let spec_form = make_vector_form 1 5 "[[x num] num]" [args_form; ret_form]
-
-let plus_form = make_symbol_form 1 20 "+"
-
-let x_form = make_symbol_form 1 22 "x"
-
-let five_form = make_number_form 1 24 "5" 5.0
-
-let add_form = make_list_form 1 19 "(+ x 5)" [plus_form; x_form; five_form]
-
-let form = make_list_form 1 1 "(fn [[x num] num] (+ x 5))" [fn_name_form; spec_form; add_form]
+let form = Form.List ({ line_num = 1; char_num = 1 }, "(fn [[x num] num] (+ x 5))", [
+  Form.Symbol ({ line_num = 1; char_num = 2 }, "fn", "fn");
+  Form.Vector ({ line_num = 1; char_num = 5 }, "[[x num] num]", [
+    Form.Vector ({ line_num = 1; char_num = 6 }, "[x num]", [
+      Form.Symbol ({ line_num = 1; char_num = 7 }, "x", "x");
+      Form.Symbol ({ line_num = 1; char_num = 9 }, "num", "num")
+    ]);
+    Form.Symbol ({ line_num = 1; char_num = 14 }, "num", "num")
+  ]);
+  Form.List ({ line_num = 1; char_num = 19 }, "(+ x 5)", [
+    Form.Symbol ({ line_num = 1; char_num = 20 }, "+", "+");
+    Form.Symbol ({ line_num = 1; char_num = 22 }, "x", "x");
+    Form.Number ({ line_num = 1; char_num = 24 }, "5", 5.0);
+  ]);
+])

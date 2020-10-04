@@ -1,15 +1,13 @@
-open Lex_helpers
+open Frontend.Lex
 
 let source = "(def x ^(create-type))"
 
-let def = make_symbol_form 1 2 "def"
-
-let x = make_symbol_form 1 6 "x"
-
-let create_type = make_symbol_form 1 10 "create-type"
-
-let extension_expression = make_list_form 1 9 "(create-type)" [create_type]
-
-let extension = make_extension_form 1 8 "^(create-type)" extension_expression
-
-let form = make_list_form 1 1 "(def x ^(create-type))" [def; x; extension;]
+let form = Form.List ({ line_num = 1; char_num = 1 }, "(def x ^(create-type))", [
+  Form.Symbol ({ line_num = 1; char_num = 2 }, "def", "def");
+  Form.Symbol ({ line_num = 1; char_num = 6 }, "x", "x");
+  Form.Extension ({ line_num = 1; char_num = 8 }, "^(create-type)", (
+    Form.List ({ line_num = 1; char_num = 9 }, "(create-type)", [
+      Form.Symbol ({ line_num = 1; char_num = 10 }, "create-type", "create-type")
+    ])
+  ))
+])

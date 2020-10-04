@@ -1,4 +1,4 @@
-open Lex_helpers
+open Frontend.Lex
 
 let source = String.concat "\n" [
   "(if true";
@@ -6,22 +6,15 @@ let source = String.concat "\n" [
   "  (print \"bye\"))";
 ]
 
-let if_name_form = make_symbol_form 1 2 "if"
-
-let true_form = make_symbol_form 1 5 "true"
-
-let print_form = make_symbol_form 2 4 "print"
-
-let hi_form = make_string_form 2 10 "hi"
-
-let print_hi_form = make_list_form 2 3 "(print \"hi\")" [print_form; hi_form]
-
-let print_form = make_symbol_form 3 4 "print"
-
-let bye_form = make_string_form 3 10 "bye"
-
-let print_bye_form = make_list_form 3 3 "(print \"bye\")" [print_form; bye_form]
-
-let form = make_list_form 1 1
-  "(if true\n  (print \"hi\")\n  (print \"bye\"))"
-  [if_name_form; true_form; print_hi_form; print_bye_form]
+let form = Form.List ({ line_num = 1; char_num = 1 }, "(if true\n  (print \"hi\")\n  (print \"bye\"))", [
+  Form.Symbol ({ line_num = 1; char_num = 2 }, "if", "if");
+  Form.Symbol ({ line_num = 1; char_num = 5 }, "true", "true");
+  Form.List ({ line_num = 2; char_num = 3 }, "(print \"hi\")", [
+    Form.Symbol ({ line_num = 2; char_num = 4 }, "print", "print");
+    Form.String ({ line_num = 2; char_num = 10 }, "\"hi\"", "hi");
+  ]);
+  Form.List ({ line_num = 3; char_num = 3 }, "(print \"bye\")", [
+    Form.Symbol ({ line_num = 3; char_num = 4 }, "print", "print");
+    Form.String ({ line_num = 3; char_num = 10 }, "\"bye\"", "bye");
+  ]);
+])
