@@ -1,4 +1,4 @@
-open Frontend.Parse
+open Frontend.Parsing
 open OUnit2
 
 let assert_parses_to expected tokens =

@@ -1,4 +1,4 @@
-open Frontend.Lex
+open Frontend.Lexing
 open OUnit2
 
 let assert_lexes_to expected str =

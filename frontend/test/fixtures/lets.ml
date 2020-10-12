@@ -1,6 +1,6 @@
 open Frontend
-open Frontend.Lex
-open Frontend.Parse
+open Frontend.Lexing
+open Frontend.Ast
 
 let source = String.concat "\n" [
   "(let [first x";
@@ -23,20 +23,20 @@ let form = Form.List ({ line_num = 1; char_num = 1 }, "(let [first x\n      seco
   ]);
 ])
 
-let parsed = Node.Let (
+let parsed = Parsed_node.Let (
   [
-    Node.Binding.from_node
+    Parsed_node.Binding.from_node
       (Identifier.from_string "first")
-      (Node.Symbol (BareName "x", { line_num = 1; char_num = 13 }));
-    Node.Binding.from_node
+      (Parsed_node.Symbol (BareName "x", { line_num = 1; char_num = 13 }));
+    Parsed_node.Binding.from_node
       (Identifier.from_string "second")
-      (Node.Symbol (BareName "y", { line_num = 2; char_num = 14 }));
+      (Parsed_node.Symbol (BareName "y", { line_num = 2; char_num = 14 }));
   ],
-  Node.Apply (
-    Node.Symbol (BareName "+", { line_num = 3; char_num = 4 }),
+  Parsed_node.Apply (
+    Parsed_node.Symbol (BareName "+", { line_num = 3; char_num = 4 }),
     [
-      Node.Symbol (BareName "first", { line_num = 3; char_num = 6 });
-      Node.Symbol (BareName "second", { line_num = 3; char_num = 12 });
+      Parsed_node.Symbol (BareName "first", { line_num = 3; char_num = 6 });
+      Parsed_node.Symbol (BareName "second", { line_num = 3; char_num = 12 });
     ],
     { line_num = 3; char_num = 4 }
   ),

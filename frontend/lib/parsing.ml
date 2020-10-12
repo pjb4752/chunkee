@@ -1,4 +1,4 @@
-open Lex
+open Lexing
 open Printf
 open Common.Extensions
 open Common.Extensions.Result

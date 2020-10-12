@@ -1,6 +1,6 @@
 open Frontend
-open Frontend.Lex
-open Frontend.Parse
+open Frontend.Ast
+open Frontend.Lexing
 
 let source = "(fn [[x num] num] (+ x 5))"
 
@@ -20,18 +20,18 @@ let form = Form.List ({ line_num = 1; char_num = 1 }, "(fn [[x num] num] (+ x 5)
   ]);
 ])
 
-let parsed = Node.Fn (
+let parsed = Parsed_node.Fn (
   [
-    Node.VarDef.from_parts
+    Parsed_node.VarDef.from_parts
       (Identifier.from_string "x")
       (SimpleType (BareName "num"));
   ],
   SimpleType (BareName "num"),
-  Node.Apply (
-    Node.Symbol (BareName "+", { line_num = 1; char_num = 20 }),
+  Parsed_node.Apply (
+    Parsed_node.Symbol (BareName "+", { line_num = 1; char_num = 20 }),
     [
-      Node.Symbol (BareName "x", { line_num = 1; char_num = 22 });
-      Node.NumLit (5.0, { line_num = 1; char_num = 24 })
+      Parsed_node.Symbol (BareName "x", { line_num = 1; char_num = 22 });
+      Parsed_node.NumLit (5.0, { line_num = 1; char_num = 24 })
     ],
     { line_num = 1; char_num = 20 }
   ),

@@ -1,4 +1,4 @@
-open Frontend.Lex
+open Frontend.Lexing
 
 let source = "(def x ^(create-type))"
 

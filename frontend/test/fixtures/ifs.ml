@@ -1,5 +1,5 @@
-open Frontend.Lex
-open Frontend.Parse
+open Frontend.Ast
+open Frontend.Lexing
 
 let source = String.concat "\n" [
   "(if true";
@@ -20,19 +20,19 @@ let form = Form.List ({ line_num = 1; char_num = 1 }, "(if true\n  (print \"hi\"
   ]);
 ])
 
-let parsed = Node.If (
-  Node.Symbol (BareName "true", { line_num = 1; char_num = 5 }),
-  Node.Apply (
-    Node.Symbol (BareName "print", { line_num = 2; char_num = 4 }),
+let parsed = Parsed_node.If (
+  Parsed_node.Symbol (BareName "true", { line_num = 1; char_num = 5 }),
+  Parsed_node.Apply (
+    Parsed_node.Symbol (BareName "print", { line_num = 2; char_num = 4 }),
     [
-      Node.StrLit ("hi", { line_num = 2; char_num = 10 });
+      Parsed_node.StrLit ("hi", { line_num = 2; char_num = 10 });
     ],
     { line_num = 2; char_num = 4 }
   ),
-  Node.Apply (
-    Node.Symbol (BareName "print", { line_num = 3; char_num = 4 }),
+  Parsed_node.Apply (
+    Parsed_node.Symbol (BareName "print", { line_num = 3; char_num = 4 }),
     [
-      Node.StrLit ("bye", { line_num = 3; char_num = 10 });
+      Parsed_node.StrLit ("bye", { line_num = 3; char_num = 10 });
     ],
     { line_num = 3; char_num = 4 }
   ),
