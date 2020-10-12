@@ -31,8 +31,8 @@ let chk_module_name table mod_name var_name =
 
 let chk_name table scopes name =
   match name with
-  | Name.Var.Local name -> chk_local_name scopes name
-  | Name.Var.Module (mod_name, var_name) -> chk_module_name table mod_name var_name
+  | Name.Local name -> chk_local_name scopes name
+  | Name.Module (mod_name, var_name) -> chk_module_name table mod_name var_name
 
 let process_params params =
   let fold_fn p ps =

@@ -37,7 +37,7 @@ let select_module { tree; modul; _ } module_name =
 let resolve_module_name modul name =
   let name = Identifier.from_string name in
   let module_name = Module.name modul in
-  if Module.var_exists modul name then Ok (Name.Var.Module (module_name, name))
+  if Module.var_exists modul name then Ok (Name.Module (module_name, name))
   else undefined_name_error (Identifier.to_string name)
 
 let resolve_qualified_name table module_name name =
@@ -54,7 +54,7 @@ let resolve_name table exists_in_scope = function
   | Name_expr.QualName (module_name, name) ->
       resolve_qualified_name table module_name name
   | Name_expr.BareName name -> begin
-    if exists_in_scope name then Ok (Name.Var.Local name)
+    if exists_in_scope name then Ok (Name.Local name)
     else resolve_unqualified_name table name
   end
 
@@ -89,7 +89,7 @@ let resolve_simple_type table lookup_fn = function
 
 let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
   | Type_expr.SimpleType tipe -> resolve_simple_type table lookup_fn tipe
-  | Type_expr.FnType types ->
+  | Type_expr.CompoundType types ->
       let fold_fn types tipe =
         Common.Extensions.Result.(
           Syntax.(

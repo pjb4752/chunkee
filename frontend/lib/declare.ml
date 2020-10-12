@@ -23,9 +23,9 @@ let variable_exists symbol_table name =
 
 let find_function_type symbol_table parameters return_type metadata =
   let param_types = List.map (fun param -> snd @@ Node.VarDef.to_tuple param) parameters in
-  let function_type = Type_expr.FnType (List.append param_types [return_type]) in
-  match Symbol_table.resolve_type symbol_table function_type with
-  | Ok function_type -> Ok function_type
+  let compound_type = Type_expr.CompoundType (List.append param_types [return_type]) in
+  match Symbol_table.resolve_type symbol_table compound_type with
+  | Ok compound_type -> Ok compound_type
   | Error error -> begin
       let prefix = build_prefix metadata in
       Error (Cmpl_err.definition_errors metadata prefix [

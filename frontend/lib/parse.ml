@@ -75,7 +75,7 @@ let rec parse_type_expr = function
         "aggregate type expressions must contain 1 or more types, instead found an empty expression";
         "\n\tplease use the correct form [type1 type2 type3]"
      ])
-   | Ok parsed_types -> Ok (Type_expr.FnType parsed_types)
+   | Ok parsed_types -> Ok (Type_expr.CompoundType parsed_types)
   end
   | invalid_form -> begin
     match invalid_form with
