@@ -12,7 +12,6 @@ module Form = struct
     | Symbol of Metadata.t * string * string
     | List of Metadata.t * string * t list
     | Vector of Metadata.t * string * t list
-    | Record of Metadata.t * string * t list
     | Extension of Metadata.t * string * t
 
   let metadata = function
@@ -21,7 +20,6 @@ module Form = struct
     | Symbol (metadata, _, _) -> metadata
     | List (metadata, _, _) -> metadata
     | Vector (metadata, _, _) -> metadata
-    | Record (metadata, _, _) -> metadata
     | Extension (metadata, _, _) -> metadata
 
   let raw_source = function
@@ -30,7 +28,6 @@ module Form = struct
     | Symbol (_, raw_source, _) -> raw_source
     | List (_, raw_source, _) -> raw_source
     | Vector (_, raw_source, _) -> raw_source
-    | Record (_, raw_source, _) -> raw_source
     | Extension (_, raw_source, _) -> raw_source
 
   let rec inspect form =
@@ -46,8 +43,6 @@ module Form = struct
         sprintf "List(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect_list value)
     | Vector (metadata, raw_source, value) ->
         sprintf "Vector(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect_list value)
-    | Record (metadata, raw_source, value) ->
-        sprintf "Record(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect_list value)
     | Extension (metadata, raw_source, value) ->
         sprintf "Extension(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect value)
 end
@@ -88,7 +83,6 @@ let is_symbol_starting_char = is_char_of symbol_starting_chars
 let is_symbol_char = is_char_of symbol_chars
 let is_list_opening_char = is_char_of ['(']
 let is_vector_opening_char = is_char_of ['[']
-let is_record_opening_char = is_char_of ['{']
 let is_extension_starting_char = is_char_of ['^']
 
 let remove_blank input =
@@ -210,13 +204,6 @@ let lex_vector recursively_lex line_num char_num input_chars =
   in
   lex_collection recursively_lex input_chars form_builder ']'
 
-let lex_record recursively_lex line_num char_num input_chars =
-  let form_builder output_forms raw_source =
-    let metadata = { Metadata.line_num; char_num } in
-    Form.Record (metadata, raw_source, List.rev output_forms)
-  in
-  lex_collection recursively_lex input_chars form_builder '}'
-
 let lex_extension recursively_lex line_num char_num input_chars =
   match input_chars with
   | [] -> begin
@@ -252,8 +239,6 @@ let rec try_lex input_chars =
     lex_list recursively_lex line_num char_num input_chars
   else if is_vector_opening_char value then
     lex_vector recursively_lex line_num char_num input_chars
-  else if is_record_opening_char value then
-    lex_record recursively_lex line_num char_num input_chars
   else if is_extension_starting_char value then
     lex_extension recursively_lex line_num char_num input_chars
   else

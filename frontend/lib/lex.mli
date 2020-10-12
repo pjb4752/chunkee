@@ -7,7 +7,6 @@ module Form : sig
     | Symbol of Metadata.t * string * string
     | List of Metadata.t * string * t list
     | Vector of Metadata.t * string * t list
-    | Record of Metadata.t * string * t list
     | Extension of Metadata.t * string * t
 
   val metadata: t -> Metadata.t

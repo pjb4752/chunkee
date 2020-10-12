@@ -218,7 +218,6 @@ let rec emit_lua_fragment name_generator node =
   | Node.NumLit (value, _) -> emit_number value
   | Node.StrLit (value, _) -> emit_string value
   | Node.Symbol (value, _) -> emit_symbol value
-  | Node.Rec _ -> Lua_fragment.make_expression ""
   | Node.Def (name, expression, _) ->
       emit_def recursively_emit name_generator name expression
   | Node.Fn (parameters, _, body, _) ->

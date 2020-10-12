@@ -6,4 +6,4 @@ module Result : sig
   val inspect: t -> string
 end
 
-val parse_node: Lex.Form.t -> Result.t
+val parse_node: ?check_toplevel: bool -> Lex.Form.t -> Result.t

@@ -11,7 +11,7 @@ let suite =
   "Lex suite">::: [
     "lex single number form">::
       (fun _ ->
-        assert_lexes_to [Form.Number ({ line_num = 1; char_num = 1 }, "55", 55.0)] "55"
+        assert_lexes_to [Numbers.form] "55"
       );
 
     "lex single number form with whitespace">::
@@ -21,7 +21,7 @@ let suite =
 
     "lex single string form">::
       (fun _ ->
-        assert_lexes_to [Form.String ({ line_num = 1; char_num = 1 }, "\"hello\"", "hello")] "\"hello\""
+        assert_lexes_to [Strings.form] "\"hello\""
       );
 
     "lex single string form with spaces">::
@@ -70,33 +70,28 @@ let suite =
         assert_lexes_with_error (SyntaxError { line_num = 1; char_num = 1; prefix ; message })  "(+ 1 2"
       );
 
-    "lex def statement">::
+    "lex def expression">::
       (fun _ ->
-        assert_lexes_to [Lex_def.form] Lex_def.source
+        assert_lexes_to [Defs.form] Defs.source
       );
 
     "lex let expression">::
       (fun _ ->
-        assert_lexes_to [Lex_let.form] Lex_let.source
+        assert_lexes_to [Lets.form] Lets.source
       );
 
     "lex if expression">::
       (fun _ ->
-        assert_lexes_to [Lex_if.form] Lex_if.source
+        assert_lexes_to [Ifs.form] Ifs.source
       );
 
     "lex fn expression">::
       (fun _ ->
-        assert_lexes_to [Lex_fn.form] Lex_fn.source
-      );
-
-    "lex record literal">::
-      (fun _ ->
-        assert_lexes_to [Lex_record.form] Lex_record.source
+        assert_lexes_to [Fns.form] Fns.source
       );
 
     "lex extension expression">::
       (fun _ ->
-        assert_lexes_to [Lex_extension.form] Lex_extension.source
+        assert_lexes_to [Extensions.form] Extensions.source
       );
   ]

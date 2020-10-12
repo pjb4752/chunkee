@@ -118,7 +118,7 @@ let parse_def recursively_parse metadata = function
     let prefix = build_error_prefix metadata in
     let invalid_form = sprintf "(def %s %s)" name @@ Form.raw_source invalid_form in
     Error (Cmpl_err.parse_errors metadata prefix [
-      "top-level definitions must evaluate to a literal value or constant record, ";
+      "top-level definitions must evaluate to a constant value, ";
       sprintf "but instead found: %s" invalid_form;
       "\n\tplease use the correct form (def name <constant>)"
     ])
@@ -201,8 +201,8 @@ let parse_function_header metadata header_forms =
   end
 
 let parse_function recursively_parse metadata = function
-  | Form.Vector (metadata, _, raw_header) :: raw_body :: [] ->
-      let* (parameters, return_type) = parse_function_header metadata raw_header in
+  | Form.Vector (header_metadata, _, raw_header) :: raw_body :: [] ->
+      let* (parameters, return_type) = parse_function_header header_metadata raw_header in
       let* body = recursively_parse raw_body in
       return (Node.Fn (parameters, return_type, body, metadata))
   | invalid_forms -> begin
@@ -231,7 +231,7 @@ let parse_if recursively_parse metadata = function
     ])
   end
 
-let parse_let_binding recursively_parse = function
+let parse_binding recursively_parse = function
   | (Form.Symbol (_, _, name), expression) ->
       let name = Identifier.from_string name in
       let* expression = recursively_parse expression in
@@ -242,16 +242,16 @@ let parse_let_binding recursively_parse = function
     let first_form = Form.raw_source first_form in
     let second_form = Form.raw_source second_form in
     Error (Cmpl_err.parse_errors metadata prefix [
-      "a let binding must be a pair of a name and an expression, ";
+      "a binding must be a pair of a name and an expression, ";
       sprintf "but instead found: [%s %s]" first_form second_form;
-      "\n\tplease use the correct form (let [name1 expr1] <body>)"
+      "\n\tplease use the correct form [name1 expr1 ... nameN exprN]"
     ])
   end
 
-let parse_let_bindings recursively_parse metadata bindings =
+let parse_bindings recursively_parse metadata bindings =
   let parse_binding binding parsed_bindings =
     let* parsed_bindings = parsed_bindings in
-    let* parsed_binding = parse_let_binding recursively_parse binding in
+    let* parsed_binding = parse_binding recursively_parse binding in
     return (parsed_binding :: parsed_bindings)
   in
   if (List.length bindings mod 2) = 0 then
@@ -260,14 +260,14 @@ let parse_let_bindings recursively_parse metadata bindings =
     let prefix = build_error_prefix metadata in
     let invalid_bindings = String.concat " " @@ List.map Form.raw_source bindings in
     Error (Cmpl_err.parse_errors metadata prefix [
-      "let bindings must be pairs of a name and an expression, ";
-      sprintf "but nstead found an odd number of forms: [%s]" invalid_bindings;
-      "\n\tplease use the correct form (let [name1 expr1 name2 expr2] <body>)"
+      "bindings must be pairs of a name and an expression, ";
+      sprintf "but instead found an odd number of forms: [%s]" invalid_bindings;
+      "\n\tplease use the correct form ([name1 expr1 ... nameN exprN])"
     ])
 
 let parse_let recursively_parse metadata = function
-  | Form.Vector (metadata, _, bindings) :: body :: [] ->
-      let* bindings = parse_let_bindings recursively_parse metadata bindings in
+  | Form.Vector (binding_metadata, _, bindings) :: body :: [] ->
+      let* bindings = parse_bindings recursively_parse binding_metadata bindings in
       let* body = recursively_parse body in
       return (Node.Let (bindings, body, metadata))
   | invalid_forms -> begin
@@ -324,13 +324,6 @@ let parse_function_apply recursively_parse metadata raw_source function_value ar
   let* arguments = parse_apply_arguments recursively_parse arguments in
   return (Node.Apply (parsed_function, arguments, metadata))
 
-let nested_error metadata =
-  let prefix = build_error_prefix metadata in
-  Error (Cmpl_err.parse_errors metadata prefix [
-    "def and defrecord may occur only as top level expressions, ";
-    "instead found a definition in a nested scope"
-  ])
-
 let parse_builtin recursively_parse metadata builtin (arguments: Form.t list) =
   if builtin = "get" then parse_get metadata arguments
   else if builtin = "set!" then parse_set recursively_parse metadata arguments
@@ -338,7 +331,7 @@ let parse_builtin recursively_parse metadata builtin (arguments: Form.t list) =
   else if builtin = "if" then parse_if recursively_parse metadata arguments
   else if builtin = "let" then parse_let recursively_parse metadata arguments
   else if builtin = "cast" then parse_cast recursively_parse metadata arguments
-  else if builtin = "def" then nested_error metadata
+  else if builtin = "def" then parse_def recursively_parse metadata arguments
   else parse_symbol_apply recursively_parse metadata builtin arguments
 
 let parse_symbol metadata symbol =
@@ -363,24 +356,6 @@ let parse_list recursively_parse metadata = function
     ])
   end
 
-let parse_record metadata fields =
-  let parse_field (field_name, field_type) parsed_fields =
-    let* parsed_fields = parsed_fields in
-    let* (field_name, field_type) = parse_var_def [field_name; field_type] in
-    let parsed_field = Node.VarDef.from_parts field_name field_type in
-    return (parsed_field :: parsed_fields) in
-  if (List.length fields mod 2) = 0 then
-    let* fields = List.fold_right parse_field (List.as_pairs fields) (Ok []) in
-    return (Node.Rec (fields, metadata))
-  else
-    let prefix = build_error_prefix metadata in
-    let invalid_forms = String.concat " " @@ List.map Form.raw_source fields in
-    Error (Cmpl_err.parse_errors metadata prefix [
-      "record fields must be pairs of a name and a type, ";
-      sprintf "but instead found an odd number of forms: [%s]" invalid_forms;
-      "\n\tplease use the correct form {name1 type1 name2 type2}"
-    ])
-
 let parse_extension _ metadata _ =
   let prefix = build_error_prefix metadata in
   Error (Cmpl_err.parse_errors metadata prefix ["Bad"])
@@ -397,7 +372,6 @@ let rec parse_form = function
       "\n\tplease check your syntax"
     ])
   end
-  | Form.Record (metadata, _, value) -> parse_record metadata value
   | Form.Extension (metadata, _, value) -> parse_extension parse_form metadata value
 
 let toplevel_error metadata raw =
@@ -407,7 +381,9 @@ let toplevel_error metadata raw =
     "\n\tplease use the correct forms at the top-level"
   ])
 
-let parse_node = function
+let parse_node ?check_toplevel:(check_toplevel=true) form =
+  match form with
+  | _ when not check_toplevel -> parse_form form
   | Form.List (form_metadata, _, (Form.Symbol (symbol_metadata, _, operation) :: args)) -> begin
     if operation = "def" then parse_def parse_form form_metadata args
     else toplevel_error symbol_metadata operation

@@ -263,5 +263,5 @@ let check_node table node =
     | Node.Cast (tipe, expr, _) -> chk_cast check_node' scopes tipe expr
     | Node.Type _ -> assert false
     | Node.Def _ -> assert false
-    | Node.Rec _ -> assert false in
+  in
   check_node' [] node

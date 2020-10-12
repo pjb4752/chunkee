@@ -11,7 +11,7 @@ module type N = sig
   module Binding: sig
     type 'a t
 
-    val from_node: Identifier.t-> 'a -> 'a t
+    val from_node: Identifier.t -> 'a -> 'a t
 
     val name: 'a t -> Identifier.t
 
@@ -33,7 +33,6 @@ module type N = sig
     | StrLit of string * Metadata.t
     | Symbol of name_expr_t * Metadata.t
     | Type of name_expr_t * Metadata.t
-    | Rec of VarDef.t list * Metadata.t
     | Def of Identifier.t * t * Metadata.t
     | Fn of VarDef.t list * type_expr_t * t * Metadata.t
     | If of t * t * t * Metadata.t

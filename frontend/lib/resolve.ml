@@ -34,16 +34,6 @@ let resolve_type symbol_table metadata parsed_type =
         Symbol_table.err_string error
       ])
 
-let resolve_record symbol_table metadata fields =
-  let fold_fn parsed_field resolved_fields =
-    let* resolved_fields = resolved_fields in
-    let (name, parsed_type) = PNode.VarDef.to_tuple parsed_field in
-    let* resolved_type = resolve_type symbol_table metadata parsed_type in
-    let resolved_field = RNode.VarDef.from_parts name resolved_type in
-    return (resolved_field :: resolved_fields) in
-  let* resolved_fields = List.fold_right fold_fn fields (Ok []) in
-  return (RNode.Rec (resolved_fields, metadata))
-
 let resolve_def recur_fn scopes metadata name expression_node =
   let* expression_node = recur_fn scopes expression_node in
   return (RNode.Def (name, expression_node, metadata))
@@ -182,8 +172,6 @@ let resolve_node symbol_table node =
         Ok (RNode.StrLit (value, metadata))
     | PNode.Symbol (value, metadata) ->
         resolve_symbol symbol_table scopes metadata value
-    | PNode.Rec (fields, metadata) ->
-        resolve_record symbol_table metadata fields
     | PNode.Def (var, expression_node, metadata) ->
         resolve_def resolve' scopes metadata var expression_node
     | PNode.Fn (parameters, return_type, body_node, metadata) ->

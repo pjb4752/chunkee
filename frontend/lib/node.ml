@@ -35,7 +35,6 @@ module type N = sig
     | StrLit of string * Metadata.t
     | Symbol of name_expr_t * Metadata.t
     | Type of name_expr_t * Metadata.t
-    | Rec of VarDef.t list * Metadata.t
     | Def of Identifier.t * t * Metadata.t
     | Fn of VarDef.t list * type_expr_t * t * Metadata.t
     | If of t * t * t * Metadata.t
@@ -92,7 +91,6 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | StrLit of string * Metadata.t
     | Symbol of name_expr_t * Metadata.t
     | Type of name_expr_t * Metadata.t
-    | Rec of VarDef.t list * Metadata.t
     | Def of Identifier.t * t * Metadata.t
     | Fn of VarDef.t list * type_expr_t * t * Metadata.t
     | If of t * t * t * Metadata.t
@@ -114,11 +112,6 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
 
   let inspect_type value metadata =
     sprintf "Type(%s, %s)" (NameExpr.inspect value) @@ Metadata.inspect metadata
-
-  let inspect_rec fields metadata =
-    let fields = List.map VarDef.inspect fields in
-    let fields = String.concat "; " fields in
-    sprintf "Rec({%s}, %s)" fields @@ (Metadata.inspect metadata)
 
   let inspect_def inspect' name body metadata =
     sprintf "Def(%s, %s, %s)" (Identifier.inspect name) (inspect' body) @@ Metadata.inspect metadata
@@ -150,14 +143,14 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     let bindings = String.concat "; " bindings in
     sprintf "Cons(%s, [%s], %s)" (TypeExpr.inspect cons_type) bindings @@ Metadata.inspect metadata
 
-  let inspect_get inspect' record field metadata =
-    sprintf "Get(%s, %s, %s)" (inspect' record) (Identifier.inspect field) @@ Metadata.inspect metadata
+  let inspect_get inspect' target field metadata =
+    sprintf "Get(%s, %s, %s)" (inspect' target) (Identifier.inspect field) @@ Metadata.inspect metadata
 
-  let inspect_set inspect' record field expression metadata =
-    let record = inspect' record in
+  let inspect_set inspect' target field expression metadata =
+    let target = inspect' target in
     let field = Identifier.inspect field in
     let expression = inspect' expression in
-    sprintf "Set(%s, %s, %s, %s)" record field expression @@ Metadata.inspect metadata
+    sprintf "Set(%s, %s, %s, %s)" target field expression @@ Metadata.inspect metadata
 
   let inspect_cast inspect' target_type expression metadata =
     let target_type = TypeExpr.inspect target_type in
@@ -178,14 +171,13 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | StrLit (value, metadata) -> inspect_strlit value metadata
     | Symbol (value, metadata) -> inspect_symbol value metadata
     | Type (value, metadata) -> inspect_type value metadata
-    | Rec (fields, metadata) -> inspect_rec fields metadata
     | Def (name, body, metadata) -> inspect_def name body metadata
     | Fn (params, return_type, body, metadata) -> inspect_fn params return_type body metadata
     | If (test_expr, if_expr, else_expr, metadata) -> inspect_if test_expr if_expr else_expr metadata
     | Let (bindings, body, metadata) -> inspect_let bindings body metadata
     | Apply (fn, arguments, metadata) -> inspect_apply fn arguments metadata
     | Cons (cons_type, bindings, metadata) -> inspect_cons cons_type bindings metadata
-    | Get (record, field, metadata) -> inspect_get record field metadata
-    | Set (record, field, expression, metadata) -> inspect_set record field expression metadata
+    | Get (target, field, metadata) -> inspect_get target field metadata
+    | Set (target, field, expression, metadata) -> inspect_set target field expression metadata
     | Cast (target_type, expression, metadata) -> inspect_cast target_type expression metadata
 end
