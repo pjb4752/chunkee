@@ -1,6 +1,15 @@
 open Frontend.Ast
 open Frontend.Lexing
 
-let form = Form.String ({ line_num = 1; char_num = 1 }, "\"hello\"", "hello")
+let source = "\"hello\""
 
-let parsed = Parsed_node.StrLit ("hello", { line_num = 1; char_num = 1 })
+let lexed_value = {
+  Form.metadata = { line_num = 1; char_num = 1 };
+  source = source;
+  lexed = Form.String "hello"
+}
+
+let parsed_value = Parsed_node.StrLit (
+  "hello",
+  { line_num = 1; char_num = 1 }
+)

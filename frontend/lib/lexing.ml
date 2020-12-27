@@ -6,45 +6,33 @@ module Read_list = Common.Read_list
 exception SyntaxError of int * int * string
 
 module Form = struct
-  type t =
-    | Number of Metadata.t * string * float
-    | String of Metadata.t * string * string
-    | Symbol of Metadata.t * string * string
-    | List of Metadata.t * string * t list
-    | Vector of Metadata.t * string * t list
-    | Extension of Metadata.t * string * t
+  type t = {
+    metadata: Metadata.t;
+    source: string;
+    lexed: u
+  }
+  and u =
+    | Number of float
+    | String of string
+    | Symbol of string
+    | List of (t list)
+    | Vector of (t list)
+    | Extension of t
 
-  let metadata = function
-    | Number (metadata, _, _) -> metadata
-    | String (metadata, _, _) -> metadata
-    | Symbol (metadata, _, _) -> metadata
-    | List (metadata, _, _) -> metadata
-    | Vector (metadata, _, _) -> metadata
-    | Extension (metadata, _, _) -> metadata
+  let metadata form = form.metadata
 
-  let raw_source = function
-    | Number (_, raw_source, _) -> raw_source
-    | String (_, raw_source, _) -> raw_source
-    | Symbol (_, raw_source, _) -> raw_source
-    | List (_, raw_source, _) -> raw_source
-    | Vector (_, raw_source, _) -> raw_source
-    | Extension (_, raw_source, _) -> raw_source
+  let source form = form.source
 
-  let rec inspect form =
+  let rec inspect { metadata; source; lexed } =
+    let metadata = Metadata.inspect metadata in
     let inspect_list l = String.concat " " (List.map inspect l) in
-    match form with
-    | Number (metadata, raw_source, value) ->
-        sprintf "Number(%s, %s, %.5f)" (Metadata.inspect metadata) raw_source value
-    | String (metadata, raw_source, value) ->
-        sprintf "String(%s, %s, %s)" (Metadata.inspect metadata) raw_source value
-    | Symbol (metadata, raw_source, value) ->
-        sprintf "Symbol(%s, %s, %s)" (Metadata.inspect metadata) raw_source value
-    | List (metadata, raw_source, value) ->
-        sprintf "List(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect_list value)
-    | Vector (metadata, raw_source, value) ->
-        sprintf "Vector(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect_list value)
-    | Extension (metadata, raw_source, value) ->
-        sprintf "Extension(%s, %s, %s)" (Metadata.inspect metadata) raw_source (inspect value)
+    match lexed with
+    | Number value -> sprintf "Number(%s, %s, %.5f)" metadata source value
+    | String value -> sprintf "String(%s, %s, %s)" metadata source value
+    | Symbol value -> sprintf "Symbol(%s, %s, %s)" metadata source value
+    | List value -> sprintf "List(%s, %s, %s)" metadata source (inspect_list value)
+    | Vector value -> sprintf "Vector(%s, %s, %s)" metadata source (inspect_list value)
+    | Extension value -> sprintf "Extension(%s, %s, %s)" metadata source (inspect value)
 end
 
 module Result = struct
@@ -115,7 +103,8 @@ let lex_simple_form input_chars form_builder char_predicate =
 let lex_number line_num char_num input_chars =
   let form_builder output_string =
     let metadata = { Metadata.line_num; char_num } in
-    Form.Number (metadata, output_string, float_of_string output_string)
+    let lexed = Form.Number (float_of_string output_string) in
+    { Form.metadata; source = output_string; lexed }
   in
   let is_not_digit = (fun c -> not (is_digit_char c)) in
   lex_simple_form input_chars form_builder is_not_digit
@@ -123,7 +112,8 @@ let lex_number line_num char_num input_chars =
 let lex_symbol line_num char_num input_chars =
   let form_builder output_string =
     let metadata = { Metadata.line_num; char_num } in
-    Form.Symbol (metadata, output_string, output_string)
+    let lexed = Form.Symbol output_string in
+    { Form.metadata; source = output_string; lexed }
   in
   let is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
   lex_simple_form input_chars form_builder is_not_symbol_char
@@ -146,7 +136,9 @@ let lex_delimited line_num char_num input_chars raw_source config =
 
 let lex_string line_num char_num input_chars =
   let form_builder output_string raw_source =
-    Form.String ({ line_num; char_num }, raw_source, output_string)
+    let metadata = { Metadata.line_num; char_num } in
+    let lexed = Form.String output_string in
+    { Form.metadata; source = raw_source; lexed }
   in
   let input_handler input_chars raw_source output_string =
     match input_chars with
@@ -193,14 +185,16 @@ let lex_collection recursively_lex input_chars form_builder final_char =
 let lex_list recursively_lex line_num char_num input_chars =
   let form_builder output_forms raw_source =
     let metadata = { Metadata.line_num; char_num } in
-    Form.List (metadata, raw_source, List.rev output_forms)
+    let lexed = Form.List (List.rev output_forms) in
+    { Form.metadata; source = raw_source; lexed }
   in
   lex_collection recursively_lex input_chars form_builder ')'
 
 let lex_vector recursively_lex line_num char_num input_chars =
   let form_builder output_forms raw_source =
     let metadata = { Metadata.line_num; char_num } in
-    Form.Vector (metadata, raw_source, List.rev output_forms)
+    let lexed = Form.Vector (List.rev output_forms) in
+    { Form.metadata; source = raw_source; lexed }
   in
   lex_collection recursively_lex input_chars form_builder ']'
 
@@ -214,7 +208,8 @@ let lex_extension recursively_lex line_num char_num input_chars =
     let (input_chars, raw_source, extension_form) = recursively_lex raw_extension in
     let metadata = { Metadata.line_num; char_num } in
     let raw_source = "^" ^ raw_source in
-    (input_chars, raw_source, Form.Extension (metadata, raw_source, extension_form))
+    let lexed = Form.Extension extension_form in
+    (input_chars, raw_source, { Form.metadata; source = raw_source; lexed })
   end
 
 let handle_unexpected_input line_num char_num input =

@@ -4,13 +4,29 @@ open Frontend.Lexing
 
 let source = "(def x 5)"
 
-let form = Form.List ({ line_num = 1; char_num = 1 }, "(def x 5)", [
-  Form.Symbol ({ line_num = 1; char_num = 2 }, "def", "def");
-  Form.Symbol ({ line_num = 1; char_num = 6 }, "x", "x");
-  Form.Number ({ line_num = 1; char_num = 8 }, "5", 5.0);
-])
+let lexed_value = {
+  Form.metadata = { line_num = 1; char_num = 1 };
+  source = source;
+  lexed = Form.List [
+    {
+      metadata = { line_num = 1; char_num = 2 };
+      source = "def";
+      lexed = Form.Symbol "def"
+    };
+    {
+      metadata = { line_num = 1; char_num = 6 };
+      source = "x";
+      lexed = Form.Symbol "x"
+    };
+    {
+      metadata = { line_num = 1; char_num = 8 };
+      source = "5";
+      lexed = Form.Number 5.0
+    }
+  ]
+}
 
-let parsed = Parsed_node.Def (
+let parsed_value = Parsed_node.Def (
   Identifier.from_string "x",
   Parsed_node.NumLit (5.0, { line_num = 1; char_num = 8 }),
   { line_num = 1; char_num = 2 }

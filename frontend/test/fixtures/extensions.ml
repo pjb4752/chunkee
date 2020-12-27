@@ -2,12 +2,34 @@ open Frontend.Lexing
 
 let source = "(def x ^(create-type))"
 
-let form = Form.List ({ line_num = 1; char_num = 1 }, "(def x ^(create-type))", [
-  Form.Symbol ({ line_num = 1; char_num = 2 }, "def", "def");
-  Form.Symbol ({ line_num = 1; char_num = 6 }, "x", "x");
-  Form.Extension ({ line_num = 1; char_num = 8 }, "^(create-type)", (
-    Form.List ({ line_num = 1; char_num = 9 }, "(create-type)", [
-      Form.Symbol ({ line_num = 1; char_num = 10 }, "create-type", "create-type")
-    ])
-  ))
-])
+let lexed_value = {
+  Form.metadata = { line_num = 1; char_num = 1 };
+  source = source;
+  lexed = Form.List [
+    {
+      metadata = { line_num = 1; char_num = 2 };
+      source = "def";
+      lexed = Form.Symbol "def"
+    };
+    {
+      metadata = { line_num = 1; char_num = 6 };
+      source = "x";
+      lexed = Form.Symbol "x"
+    };
+    {
+      metadata = { line_num = 1; char_num = 8 };
+      source = "^(create-type)";
+      lexed = Form.Extension {
+        metadata = { line_num = 1; char_num = 9 };
+        source = "(create-type)";
+        lexed = Form.List [
+          {
+            metadata = { line_num = 1; char_num = 10 };
+            source = "create-type";
+            lexed = Form.Symbol "create-type"
+          }
+        ]
+      }
+    }
+  ]
+}

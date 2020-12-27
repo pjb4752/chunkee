@@ -8,22 +8,66 @@ let source = String.concat "\n" [
   "  (+ first second))";
 ]
 
-let form = Form.List ({ line_num = 1; char_num = 1 }, "(let [first x\n      second y]\n  (+ first second))", [
-  Form.Symbol ({ line_num = 1; char_num = 2 }, "let", "let");
-  Form.Vector ({ line_num = 1; char_num = 6 }, "[first x\n      second y]", [
-    Form.Symbol ({ line_num = 1; char_num = 7 }, "first", "first");
-    Form.Symbol ({ line_num = 1; char_num = 13 }, "x", "x");
-    Form.Symbol ({ line_num = 2; char_num = 7 }, "second", "second");
-    Form.Symbol ({ line_num = 2; char_num = 14 }, "y", "y");
-  ]);
-  Form.List ({ line_num = 3; char_num = 3 }, "(+ first second)", [
-    Form.Symbol ({ line_num = 3; char_num = 4 }, "+", "+");
-    Form.Symbol ({ line_num = 3; char_num = 6 }, "first", "first");
-    Form.Symbol ({ line_num = 3; char_num = 12 }, "second", "second");
-  ]);
-])
+let lexed_value = {
+  Form.metadata = { line_num = 1; char_num = 1 };
+  source = source;
+  lexed = Form.List [
+    {
+      metadata = { line_num = 1; char_num = 2 };
+      source = "let";
+      lexed = Form.Symbol "let"
+    };
+    {
+      metadata = { line_num = 1; char_num = 6 };
+      source = "[first x\n      second y]";
+      lexed = Form.Vector [
+        {
+          metadata = { line_num = 1; char_num = 7 };
+          source = "first";
+          lexed = Form.Symbol "first"
+        };
+        {
+          metadata = { line_num = 1; char_num = 13 };
+          source = "x";
+          lexed = Form.Symbol "x"
+        };
+        {
+          metadata = { line_num = 2; char_num = 7 };
+          source = "second";
+          lexed = Form.Symbol "second"
+        };
+        {
+          metadata = { line_num = 2; char_num = 14 };
+          source = "y";
+          lexed = Form.Symbol "y"
+        }
+      ]
+    };
+    {
+      metadata = { line_num = 3; char_num = 3 };
+      source = "(+ first second)";
+      lexed = Form.List [
+        {
+          metadata = { line_num = 3; char_num = 4 };
+          source = "+";
+          lexed = Form.Symbol "+"
+        };
+        {
+          metadata = { line_num = 3; char_num = 6 };
+          source = "first";
+          lexed = Form.Symbol "first"
+        };
+        {
+          metadata = { line_num = 3; char_num = 12 };
+          source = "second";
+          lexed = Form.Symbol "second"
+        }
+      ]
+    }
+  ]
+}
 
-let parsed = Parsed_node.Let (
+let parsed_value = Parsed_node.Let (
   [
     Parsed_node.Binding.from_node
       (Identifier.from_string "first")

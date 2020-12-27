@@ -1,17 +1,22 @@
 exception SyntaxError of int * int * string
 
 module Form : sig
-  type t =
-    | Number of Metadata.t * string * float
-    | String of Metadata.t * string * string
-    | Symbol of Metadata.t * string * string
-    | List of Metadata.t * string * t list
-    | Vector of Metadata.t * string * t list
-    | Extension of Metadata.t * string * t
+  type t = {
+    metadata: Metadata.t;
+    source: string;
+    lexed: u
+  }
+  and u =
+    | Number of float
+    | String of string
+    | Symbol of string
+    | List of (t list)
+    | Vector of (t list)
+    | Extension of t
 
   val metadata: t -> Metadata.t
 
-  val raw_source: t -> string
+  val source: t -> string
 
   val inspect: t -> string
 end

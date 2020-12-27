@@ -7,20 +7,56 @@ let source = String.concat "\n" [
   "  (print \"bye\"))";
 ]
 
-let form = Form.List ({ line_num = 1; char_num = 1 }, "(if true\n  (print \"hi\")\n  (print \"bye\"))", [
-  Form.Symbol ({ line_num = 1; char_num = 2 }, "if", "if");
-  Form.Symbol ({ line_num = 1; char_num = 5 }, "true", "true");
-  Form.List ({ line_num = 2; char_num = 3 }, "(print \"hi\")", [
-    Form.Symbol ({ line_num = 2; char_num = 4 }, "print", "print");
-    Form.String ({ line_num = 2; char_num = 10 }, "\"hi\"", "hi");
-  ]);
-  Form.List ({ line_num = 3; char_num = 3 }, "(print \"bye\")", [
-    Form.Symbol ({ line_num = 3; char_num = 4 }, "print", "print");
-    Form.String ({ line_num = 3; char_num = 10 }, "\"bye\"", "bye");
-  ]);
-])
+let lexed_value = {
+  Form.metadata = { line_num = 1; char_num = 1 };
+  source = source;
+  lexed = Form.List [
+    {
+      metadata = { line_num = 1; char_num = 2 };
+      source = "if";
+      lexed = Form.Symbol "if"
+    };
+    {
+      metadata = { line_num = 1; char_num = 5 };
+      source = "true";
+      lexed = Form.Symbol "true"
+    };
+    {
+      metadata = { line_num = 2; char_num = 3 };
+      source = "(print \"hi\")";
+      lexed = Form.List [
+        {
+          metadata = { line_num = 2; char_num = 4 };
+          source = "print";
+          lexed = Form.Symbol "print"
+        };
+        {
+          metadata = { line_num = 2; char_num = 10 };
+          source = "\"hi\"";
+          lexed = Form.String "hi"
+        }
+      ]
+    };
+    {
+      metadata = { line_num = 3; char_num = 3 };
+      source = "(print \"bye\")";
+      lexed = Form.List [
+        {
+          metadata = { line_num = 3; char_num = 4 };
+          source = "print";
+          lexed = Form.Symbol "print"
+        };
+        {
+          metadata = { line_num = 3; char_num = 10 };
+          source = "\"bye\"";
+          lexed = Form.String "bye"
+        }
+      ]
+    }
+  ]
+}
 
-let parsed = Parsed_node.If (
+let parsed_value = Parsed_node.If (
   Parsed_node.Symbol (BareName "true", { line_num = 1; char_num = 5 }),
   Parsed_node.Apply (
     Parsed_node.Symbol (BareName "print", { line_num = 2; char_num = 4 }),

@@ -10,36 +10,36 @@ let suite =
   "Parse suite">::: [
     "parse number form">::
       (fun _ ->
-        assert_parses_to Numbers.parsed Numbers.form
+        assert_parses_to Numbers.parsed_value Numbers.lexed_value
       );
 
     "parse string form">::
       (fun _ ->
-        assert_parses_to Strings.parsed Strings.form
+        assert_parses_to Strings.parsed_value Strings.lexed_value
       );
 
     "parse symbol form">::
       (fun _ ->
-        assert_parses_to Symbols.parsed Symbols.form
+        assert_parses_to Symbols.parsed_value Symbols.lexed_value
       );
 
     "parse def expression">::
       (fun _ ->
-        assert_parses_to Defs.parsed Defs.form
+        assert_parses_to Defs.parsed_value Defs.lexed_value
       );
 
     "parse let expression">::
       (fun _ ->
-        assert_parses_to Lets.parsed Lets.form
+        assert_parses_to Lets.parsed_value Lets.lexed_value
       );
 
     "parse if expression">::
       (fun _ ->
-        assert_parses_to Ifs.parsed Ifs.form
+        assert_parses_to Ifs.parsed_value Ifs.lexed_value
       );
 
     "parse fn expression">::
       (fun _ ->
-        assert_parses_to Fns.parsed Fns.form
+        assert_parses_to Fns.parsed_value Fns.lexed_value
       );
   ]

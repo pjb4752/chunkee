@@ -11,22 +11,32 @@ let suite =
   "Lex suite">::: [
     "lex single number form">::
       (fun _ ->
-        assert_lexes_to [Numbers.form] "55"
+        assert_lexes_to [Numbers.lexed_value] "55"
       );
 
     "lex single number form with whitespace">::
       (fun _ ->
-        assert_lexes_to [Form.Number ({ line_num = 1; char_num = 3 }, "55", 55.0)] "\t 55 \t"
+        let lexed_value = {
+          Form.metadata = { line_num = 1; char_num = 3 };
+          source = "55";
+          lexed = Form.Number 55.0
+        } in
+        assert_lexes_to [lexed_value] "\t 55 \t"
       );
 
     "lex single string form">::
       (fun _ ->
-        assert_lexes_to [Strings.form] "\"hello\""
+        assert_lexes_to [Strings.lexed_value] "\"hello\""
       );
 
     "lex single string form with spaces">::
       (fun _ ->
-        assert_lexes_to [Form.String ({ line_num = 1; char_num = 3 }, "\"hello\"", "hello")] "\t \"hello\" \t"
+        let lexed_value = {
+          Form.metadata = { line_num = 1; char_num = 3 };
+          source = "\"hello\"";
+          lexed = Form.String "hello"
+        } in
+        assert_lexes_to [lexed_value] "\t \"hello\" \t"
       );
 
     "lex unterminated string">::
@@ -38,29 +48,74 @@ let suite =
 
     "lex symbol form">::
       (fun _ ->
-        assert_lexes_to [Form.Symbol ({ line_num = 1; char_num = 1 }, "fat?", "fat?")] "fat?"
+        let lexed_value = {
+          Form.metadata = { line_num = 1; char_num = 1 };
+          source = "fat?";
+          lexed = Form.Symbol "fat?"
+        } in
+        assert_lexes_to [lexed_value] "fat?"
       );
 
     "lex symbol form with spaces">::
       (fun _ ->
-        assert_lexes_to [Form.Symbol ({ line_num = 1; char_num = 3 }, "fat?", "fat?")] "\t fat? \t"
+        let lexed_value = {
+          Form.metadata = { line_num = 1; char_num = 3 };
+          source = "fat?";
+          lexed = Form.Symbol "fat?"
+        } in
+        assert_lexes_to [lexed_value] "\t fat? \t"
       );
 
     "lex single list form">::
       (fun _ ->
-        let plus = Form.Symbol ({ line_num = 1; char_num = 2 }, "+", "+") in
-        let one = Form.Number ({ line_num = 1; char_num = 4 }, "1", 1.0) in
-        let two = Form.Number ({ line_num = 1; char_num = 6 }, "2", 2.0) in
-        assert_lexes_to [Form.List({ line_num = 1; char_num = 1 }, "(+ 1 2)", [plus; one; two])] "(+ 1 2)"
+        let lexed_value = {
+          Form.metadata = { line_num = 1; char_num = 1 };
+          source = "(+ 1 2)";
+          lexed = Form.List [
+            {
+              metadata = { line_num = 1; char_num = 2 };
+              source = "+";
+              lexed = Form.Symbol "+"
+            };
+            {
+              metadata = { line_num = 1; char_num = 4 };
+              source = "1";
+              lexed = Form.Number 1.0
+            };
+            {
+              metadata = { line_num = 1; char_num = 6 };
+              source = "2";
+              lexed = Form.Number 2.0
+            }
+          ]
+        } in
+        assert_lexes_to [lexed_value] "(+ 1 2)"
       );
 
     "lex list form with extra spaces">::
       (fun _ ->
-        let plus = Form.Symbol ({ line_num = 1; char_num = 5 }, "+", "+") in
-        let one = Form.Number ({ line_num = 1; char_num = 7 }, "1", 1.0) in
-        let two = Form.Number ({ line_num = 2; char_num = 3 }, "2", 2.0) in
-        assert_lexes_to [Form.List({ line_num = 1; char_num = 1 }, "(   + 1 \n  2   )", [plus; one; two])]
-        "(   + 1 \n  2   )  "
+        let lexed_value = {
+          Form.metadata = { line_num = 1; char_num = 1 };
+          source = "(   + 1 \n  2   )";
+          lexed = Form.List [
+            {
+              metadata = { line_num = 1; char_num = 5 };
+              source = "+";
+              lexed = Form.Symbol "+"
+            };
+            {
+              metadata = { line_num = 1; char_num = 7 };
+              source = "1";
+              lexed = Form.Number 1.0
+            };
+            {
+              metadata = { line_num = 2; char_num = 3 };
+              source = "2";
+              lexed = Form.Number 2.0
+            }
+          ]
+        } in
+        assert_lexes_to [lexed_value] "(   + 1 \n  2   )  "
       );
 
     "lex unterminated string">::
@@ -72,26 +127,26 @@ let suite =
 
     "lex def expression">::
       (fun _ ->
-        assert_lexes_to [Defs.form] Defs.source
+        assert_lexes_to [Defs.lexed_value] Defs.source
       );
 
     "lex let expression">::
       (fun _ ->
-        assert_lexes_to [Lets.form] Lets.source
+        assert_lexes_to [Lets.lexed_value] Lets.source
       );
 
     "lex if expression">::
       (fun _ ->
-        assert_lexes_to [Ifs.form] Ifs.source
+        assert_lexes_to [Ifs.lexed_value] Ifs.source
       );
 
     "lex fn expression">::
       (fun _ ->
-        assert_lexes_to [Fns.form] Fns.source
+        assert_lexes_to [Fns.lexed_value] Fns.source
       );
 
     "lex extension expression">::
       (fun _ ->
-        assert_lexes_to [Extensions.form] Extensions.source
+        assert_lexes_to [Extensions.lexed_value] Extensions.source
       );
   ]
