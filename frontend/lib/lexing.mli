@@ -3,7 +3,6 @@ exception SyntaxError of int * int * string
 module Form : sig
   type t = {
     metadata: Metadata.t;
-    source: string;
     lexed: u
   }
   and u =

@@ -17,8 +17,7 @@ let suite =
     "lex single number form with whitespace">::
       (fun _ ->
         let lexed_value = {
-          Form.metadata = { line_num = 1; char_num = 3 };
-          source = "55";
+          Form.metadata = { line_num = 1; char_num = 3; source = "55" };
           lexed = Form.Number 55.0
         } in
         assert_lexes_to [lexed_value] "\t 55 \t"
@@ -32,8 +31,7 @@ let suite =
     "lex single string form with spaces">::
       (fun _ ->
         let lexed_value = {
-          Form.metadata = { line_num = 1; char_num = 3 };
-          source = "\"hello\"";
+          Form.metadata = { line_num = 1; char_num = 3; source = "\"hello\"" };
           lexed = Form.String "hello"
         } in
         assert_lexes_to [lexed_value] "\t \"hello\" \t"
@@ -49,8 +47,7 @@ let suite =
     "lex symbol form">::
       (fun _ ->
         let lexed_value = {
-          Form.metadata = { line_num = 1; char_num = 1 };
-          source = "fat?";
+          Form.metadata = { line_num = 1; char_num = 1; source = "fat?" };
           lexed = Form.Symbol "fat?"
         } in
         assert_lexes_to [lexed_value] "fat?"
@@ -59,8 +56,7 @@ let suite =
     "lex symbol form with spaces">::
       (fun _ ->
         let lexed_value = {
-          Form.metadata = { line_num = 1; char_num = 3 };
-          source = "fat?";
+          Form.metadata = { line_num = 1; char_num = 3; source = "fat?" };
           lexed = Form.Symbol "fat?"
         } in
         assert_lexes_to [lexed_value] "\t fat? \t"
@@ -69,22 +65,18 @@ let suite =
     "lex single list form">::
       (fun _ ->
         let lexed_value = {
-          Form.metadata = { line_num = 1; char_num = 1 };
-          source = "(+ 1 2)";
+          Form.metadata = { line_num = 1; char_num = 1; source = "(+ 1 2)" };
           lexed = Form.List [
             {
-              metadata = { line_num = 1; char_num = 2 };
-              source = "+";
+              metadata = { line_num = 1; char_num = 2; source = "+" };
               lexed = Form.Symbol "+"
             };
             {
-              metadata = { line_num = 1; char_num = 4 };
-              source = "1";
+              metadata = { line_num = 1; char_num = 4; source = "1" };
               lexed = Form.Number 1.0
             };
             {
-              metadata = { line_num = 1; char_num = 6 };
-              source = "2";
+              metadata = { line_num = 1; char_num = 6; source = "2" };
               lexed = Form.Number 2.0
             }
           ]
@@ -95,22 +87,18 @@ let suite =
     "lex list form with extra spaces">::
       (fun _ ->
         let lexed_value = {
-          Form.metadata = { line_num = 1; char_num = 1 };
-          source = "(   + 1 \n  2   )";
+          Form.metadata = { line_num = 1; char_num = 1; source = "(   + 1 \n  2   )" };
           lexed = Form.List [
             {
-              metadata = { line_num = 1; char_num = 5 };
-              source = "+";
+              metadata = { line_num = 1; char_num = 5; source = "+" };
               lexed = Form.Symbol "+"
             };
             {
-              metadata = { line_num = 1; char_num = 7 };
-              source = "1";
+              metadata = { line_num = 1; char_num = 7; source = "1" };
               lexed = Form.Number 1.0
             };
             {
-              metadata = { line_num = 2; char_num = 3 };
-              source = "2";
+              metadata = { line_num = 2; char_num = 3; source = "2" };
               lexed = Form.Number 2.0
             }
           ]

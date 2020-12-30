@@ -13,7 +13,7 @@ module Result = struct
     Result.inspect result Node.inspect Cmpl_err.to_string
 end
 
-let build_error_prefix { Metadata.line_num; char_num } =
+let build_error_prefix { Metadata.line_num; char_num; _ } =
   sprintf "in expression at %d:%d" line_num char_num
 
 let parse_qualified_name metadata name =
@@ -53,15 +53,15 @@ let parse_type_list parse_type_expr' forms_to_parse =
     let* next_type = parse_type_expr' type_form in
     return (next_type :: parsed_types)) forms_to_parse (Ok [])
 
-let invalid_type_error metadata raw_expression =
+let invalid_type_error metadata =
   let prefix = build_error_prefix metadata in
   Error (Cmpl_err.parse_errors metadata prefix [
     "type expressions must be of a valid form, ";
-    sprintf "but instead found: %s" raw_expression;
+    sprintf "but instead found: %s" metadata.source;
     "\n\tplease use a correct simple or aggregate type"
   ])
 
-let rec parse_type_expr { Form.metadata; source; lexed } =
+let rec parse_type_expr { Form.metadata; lexed } =
   match lexed with
   | Form.Symbol value -> begin
     let* parsed_type = parse_name_expr metadata value in
@@ -78,7 +78,7 @@ let rec parse_type_expr { Form.metadata; source; lexed } =
      ])
    | Ok parsed_types -> Ok (Type_expr.CompoundType parsed_types)
   end
-  | _ -> invalid_type_error metadata source
+  | _ -> invalid_type_error metadata
 
 let parse_var_def = function
   | { Form.lexed = Form.Symbol raw_name; _ } :: type_form :: [] -> begin
@@ -90,7 +90,7 @@ let parse_var_def = function
     let prefix = build_error_prefix first_form.metadata in
     Error (Cmpl_err.parse_errors first_form.metadata prefix [
       "variable definitions must be pairs of a name and a type, ";
-      sprintf "but instead found: [%s %s]" first_form.source last_form.source;
+      sprintf "but instead found: [%s %s]" first_form.metadata.source last_form.metadata.source;
       "\n\tplease use the correct form [name type]"
     ])
   end
@@ -103,13 +103,13 @@ let is_const_literal { Form.lexed; _ } =
   | _ -> false
 
 let parse_def recursively_parse metadata = function
-  | { Form.lexed = Form.Symbol name; _ } :: expression :: [] when is_const_literal expression ->
-      let* expression = recursively_parse expression in
+  | { Form.lexed = Form.Symbol name; _ } :: body_expr :: [] when is_const_literal body_expr ->
+      let* body_node = recursively_parse body_expr in
       let name = Identifier.from_string name in
-      return (Node.Def (name, expression, metadata))
+      return { Node.metadata; parsed = Node.Def { name; body_node } }
   | { Form.lexed = Form.Symbol _; _ } :: invalid_form :: [] -> begin
     let prefix = build_error_prefix metadata in
-    let invalid_form = sprintf "%s" invalid_form.source in
+    let invalid_form = sprintf "%s" invalid_form.metadata.source in
     Error (Cmpl_err.parse_errors metadata prefix [
       "top-level definitions must evaluate to a constant value, ";
       sprintf "but instead found: %s" invalid_form;
@@ -127,11 +127,11 @@ let parse_def recursively_parse metadata = function
   end
 
 let parse_get metadata = function
-  | [{ Form.metadata; lexed = Form.Symbol record; _ }; { lexed = Form.Symbol field; _ }] ->
-    let* record_name = parse_name_expr metadata record in
-    let record_name = Node.Symbol (record_name, metadata) in
-    let field_name = Identifier.from_string field in
-    return (Node.Get (record_name, field_name, metadata))
+  | [{ Form.metadata; lexed = Form.Symbol target; _ }; { lexed = Form.Symbol field; _ }] ->
+    let* target = parse_name_expr metadata target in
+    let target_node = { Node.metadata; parsed = Node.Symbol target } in
+    let field = Identifier.from_string field in
+    return { Node.metadata; parsed = Node.Get { target_node; field } }
   | invalid_forms -> begin
     let prefix = build_error_prefix metadata in
     let invalid_forms = String.concat " " @@ List.map Form.source invalid_forms in
@@ -143,12 +143,12 @@ let parse_get metadata = function
   end
 
 let parse_set recursively_parse metadata = function
-  | [{ Form.metadata; lexed = Form.Symbol record; _ }; { lexed = Form.Symbol field; _ }; expression] ->
-    let* record_name = parse_name_expr metadata record in
-    let field_name = Identifier.from_string field in
-    let* expression = recursively_parse expression in
-    let record_name = Node.Symbol (record_name, metadata) in
-    return (Node.Set (record_name, field_name, expression, metadata))
+  | [{ Form.metadata; lexed = Form.Symbol target; _ }; { lexed = Form.Symbol field; _ }; body] ->
+    let* target = parse_name_expr metadata target in
+    let field = Identifier.from_string field in
+    let* body_node = recursively_parse body in
+    let target_node = { Node.metadata; parsed = Node.Symbol target } in
+    return { Node.metadata; parsed = Node.Set { target_node; field; body_node } }
   | invalid_forms -> begin
     let prefix = build_error_prefix metadata in
     let invalid_forms = String.concat " " @@ List.map Form.source invalid_forms in
@@ -193,10 +193,10 @@ let parse_function_header metadata header_forms =
   end
 
 let parse_function recursively_parse metadata = function
-  | { Form.metadata = header_metadata; lexed = Form.Vector raw_header; _ } :: raw_body :: [] ->
+  | { Form.metadata = header_metadata; lexed = Form.Vector raw_header; _ } :: body :: [] ->
     let* (parameters, return_type) = parse_function_header header_metadata raw_header in
-    let* body = recursively_parse raw_body in
-    return (Node.Fn (parameters, return_type, body, metadata))
+    let* body_node = recursively_parse body in
+    return { Node.metadata; parsed = Node.Fn { parameters; return_type; body_node } }
   | invalid_forms -> begin
     let prefix = build_error_prefix metadata in
     let invalid_forms = String.concat " " @@ List.map Form.source invalid_forms in
@@ -208,11 +208,11 @@ let parse_function recursively_parse metadata = function
   end
 
 let parse_if recursively_parse metadata = function
-  | raw_test :: raw_if :: raw_else :: [] ->
-      let* parsed_test = recursively_parse raw_test in
-      let* parsed_if = recursively_parse raw_if in
-      let* parsed_else = recursively_parse raw_else in
-      return (Node.If (parsed_test, parsed_if, parsed_else, metadata))
+  | test_node :: if_node :: else_node :: [] ->
+      let* test_node = recursively_parse test_node in
+      let* if_node = recursively_parse if_node in
+      let* else_node = recursively_parse else_node in
+      return { Node.metadata; parsed = Node.If { test_node; if_node; else_node } }
   | invalid_forms -> begin
     let prefix = build_error_prefix metadata in
     let invalid_forms = String.concat " " @@ List.map Form.source invalid_forms in
@@ -232,7 +232,7 @@ let parse_binding recursively_parse = function
     let prefix = build_error_prefix first_form.metadata in
     Error (Cmpl_err.parse_errors first_form.metadata prefix [
       "a binding must be a pair of a name and an expression, ";
-      sprintf "but instead found: [%s %s]" first_form.source second_form.source;
+      sprintf "but instead found: [%s %s]" first_form.metadata.source second_form.metadata.source;
       "\n\tplease use the correct form [name1 expr1 ... nameN exprN]"
     ])
   end
@@ -257,8 +257,8 @@ let parse_bindings recursively_parse metadata bindings =
 let parse_let recursively_parse metadata = function
   | { Form.metadata = binding_metadata; lexed = Form.Vector bindings; _ } :: body :: [] ->
     let* bindings = parse_bindings recursively_parse binding_metadata bindings in
-    let* body = recursively_parse body in
-    return (Node.Let (bindings, body, metadata))
+    let* body_node = recursively_parse body in
+    return { Node.metadata; parsed = Node.Let { bindings; body_node } }
   | invalid_forms -> begin
     let prefix = build_error_prefix metadata in
     let invalid_forms = String.concat " " @@ List.map Form.source invalid_forms in
@@ -270,10 +270,10 @@ let parse_let recursively_parse metadata = function
   end
 
 let parse_cast recursively_parse metadata = function
-  | raw_type :: expression :: [] -> begin
-    let* parsed_type = parse_type_expr raw_type in
-    let* expression = recursively_parse expression in
-    return (Node.Cast (parsed_type, expression, metadata))
+  | target :: body :: [] -> begin
+    let* target_type = parse_type_expr target in
+    let* body_node = recursively_parse body in
+    return { Node.metadata; parsed = Node.Cast { target_type; body_node } }
   end
   | invalid_forms -> begin
     let prefix = build_error_prefix metadata in
@@ -292,54 +292,55 @@ let parse_apply_arguments recursively_parse arguments =
     return (parsed_argument :: parsed_arguments) in
   List.fold_right parse_argument arguments (Ok [])
 
-let parse_number_apply recursively_parse metadata number_value arguments =
+let parse_number_apply recursively_parse apply_metadata number_metadata value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
-  let apply_target = Node.NumLit (number_value, metadata) in
-  return (Node.Apply (apply_target, arguments, metadata))
+  let callable_node = { Node.metadata = number_metadata; parsed = Node.NumLit value } in
+  return { Node.metadata = apply_metadata; parsed = Node.Apply { callable_node; arguments } }
 
-let parse_string_apply recursively_parse metadata string_value arguments =
+let parse_string_apply recursively_parse apply_metadata number_metadata value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
-  let apply_target = Node.StrLit (string_value, metadata) in
-  return (Node.Apply (apply_target, arguments, metadata))
+  let callable_node = { Node.metadata = number_metadata; parsed = Node.StrLit value } in
+  return { Node.metadata = apply_metadata; parsed = Node.Apply { callable_node; arguments } }
 
-let parse_symbol_apply recursively_parse metadata function_name arguments =
-  let* function_name = parse_name_expr metadata function_name in
+let parse_symbol_apply recursively_parse apply_metadata symbol_metadata function_name arguments =
+  let* function_name = parse_name_expr symbol_metadata function_name in
   let* arguments = parse_apply_arguments recursively_parse arguments in
-  let apply_target = Node.Symbol (function_name, metadata) in
-  return (Node.Apply (apply_target, arguments, metadata))
+  let callable_node = { Node.metadata = symbol_metadata; parsed = Node.Symbol function_name } in
+  return { Node.metadata = apply_metadata; parsed = Node.Apply { callable_node; arguments } }
 
-let parse_function_apply recursively_parse metadata source function_value arguments =
-  let* parsed_function = recursively_parse { Form.metadata; source; lexed = Form.List function_value } in
+let parse_function_apply recursively_parse apply_metadata callable_metadata function_value arguments =
+  let form_to_parse = { Form.metadata = callable_metadata; lexed = Form.List function_value } in
+  let* callable_node = recursively_parse form_to_parse in
   let* arguments = parse_apply_arguments recursively_parse arguments in
-  return (Node.Apply (parsed_function, arguments, metadata))
+  return { Node.metadata = apply_metadata; parsed = Node.Apply { callable_node; arguments } }
 
-let parse_builtin recursively_parse metadata builtin (arguments: Form.t list) =
-  if builtin = "get" then parse_get metadata arguments
-  else if builtin = "set!" then parse_set recursively_parse metadata arguments
-  else if builtin = "fn" then parse_function recursively_parse metadata arguments
-  else if builtin = "if" then parse_if recursively_parse metadata arguments
-  else if builtin = "let" then parse_let recursively_parse metadata arguments
-  else if builtin = "cast" then parse_cast recursively_parse metadata arguments
-  else if builtin = "def" then parse_def recursively_parse metadata arguments
-  else parse_symbol_apply recursively_parse metadata builtin arguments
+let parse_builtin recursively_parse list_metadata builtin_metadata builtin (arguments: Form.t list) =
+  if builtin = "get" then parse_get list_metadata arguments
+  else if builtin = "set!" then parse_set recursively_parse list_metadata arguments
+  else if builtin = "fn" then parse_function recursively_parse list_metadata arguments
+  else if builtin = "if" then parse_if recursively_parse list_metadata arguments
+  else if builtin = "let" then parse_let recursively_parse list_metadata arguments
+  else if builtin = "cast" then parse_cast recursively_parse list_metadata arguments
+  else if builtin = "def" then parse_def recursively_parse list_metadata arguments
+  else parse_symbol_apply recursively_parse list_metadata builtin_metadata builtin arguments
 
 let parse_symbol metadata symbol =
   let* symbol = parse_name_expr metadata symbol in
-  return (Node.Symbol (symbol, metadata))
+  return { Node.metadata; parsed = Node.Symbol symbol }
 
-let parse_list recursively_parse metadata = function
-  | { Form.metadata; lexed = Form.Number value; _ } :: arguments ->
-      parse_number_apply recursively_parse metadata value arguments
-  | { Form.metadata; lexed = Form.String value; _ } :: arguments ->
-      parse_string_apply recursively_parse metadata value arguments
-  | { Form.metadata; lexed = Form.Symbol operation; _ } :: arguments ->
-      parse_builtin recursively_parse metadata operation arguments
-  | { Form.metadata; source; lexed = Form.List expression } :: arguments ->
-      parse_function_apply recursively_parse metadata source expression arguments
+let parse_list recursively_parse list_metadata = function
+  | { Form.metadata = number_metadata; Form.lexed = Form.Number value; _ } :: arguments ->
+      parse_number_apply recursively_parse list_metadata number_metadata value arguments
+  | { Form.metadata = string_metadata; Form.lexed = Form.String value; _ } :: arguments ->
+      parse_string_apply recursively_parse list_metadata string_metadata value arguments
+  | { Form.metadata = builtin_metadata; Form.lexed = Form.Symbol operation; _ } :: arguments ->
+      parse_builtin recursively_parse list_metadata builtin_metadata operation arguments
+  | { Form.metadata = callable_metadata; Form.lexed = Form.List expression; _ } :: arguments ->
+      parse_function_apply recursively_parse list_metadata callable_metadata expression arguments
   | invalid_forms -> begin
-    let prefix = build_error_prefix metadata in
+    let prefix = build_error_prefix list_metadata in
     let invalid_forms = String.concat " " @@ List.map Form.source invalid_forms in
-    Error (Cmpl_err.parse_errors metadata prefix [
+    Error (Cmpl_err.parse_errors list_metadata prefix [
       sprintf "failed to parse invalid form: %s" invalid_forms;
       "\n\tplease check your syntax"
     ])
@@ -349,10 +350,10 @@ let parse_extension _ metadata _ =
   let prefix = build_error_prefix metadata in
   Error (Cmpl_err.parse_errors metadata prefix ["Bad"])
 
-let rec parse_form { Form. metadata; lexed; _ } =
+let rec parse_form { Form.metadata; lexed; _ } =
   match lexed with
-  | Form.Number value -> Ok (Node.NumLit (value, metadata))
-  | Form.String value -> Ok (Node.StrLit (value, metadata))
+  | Form.Number value -> Ok { Node.metadata; parsed = Node.NumLit value }
+  | Form.String value -> Ok { Node.metadata; parsed = Node.StrLit value }
   | Form.Symbol value -> parse_symbol metadata value
   | Form.List value -> parse_list parse_form metadata value
   | Form.Vector _ -> begin
@@ -380,6 +381,6 @@ let parse_node ?check_toplevel:(check_toplevel=true) form =
       if operation = "def" then parse_def parse_form form.metadata args
       else toplevel_error symbol_metadata operation
     end
-    | _ -> toplevel_error form.metadata form.source
+    | _ -> toplevel_error form.metadata form.metadata.source
   end
-  | { Form.metadata; source; _ } -> toplevel_error metadata source
+  | { Form.metadata; _ } -> toplevel_error metadata metadata.source

@@ -28,20 +28,23 @@ module type N = sig
     val to_tuple: t -> Identifier.t * type_expr_t
   end
 
-  type t =
-    | NumLit of float * Metadata.t
-    | StrLit of string * Metadata.t
-    | Symbol of name_expr_t * Metadata.t
-    | Type of name_expr_t * Metadata.t
-    | Def of Identifier.t * t * Metadata.t
-    | Fn of VarDef.t list * type_expr_t * t * Metadata.t
-    | If of t * t * t * Metadata.t
-    | Let of t Binding.t list * t * Metadata.t
-    | Apply of t * t list * Metadata.t
-    | Cons of type_expr_t * t Binding.t list * Metadata.t
-    | Get of t * Identifier.t * Metadata.t
-    | Set of t * Identifier.t * t * Metadata.t
-    | Cast of type_expr_t * t * Metadata.t
+  type t = {
+    metadata: Metadata.t;
+    parsed: u
+  } and u =
+    | NumLit of float
+    | StrLit of string
+    | Symbol of name_expr_t
+    | Type of name_expr_t
+    | Def of { name: Identifier.t; body_node: t }
+    | Fn of { parameters: VarDef.t list; return_type: type_expr_t; body_node: t }
+    | If of { test_node: t; if_node: t; else_node: t }
+    | Let of { bindings: t Binding.t list; body_node: t }
+    | Apply of { callable_node: t; arguments: t list }
+    | Cons of { target_type: type_expr_t; bindings: t Binding.t list }
+    | Get of { target_node: t; field: Identifier.t }
+    | Set of { target_node: t; field: Identifier.t; body_node: t }
+    | Cast of { target_type: type_expr_t; body_node: t }
 
   val inspect: t -> string
 end

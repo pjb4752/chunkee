@@ -9,13 +9,13 @@ type t = (Type.t, Cmpl_err.t) result
 
 module Scope = Map.Make(String)
 
-let build_prefix message { Metadata.line_num; char_num } =
+let build_error_prefix { Metadata.line_num; char_num; _ } message =
   sprintf "in %s at %d:%d" message line_num char_num
 
 let is_compatible expected actual =
   expected = actual || expected == Type.Any
 
-let chk_local_name scopes name =
+let typecheck_local_name scopes name =
   match List.find_opt (Scope.mem name) scopes with
   | None -> assert false
   | Some s -> begin
@@ -24,100 +24,99 @@ let chk_local_name scopes name =
       | Some t -> Ok t
   end
 
-let chk_module_name table mod_name var_name =
-  match Symbol_table.module_vartype table mod_name var_name with
+let typecheck_module_name table module_name var_name =
+  match Symbol_table.module_vartype table module_name var_name with
   | None -> assert false
   | Some tipe -> Ok tipe
 
-let chk_name table scopes name =
+let typecheck_name table scopes name =
   match name with
-  | Name.Local name -> chk_local_name scopes name
-  | Name.Module (mod_name, var_name) -> chk_module_name table mod_name var_name
+  | Name.Local name -> typecheck_local_name scopes name
+  | Name.Module (module_name, var_name) -> typecheck_module_name table module_name var_name
 
-let process_params params =
-  let fold_fn p ps =
-    let (name, tipe) = Node.VarDef.to_tuple p in
-    let name = Identifier.inspect name in
-    let* ps = ps in
-    return ((name, tipe) :: ps) in
-  match List.fold_right fold_fn params (Ok []) with
-  | Error e -> Error e
-  | Ok ps ->
-    let scope = List.fold_right (fun (n, t) s -> Scope.add n t s) ps Scope.empty
-    and types = List.map (fun (_, t) -> t) ps in
-    Ok (types, scope)
+let build_parameter_scope parameters =
+  let build_parameter_tuples param processed_params =
+    let* processed_params = processed_params in
+    let (param_name, param_type) = Node.VarDef.to_tuple param in
+    let param_name = Identifier.to_string param_name in
+    return ((param_name, param_type) :: processed_params) in
+  let* parameter_tuples = List.fold_right build_parameter_tuples parameters (Ok []) in
+  return (
+    List.fold_right (fun (param_name, param_type) scope ->
+      Scope.add param_name param_type scope
+    ) parameter_tuples Scope.empty
+  )
 
-let chk_fn recur_fn scopes params rtype body metadata =
-  let maybe_rtype =
-    let* (_, scope) = process_params params in
-    let* rtype = recur_fn (scope ::scopes) body in
-    return rtype in
-  match maybe_rtype with
+let typecheck_fn recursively_typecheck scopes metadata parameters return_type body_node =
+  let actual_return_type =
+    let* param_scope = build_parameter_scope parameters in
+    let* return_type = recursively_typecheck (param_scope :: scopes) body_node in
+    return return_type in
+  match actual_return_type with
   | Error e -> Error e
-  | Ok actual_rtype when rtype = actual_rtype -> Ok actual_rtype
-  | Ok actual_rtype ->
-      let prefix = build_prefix "function definition" metadata in
+  | Ok actual_return_type when return_type = actual_return_type -> Ok actual_return_type
+  | Ok actual_return_type ->
+      let prefix = build_error_prefix metadata "function definition" in
       Error (Cmpl_err.type_errors metadata prefix [
-        sprintf "expected return type is %s, " @@ Type.inspect rtype;
-        sprintf "but actual return type found is %s" @@ Type.inspect actual_rtype
+        sprintf "expected return type is %s, " @@ Type.inspect return_type;
+        sprintf "but actual return type found is %s" @@ Type.inspect actual_return_type
       ])
 
-let cmp_tst_expr test_type metadata =
+let check_test_type metadata test_type =
   match test_type with
   | Type.Bool -> Ok Type.Bool
-  | tipe ->
-      let prefix = build_prefix "if test-expr" metadata in
+  | actual_type ->
+      let prefix = build_error_prefix metadata "if test-expr" in
       Error (Cmpl_err.type_errors metadata prefix [
         "if test-exprs must evaulate to a boolean value, ";
-        sprintf "instead received type of %s" @@ Type.inspect tipe
+        sprintf "instead received type of %s" @@ Type.inspect actual_type
       ])
 
-let chk_if_tst recur_fn scopes tst metadata =
-  let* ttype = recur_fn scopes tst in
-  let* ttype = cmp_tst_expr ttype metadata in
-  return ttype
+let typecheck_test_node recursively_typecheck scopes metadata test_node =
+  let* test_type = recursively_typecheck scopes test_node in
+  return (check_test_type metadata test_type)
 
-let cmp_if_expr iff els metadata =
-  if iff = els then Ok iff
-  else if iff = Type.Any || els = Type.Any then Ok Type.Any
+let typecheck_if_branches metadata if_type else_type =
+  if if_type = else_type then Ok if_type
+  else if if_type = Type.Any || else_type = Type.Any then Ok Type.Any
   else
-    let prefix = build_prefix "if expr" metadata in
+    let prefix = build_error_prefix metadata "if expr" in
     Error (Cmpl_err.type_errors metadata prefix [
-      sprintf "result of if-expr was %s, " @@ Type.inspect iff;
-      sprintf "which is incompatible with else-expr result type %s" @@ Type.inspect els
+      sprintf "result of if-expr was %s, " @@ Type.inspect if_type;
+      sprintf "which is incompatible with else-expr result type %s" @@ Type.inspect else_type
   ])
 
-let chk_if recur_fn scopes tst iff els metadata =
-  let* _ = chk_if_tst recur_fn scopes tst metadata in
-  let* itype = recur_fn scopes iff in
-  let* etype = recur_fn scopes els in
-  let* rtype = cmp_if_expr itype etype metadata in
-  return rtype
+let typecheck_if recursively_typecheck scopes metadata test_node if_node else_node =
+  let* _ = typecheck_test_node recursively_typecheck scopes metadata test_node in
+  let* if_type = recursively_typecheck scopes if_node in
+  let* else_type = recursively_typecheck scopes else_node in
+  let* return_type = typecheck_if_branches metadata if_type else_type in
+  return return_type
 
-let chk_binding recur_fn scopes binding =
-  let (name, expr) = Node.Binding.to_tuple binding in
-  match recur_fn scopes expr with
+let typecheck_binding recursively_typecheck scopes binding =
+  let (binding_name, binding_body) = Node.Binding.to_tuple binding in
+  match recursively_typecheck scopes binding_body with
   | Error e -> Error e
-  | Ok tipe -> begin
-    let name = Identifier.inspect name in
-    let (scope: 'a Scope.t) = Scope.add name tipe Scope.empty in
+  | Ok binding_type -> begin
+    let binding_name = Identifier.to_string binding_name in
+    let (scope: 'a Scope.t) = Scope.add binding_name binding_type Scope.empty in
     Ok (scope :: scopes)
   end
 
-let chk_let recur_fn scopes bindings body =
-  let rec chk_bindings scopes = function
+let typecheck_let recursively_typecheck scopes bindings body_node =
+  let rec typecheck_bindings scopes = function
     | [] -> Ok scopes
-    | b :: bs -> begin
-      match chk_binding recur_fn scopes b with
+    | binding :: remaining_bindings -> begin
+      match typecheck_binding recursively_typecheck scopes binding with
       | Error e -> Error e
-      | Ok s -> chk_bindings s bs
+      | Ok scopes -> typecheck_bindings scopes remaining_bindings
     end in
-  let* scopes = chk_bindings scopes bindings in
-  let* rtype = recur_fn scopes body in
-  return rtype
+  let* scopes = typecheck_bindings scopes bindings in
+  let* return_type = recursively_typecheck scopes body_node in
+  return return_type
 
-let chk_param_types expected_types actual_types return_type metadata =
-  let chk_param_type index (expected, actual) =
+let typecheck_parameter_types metadata expected_types actual_types return_type =
+  let typecheck_param_type index (expected, actual) =
     if is_compatible expected actual then None
     else
       let param_number = index + 1
@@ -132,136 +131,148 @@ let chk_param_types expected_types actual_types return_type metadata =
     | None -> errors
     | Some error -> errors @ error
   in
-  let results = List.mapi chk_param_type @@ List.zip expected_types actual_types in
+  let results = List.mapi typecheck_param_type @@ List.zip expected_types actual_types in
   let errors = List.fold_left combine_results [] results in
   if List.is_empty errors then Ok return_type
   else
-    let prefix = build_prefix "function application" metadata in
+    let prefix = build_error_prefix metadata "function application" in
     Error (Cmpl_err.type_errors metadata prefix errors)
 
-let cmp_fn_types f_type p_act metadata =
-  match f_type with
-  | Type.Function (p_exp, rt) -> begin
-    if List.compare_lengths p_exp p_act = 0 then
-      chk_param_types p_exp p_act rt metadata
+let typecheck_callable_arguments metadata defined_type argument_types =
+  match defined_type with
+  | Type.Function (expected_types, return_type) -> begin
+    if List.compare_lengths expected_types argument_types = 0 then
+      typecheck_parameter_types metadata expected_types argument_types return_type
     else
-      let prefix = build_prefix "function application" metadata in
+      let prefix = build_error_prefix metadata "function application" in
       Error (Cmpl_err.type_errors metadata prefix [
-        sprintf "function expected %d arguments, " @@ List.length p_exp;
-        sprintf "but instead received %d" @@ List.length p_act
+        sprintf "function expected %d arguments, " @@ List.length expected_types;
+        sprintf "but instead received %d" @@ List.length argument_types
       ])
   end
-  | tipe ->
-      let prefix = build_prefix "expression" metadata in
+  | defined_type ->
+      let prefix = build_error_prefix metadata "expression" in
       Error (Cmpl_err.type_errors metadata prefix [
-        sprintf "attempt to apply non-function type of %s" @@ Type.inspect tipe
+        sprintf "attempt to apply non-function type of %s" @@ Type.inspect defined_type
       ])
 
-let chk_apply recur_fn scopes fn args metadata =
-  let fold_fn arg types =
-    let* types = types in
-    let* tipe = recur_fn scopes arg in
-    return (tipe :: types) in
-  let types = List.fold_right fold_fn args (Ok []) in
-  let* etypes = types in
-  let* atypes = recur_fn scopes fn in
-  let* rtype = cmp_fn_types atypes etypes metadata in
-  return rtype
+let typecheck_apply recursively_typecheck scopes metadata callable_node arguments =
+  let typecheck_arguments argument checked_types =
+    let* checked_types = checked_types in
+    let* next_type = recursively_typecheck scopes argument in
+    return (next_type :: checked_types) in
+  let* argument_types = List.fold_right typecheck_arguments arguments (Ok []) in
+  let* defined_type = recursively_typecheck scopes callable_node in
+  let* return_type = typecheck_callable_arguments metadata defined_type argument_types in
+  return return_type
 
 (*TODO handle this more like function arguments*)
-let compare_field_types name rtype fields metadata =
-  match List.find_opt (fun c -> (fst c) = name) fields with
-  | Some (_, tipe) when is_compatible tipe rtype -> Ok rtype
-  | Some (_, tipe) ->
-      let prefix = build_prefix "record constructor" metadata in
+let compare_field_types metadata target_fields bound_field bound_type =
+  match List.find_opt (fun target_field -> (fst target_field) = bound_field) target_fields with
+  | Some (_, target_type) when is_compatible target_type bound_type -> Ok bound_type
+  | Some (_, target_type) ->
+      let prefix = build_error_prefix metadata "record constructor" in
       Error (Cmpl_err.type_errors metadata prefix [
-        sprintf "constructor expected type of %s, " @@ Type.inspect tipe;
-        sprintf "but instead received type of %s" @@ Type.inspect rtype
+        sprintf "constructor expected type of %s, " @@ Type.inspect target_type;
+        sprintf "but instead received type of %s" @@ Type.inspect bound_type
   ])
   | None -> assert false
 
-let chk_cons recur_fn scopes tipe bindings metadata =
-  match tipe with
-  | Type.Record (fields) -> begin
-    let fold_fn binding rtypes =
-      let* rtypes = rtypes in
-      let (name, expr) = Node.Binding.to_tuple binding in
-      let* rtype = recur_fn scopes expr in
-      let* rtype = compare_field_types name rtype fields metadata in
-      return (rtype :: rtypes) in
-    let rtypes = List.fold_right fold_fn bindings (Ok []) in
-    let* _ = rtypes in return tipe
+let typecheck_cons recursively_typecheck scopes metadata target_type bindings =
+  match target_type with
+  | Type.Record (target_fields) -> begin
+    let typecheck_field_types binding bound_types =
+      let* bound_types = bound_types in
+      let (bound_field, body_node) = Node.Binding.to_tuple binding in
+      let* bound_type = recursively_typecheck scopes body_node in
+      let* bound_type = compare_field_types metadata target_fields bound_field bound_type in
+      return (bound_type :: bound_types) in
+    let bound_types = List.fold_right typecheck_field_types bindings (Ok []) in
+    let* _ = bound_types in return target_type
     end
   | _ -> assert false
 
-let chk_record_type rectype metadata =
-  match rectype with
-  | Type.Record (fields) -> Ok fields
-  | tipe ->
-      let prefix = build_prefix "record.get operation" metadata in
+let typecheck_record_type metadata target_type =
+  match target_type with
+  | Type.Record fields -> Ok fields
+  | actual_type ->
+      let prefix = build_error_prefix metadata "record.get operation" in
       Error (Cmpl_err.type_errors metadata prefix [
         "first arg to 'get' builtin must be record type, ";
-        sprintf "instead received %s" @@ Type.inspect tipe
+        sprintf "instead received %s" @@ Type.inspect actual_type
   ])
 
-let chk_record_field cons field metadata =
-  match List.find_opt (fun (name, _) -> name = field) cons with
-  | Some (_, tipe) -> Ok (tipe)
+let typecheck_record_field metadata target_fields field =
+  match List.find_opt (fun (name, _) -> name = field) target_fields with
+  | Some (_, target_type) -> Ok (target_type)
   | None ->
-      let prefix = build_prefix "record.get operation" metadata in
+      let prefix = build_error_prefix metadata "record.get operation" in
       Error (Cmpl_err.name_errors metadata prefix [
-        sprintf "record does not have field %s" @@ Identifier.inspect field
+        sprintf "record does not have field %s" @@ Identifier.to_string field
       ])
 
-let chk_get table scopes record field metadata =
-  match record with
-  | Node.Symbol (name, _) -> begin
-    let* rectype = chk_name table scopes name in
-    let* cons = chk_record_type rectype metadata in
-    let* rtype = chk_record_field cons field metadata in
-    return rtype
+let typecheck_get symbol_table scopes metadata target_node field =
+  match target_node with
+  | { Node.parsed = Node.Symbol name; _ } -> begin
+    let* target_type = typecheck_name symbol_table scopes name in
+    let* target_fields = typecheck_record_type metadata target_type in
+    let* target_type = typecheck_record_field metadata target_fields field in
+    return target_type
   end
   | _ -> assert false
 
-let compare_set_type actual expected metadata =
-  if is_compatible expected actual then Ok actual
+let compare_set_type metadata target_type actual_type =
+  if is_compatible target_type actual_type then Ok actual_type
   else
-    let prefix = build_prefix "record.set operation" metadata in
+    let prefix = build_error_prefix metadata "record.set operation" in
     Error (Cmpl_err.type_errors metadata prefix [
-      sprintf "builtin 'set' expected type of %s, " @@ Type.inspect expected;
-      sprintf "but instead received type of %s" @@ Type.inspect actual
+      sprintf "builtin 'set' expected type of %s, " @@ Type.inspect target_type;
+      sprintf "but instead received type of %s" @@ Type.inspect actual_type
     ])
 
-let chk_set recur_fn table scopes record field expr metadata =
-  match record with
-  | Node.Symbol (name, _) -> begin
-    let* rectype = chk_name table scopes name in
-    let* cons = chk_record_type rectype metadata in
-    let* fieldtype = chk_record_field cons field metadata in
-    let* exprtype = recur_fn scopes expr in
-    let* _ = compare_set_type exprtype fieldtype metadata in
+let typecheck_set recursively_typecheck symbol_table scopes metadata target_node field body_node =
+  match target_node with
+  | { Node.parsed = Node.Symbol name; _ } -> begin
+    let* target_type = typecheck_name symbol_table scopes name in
+    let* target_fields = typecheck_record_type metadata target_type in
+    let* target_type = typecheck_record_field metadata target_fields field in
+    let* actual_type = recursively_typecheck scopes body_node in
+    let* _ = compare_set_type metadata target_type actual_type in
     return Type.Unit
   end
   | _ -> assert false
 
-let chk_cast recur_fn scopes tipe expr =
-  let* _ = recur_fn scopes expr in
-  return tipe
+let typecheck_cast recursively_typecheck scopes target_type body_node =
+  let* _ = recursively_typecheck scopes body_node in
+  return target_type
 
-let check_node table node =
-  let rec check_node' scopes = function
-    | Node.NumLit (_, _) -> Ok Type.Number
-    | Node.StrLit (_, _) -> Ok Type.String
-    | Node.Symbol (name, _) -> chk_name table scopes name
-    | Node.Fn (params, rtype, body, meta) -> chk_fn check_node' scopes params rtype body meta
-    | Node.If (tst, iff, els, meta) -> chk_if check_node' scopes tst iff els meta
-    | Node.Let (bindings, body, _) -> chk_let check_node' scopes bindings body
-    | Node.Apply (fn, args, meta) -> chk_apply check_node' scopes fn args meta
-    | Node.Cons (tipe, bindings, meta) -> chk_cons check_node' scopes tipe bindings meta
-    | Node.Get (record, field, meta) -> chk_get table scopes record field meta
-    | Node.Set (record, field, expr, meta) -> chk_set check_node' table scopes record field expr meta
-    | Node.Cast (tipe, expr, _) -> chk_cast check_node' scopes tipe expr
+let typecheck_node table node =
+  let rec recursively_typecheck scopes (node: Node.t) =
+    let metadata = node.metadata in
+    match node.parsed with
+    | Node.NumLit _ ->
+        Ok Type.Number
+    | Node.StrLit _ ->
+        Ok Type.String
+    | Node.Symbol name ->
+        typecheck_name table scopes name
+    | Node.Fn { parameters; return_type; body_node } ->
+        typecheck_fn recursively_typecheck scopes metadata parameters return_type body_node
+    | Node.If { test_node; if_node; else_node } ->
+        typecheck_if recursively_typecheck scopes metadata test_node if_node else_node
+    | Node.Let { bindings; body_node } ->
+        typecheck_let recursively_typecheck scopes bindings body_node
+    | Node.Apply { callable_node; arguments } ->
+        typecheck_apply recursively_typecheck scopes metadata callable_node arguments
+    | Node.Cons { target_type; bindings } ->
+        typecheck_cons recursively_typecheck scopes metadata target_type bindings
+    | Node.Get { target_node; field } ->
+        typecheck_get table scopes metadata target_node field
+    | Node.Set { target_node; field; body_node } ->
+        typecheck_set recursively_typecheck table scopes metadata target_node field body_node
+    | Node.Cast { target_type; body_node } ->
+        typecheck_cast recursively_typecheck scopes target_type body_node
     | Node.Type _ -> assert false
     | Node.Def _ -> assert false
   in
-  check_node' [] node
+  recursively_typecheck [] node

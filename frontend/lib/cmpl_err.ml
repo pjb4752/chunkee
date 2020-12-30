@@ -30,18 +30,18 @@ let syntax_error line_num char_num message =
   let prefix = sprintf "in expression at %d:%d" line_num char_num in
   SyntaxError { line_num; char_num; prefix; message }
 
-let parse_errors { Metadata.line_num; char_num } prefix messages =
+let parse_errors { Metadata.line_num; char_num; _ } prefix messages =
   let message = String.concat "" messages in
   ParseError { line_num; char_num; prefix; message }
 
-let definition_errors { Metadata.line_num; char_num } prefix messages =
+let definition_errors { Metadata.line_num; char_num; _ } prefix messages =
   let message = String.concat "" messages in
   DefinitionError { line_num; char_num; prefix; message }
 
-let name_errors { Metadata.line_num; char_num } prefix messages =
+let name_errors { Metadata.line_num; char_num; _ } prefix messages =
   let message = String.concat "" messages in
   NameError { line_num; char_num; prefix; message }
 
-let type_errors { Metadata.line_num; char_num } prefix messages =
+let type_errors { Metadata.line_num; char_num; _ } prefix messages =
   let message = String.concat "" messages in
   TypeError { line_num; char_num; prefix; message }
