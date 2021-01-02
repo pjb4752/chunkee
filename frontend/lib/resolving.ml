@@ -3,12 +3,17 @@ open Common.Extensions
 open Common.Extensions.Result
 open Common.Extensions.Result.Syntax
 
-module Scope = Set.Make(String)
-
 module PNode = Ast.Parsed_node
 module RNode = Ast.Resolved_node
 
-type t = (RNode.t, Cmpl_err.t) result
+module Scope = Set.Make(String)
+
+module Result = struct
+  type t = (RNode.t, Cmpl_err.t) result
+
+  let inspect result =
+    Result.inspect result RNode.inspect Cmpl_err.to_string
+end
 
 let build_error_prefix { Metadata.line_num; char_num; _ } =
   sprintf "in expression at %d:%d" line_num char_num
@@ -194,6 +199,3 @@ let resolve_node symbol_table node =
         resolve_cast resolve' symbol_table scopes metadata target_type body_node
     | PNode.Type _ -> assert false in
   resolve' [] node
-
-let inspect node =
-  Result.inspect node RNode.inspect Cmpl_err.to_string

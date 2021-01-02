@@ -55,10 +55,12 @@ let whitespace = [' '; '\t'; '\n']
 let digits = ['0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9']
 let lower_case = ['a'; 'b'; 'c'; 'd'; 'e'; 'f'; 'g'; 'h'; 'i'; 'j'; 'k'; 'l';
   'm'; 'n'; 'o'; 'p'; 'q'; 'r'; 's'; 't'; 'u'; 'v'; 'w'; 'x'; 'y'; 'z']
+let upper_case = ['A'; 'B'; 'C'; 'D'; 'E'; 'F'; 'G'; 'H'; 'I'; 'J'; 'K'; 'L';
+  'M'; 'N'; 'O'; 'P'; 'Q'; 'R'; 'S'; 'T'; 'U'; 'V'; 'W'; 'X'; 'Y'; 'Z']
 let operators = ['+'; '-'; '*'; '/'; '>'; '<'; '=']
 let punctuation = ['!'; '?'; '.'; ':']
 
-let symbol_starting_chars = '_' :: (List.append lower_case operators)
+let symbol_starting_chars = '_' :: (List.append (List.append lower_case operators) upper_case)
 let symbol_chars = symbol_starting_chars @ digits @ punctuation
 
 let is_char_of set chr = List.exists (fun c -> c = chr) set

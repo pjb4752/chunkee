@@ -3,7 +3,7 @@ open Common.Extensions.Option
 open Common.Extensions.Option.Syntax
 
 type t = {
-  pervasive: Pervasive.t;
+  intrinsics: Intrinsics.t;
   tree: Module_tree.t;
   modul: Module.t;
 }
@@ -16,10 +16,10 @@ type exists_in_scope = string -> bool
 
 type exists_in_decls = Identifier.t -> Type.t option
 
-let make (pervasive: Pervasive.t) modul =
+let make (intrinsics: Intrinsics.t) modul =
   let tree = Module_tree.empty in
-  let tree = Module_tree.insert_module tree pervasive.modul in
-  { pervasive; tree; modul }
+  let tree = Module_tree.insert_module tree intrinsics.common_module in
+  { intrinsics; tree; modul }
 
 let current_module { modul; _ } = modul
 
@@ -45,10 +45,14 @@ let resolve_qualified_name table module_name name =
   | Some modul -> resolve_module_name modul name
   | None -> undefined_module_error module_name
 
-let resolve_unqualified_name { pervasive; modul; _ } name =
-  match resolve_module_name pervasive.modul name with
-  | Error _ -> resolve_module_name modul name
+let resolve_unqualified_name { intrinsics; modul; _ } name =
+  match resolve_module_name modul name with
   | Ok name -> Ok name
+  | Error _ -> begin
+    match resolve_module_name intrinsics.common_module name with
+    | Error _ -> resolve_module_name modul name
+    | Ok name -> Ok name
+  end
 
 let resolve_name table exists_in_scope = function
   | Name_expr.QualName (module_name, name) ->

@@ -12,9 +12,7 @@ let lua_modules = [
 let find_lua_module name =
   List.find_opt (fun lua_module -> (Lua_module.compiler_name lua_module) = name) lua_modules
 
-let pervasive_module = Lua_module.to_compiler_module common_module
-
-let pervasive = { Pervasive.modul = pervasive_module }
+let intrinsics = { Intrinsics.common_module = Lua_module.to_compiler_module common_module }
 
 let compiler_modules =
   List.fold_left (fun tree current_module ->

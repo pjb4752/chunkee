@@ -1,4 +1,3 @@
-open Frontend
 open Frontend.Ast
 open Frontend.Lexing
 open Frontend.Metadata
@@ -28,7 +27,7 @@ let lexed_value = {
 let parsed_value = {
   Parsed_node.metadata = { line_num = 1; char_num = 1; source };
   parsed = Parsed_node.Def {
-    name = Identifier.from_string "x";
+    name = Frontend.Identifier.from_string "x";
     body_node = {
       metadata = { line_num = 1; char_num = 8; source = "5" };
       parsed = Parsed_node.NumLit 5.0

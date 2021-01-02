@@ -1,12 +1,14 @@
-open Frontend
 open Frontend.Ast
 open Frontend.Lexing
 open Frontend.Metadata
 
+module Identifier = Frontend.Identifier
+module Name = Frontend.Name
+
 let source = String.concat "\n" [
-  "(let [first x";
-  "      second y]";
-  "  (+ first second))";
+  "(let [first 5";
+  "      pi pi]";
+  "  (+ first pi))";
 ]
 
 let metadata = { line_num = 1; char_num = 1; source }
@@ -19,28 +21,28 @@ let lexed_value = {
       lexed = Form.Symbol "let"
     };
     {
-      metadata = { line_num = 1; char_num = 6; source = "[first x\n      second y]" };
+      metadata = { line_num = 1; char_num = 6; source = "[first 5\n      pi pi]" };
       lexed = Form.Vector [
         {
           metadata = { line_num = 1; char_num = 7; source = "first" };
           lexed = Form.Symbol "first"
         };
         {
-          metadata = { line_num = 1; char_num = 13; source = "x" };
-          lexed = Form.Symbol "x"
+          metadata = { line_num = 1; char_num = 13; source = "5" };
+          lexed = Form.Number 5.0
         };
         {
-          metadata = { line_num = 2; char_num = 7; source = "second" };
-          lexed = Form.Symbol "second"
+          metadata = { line_num = 2; char_num = 7; source = "pi" };
+          lexed = Form.Symbol "pi"
         };
         {
-          metadata = { line_num = 2; char_num = 14; source = "y" };
-          lexed = Form.Symbol "y"
+          metadata = { line_num = 2; char_num = 10; source = "pi" };
+          lexed = Form.Symbol "pi"
         }
       ]
     };
     {
-      metadata = { line_num = 3; char_num = 3; source = "(+ first second)" };
+      metadata = { line_num = 3; char_num = 3; source = "(+ first pi)" };
       lexed = Form.List [
         {
           metadata = { line_num = 3; char_num = 4; source = "+" };
@@ -51,8 +53,8 @@ let lexed_value = {
           lexed = Form.Symbol "first"
         };
         {
-          metadata = { line_num = 3; char_num = 12; source = "second" };
-          lexed = Form.Symbol "second"
+          metadata = { line_num = 3; char_num = 12; source = "pi" };
+          lexed = Form.Symbol "pi"
         }
       ]
     }
@@ -64,16 +66,16 @@ let parsed_value = {
   parsed = Parsed_node.Let {
     bindings = [
       Parsed_node.Binding.from_node (Identifier.from_string "first") {
-        Parsed_node.metadata = { line_num = 1; char_num = 13; source = "x" };
-        parsed = Parsed_node.Symbol (BareName "x")
+        Parsed_node.metadata = { line_num = 1; char_num = 13; source = "5" };
+        parsed = Parsed_node.NumLit 5.0
       };
-      Parsed_node.Binding.from_node (Identifier.from_string "second") {
-        Parsed_node.metadata = { line_num = 2; char_num = 14; source = "y" };
-        parsed = Parsed_node.Symbol (BareName "y")
+      Parsed_node.Binding.from_node (Identifier.from_string "pi") {
+        Parsed_node.metadata = { line_num = 2; char_num = 10; source = "pi" };
+        parsed = Parsed_node.Symbol (BareName "pi")
       }
     ];
     body_node = {
-      metadata = { line_num = 3; char_num = 3; source = "(+ first second)" };
+      metadata = { line_num = 3; char_num = 3; source = "(+ first pi)" };
       parsed = Parsed_node.Apply {
         callable_node = {
           metadata = { line_num = 3; char_num = 4; source = "+" };
@@ -85,8 +87,47 @@ let parsed_value = {
             parsed = Parsed_node.Symbol (BareName "first")
           };
           {
-            metadata = { line_num = 3; char_num = 12; source = "second" };
-            parsed = Parsed_node.Symbol (BareName "second")
+            metadata = { line_num = 3; char_num = 12; source = "pi" };
+            parsed = Parsed_node.Symbol (BareName "pi")
+          }
+        ]
+      }
+    }
+  }
+}
+
+let resolved_value = {
+  Resolved_node.metadata = metadata;
+  parsed = Resolved_node.Let {
+    bindings = [
+      Resolved_node.Binding.from_node (Identifier.from_string "first") {
+        Resolved_node.metadata = { line_num = 1; char_num = 13; source = "5" };
+        parsed = Resolved_node.NumLit 5.0
+      };
+      Resolved_node.Binding.from_node (Identifier.from_string "pi") {
+        Resolved_node.metadata = { line_num = 2; char_num = 10; source = "pi" };
+        parsed = Resolved_node.Symbol (
+          Name.Module (Modules.Common.name, Modules.Common.pi_name)
+        )
+      }
+    ];
+    body_node = {
+      metadata = { line_num = 3; char_num = 3; source = "(+ first pi)" };
+      parsed = Resolved_node.Apply {
+        callable_node = {
+          metadata = { line_num = 3; char_num = 4; source = "+" };
+          parsed = Resolved_node.Symbol (
+            Name.Module (Modules.Common.name, Modules.Common.plus_name)
+          )
+        };
+        arguments = [
+          {
+            metadata = { line_num = 3; char_num = 6; source = "first" };
+            parsed = Resolved_node.Symbol (Name.Local "first")
+          };
+          {
+            metadata = { line_num = 3; char_num = 12; source = "pi" };
+            parsed = Resolved_node.Symbol (Name.Local "pi")
           }
         ]
       }

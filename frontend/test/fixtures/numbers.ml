@@ -15,3 +15,8 @@ let parsed_value = {
   Parsed_node.metadata = metadata;
   parsed = Parsed_node.NumLit 55.0
 }
+
+let resolved_value = {
+  Resolved_node.metadata = metadata;
+  parsed = Resolved_node.NumLit 55.0
+}

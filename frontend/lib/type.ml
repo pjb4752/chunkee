@@ -11,12 +11,12 @@ type t =
   | Function of t list * t
 
 let type_of_str s =
-  if s = "Unit" then Some Unit
-  else if s = "Any" then Some Any
-  else if s = "Num" then Some Number
-  else if s = "Str" then Some String
-  else if s = "Bool" then Some Bool
-  else if s = "List" then Some List
+  if s = "unit" then Some Unit
+  else if s = "any" then Some Any
+  else if s = "num" then Some Number
+  else if s = "str" then Some String
+  else if s = "bool" then Some Bool
+  else if s = "list" then Some List
   else None
 
 let find_builtin s = type_of_str s
@@ -35,11 +35,11 @@ let rec inspect tipe =
   let inspect_record = inspect_record inspect in
   let inspect_function = inspect_function inspect in
   match tipe with
-  | Unit -> "Unit"
-  | Any -> "Any"
-  | Number -> "Num"
-  | String -> "Str"
-  | Bool -> "Bool"
-  | List -> "List"
+  | Unit -> "unit"
+  | Any -> "any"
+  | Number -> "num"
+  | String -> "str"
+  | Bool -> "bool"
+  | List -> "list"
   | Record fields -> inspect_record fields
   | Function (param_types, return_type) -> inspect_function param_types return_type

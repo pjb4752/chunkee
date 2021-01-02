@@ -7,7 +7,7 @@ let assert_parses_to expected tokens =
 let assert_true value = assert_equal value true
 
 let suite =
-  "Parse suite">::: [
+  "Parsing suite">::: [
     "parse number form">::
       (fun _ ->
         assert_parses_to Numbers.parsed_value Numbers.lexed_value

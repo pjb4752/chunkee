@@ -8,7 +8,7 @@ type exists_in_scope = string -> bool
 
 type exists_in_decls = Identifier.t -> Type.t option
 
-val make: Pervasive.t -> Module.t -> t
+val make: Intrinsics.t -> Module.t -> t
 
 val current_module: t -> Module.t
 

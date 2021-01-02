@@ -26,9 +26,9 @@ let compile_module table source =
   Frontend.Compile.compile_module table source
 
 let compile filename =
-  let pervasive = Backend.Stdlib.pervasive in
-  let modul = create_module ["test"] "main" in
-  let table = Frontend.Symbol_table.make pervasive modul in
+  let intrinsics = Backend.Stdlib.intrinsics in
+  let tmp_module = create_module ["tmp"] "main" in
+  let table = Frontend.Symbol_table.make intrinsics tmp_module in
   let source = read_source_file filename in
   match compile_module table source with
   | Error e -> Frontend.Cmpl_err.to_string e

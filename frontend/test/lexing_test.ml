@@ -8,7 +8,7 @@ let assert_lexes_with_error expected str =
   assert_equal ~printer:Result.inspect (Error expected) (lex str)
 
 let suite =
-  "Lex suite">::: [
+  "Lexing suite">::: [
     "lex single number form">::
       (fun _ ->
         assert_lexes_to [Numbers.lexed_value] "55"
