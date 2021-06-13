@@ -3,7 +3,7 @@ exception SyntaxError of int * int * string
 module Form : sig
   type t = {
     metadata: Metadata.t;
-    lexed: u
+    value: u
   }
   and u =
     | Number of float

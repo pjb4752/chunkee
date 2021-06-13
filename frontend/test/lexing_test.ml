@@ -18,7 +18,7 @@ let suite =
       (fun _ ->
         let lexed_value = {
           Form.metadata = { line_num = 1; char_num = 3; source = "55" };
-          lexed = Form.Number 55.0
+          value = Form.Number 55.0
         } in
         assert_lexes_to [lexed_value] "\t 55 \t"
       );
@@ -32,7 +32,7 @@ let suite =
       (fun _ ->
         let lexed_value = {
           Form.metadata = { line_num = 1; char_num = 3; source = "\"hello\"" };
-          lexed = Form.String "hello"
+          value = Form.String "hello"
         } in
         assert_lexes_to [lexed_value] "\t \"hello\" \t"
       );
@@ -48,7 +48,7 @@ let suite =
       (fun _ ->
         let lexed_value = {
           Form.metadata = { line_num = 1; char_num = 1; source = "fat?" };
-          lexed = Form.Symbol "fat?"
+          value = Form.Symbol "fat?"
         } in
         assert_lexes_to [lexed_value] "fat?"
       );
@@ -57,7 +57,7 @@ let suite =
       (fun _ ->
         let lexed_value = {
           Form.metadata = { line_num = 1; char_num = 3; source = "fat?" };
-          lexed = Form.Symbol "fat?"
+          value = Form.Symbol "fat?"
         } in
         assert_lexes_to [lexed_value] "\t fat? \t"
       );
@@ -66,18 +66,18 @@ let suite =
       (fun _ ->
         let lexed_value = {
           Form.metadata = { line_num = 1; char_num = 1; source = "(+ 1 2)" };
-          lexed = Form.List [
+          value = Form.List [
             {
               metadata = { line_num = 1; char_num = 2; source = "+" };
-              lexed = Form.Symbol "+"
+              value = Form.Symbol "+"
             };
             {
               metadata = { line_num = 1; char_num = 4; source = "1" };
-              lexed = Form.Number 1.0
+              value = Form.Number 1.0
             };
             {
               metadata = { line_num = 1; char_num = 6; source = "2" };
-              lexed = Form.Number 2.0
+              value = Form.Number 2.0
             }
           ]
         } in
@@ -88,18 +88,18 @@ let suite =
       (fun _ ->
         let lexed_value = {
           Form.metadata = { line_num = 1; char_num = 1; source = "(   + 1 \n  2   )" };
-          lexed = Form.List [
+          value = Form.List [
             {
               metadata = { line_num = 1; char_num = 5; source = "+" };
-              lexed = Form.Symbol "+"
+              value = Form.Symbol "+"
             };
             {
               metadata = { line_num = 1; char_num = 7; source = "1" };
-              lexed = Form.Number 1.0
+              value = Form.Number 1.0
             };
             {
               metadata = { line_num = 2; char_num = 3; source = "2" };
-              lexed = Form.Number 2.0
+              value = Form.Number 2.0
             }
           ]
         } in

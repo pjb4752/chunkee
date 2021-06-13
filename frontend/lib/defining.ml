@@ -54,5 +54,5 @@ let define_variable symbol_table = function
   end
   | _ -> assert false
 
-let define_node symbol_table node =
+let define_for_node symbol_table node =
   define_variable symbol_table node

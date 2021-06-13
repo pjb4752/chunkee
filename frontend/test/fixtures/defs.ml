@@ -8,18 +8,18 @@ let metadata = { line_num = 1; char_num = 1; source }
 
 let lexed_value = {
   Form.metadata = metadata;
-  lexed = Form.List [
+  value = Form.List [
     {
       metadata = { line_num = 1; char_num = 2; source = "def" };
-      lexed = Form.Symbol "def"
+      value = Form.Symbol "def"
     };
     {
       metadata = { line_num = 1; char_num = 6; source = "x" };
-      lexed = Form.Symbol "x"
+      value = Form.Symbol "x"
     };
     {
       metadata = { line_num = 1; char_num = 8; source = "5" };
-      lexed = Form.Number 5.0
+      value = Form.Number 5.0
     }
   ]
 }

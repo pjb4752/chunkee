@@ -12,47 +12,47 @@ let metadata = { line_num = 1; char_num = 1; source }
 
 let lexed_value = {
   Form.metadata = metadata;
-  lexed = Form.List [
+  value = Form.List [
     {
       metadata = { line_num = 1; char_num = 2; source = "fn" };
-      lexed = Form.Symbol "fn"
+      value = Form.Symbol "fn"
     };
     {
       metadata = { line_num = 1; char_num = 5; source = "[[pi num] num]" };
-      lexed = Form.Vector [
+      value = Form.Vector [
         {
           metadata = { line_num = 1; char_num = 6; source = "[pi num]" };
-          lexed = Form.Vector [
+          value = Form.Vector [
             {
               metadata = { line_num = 1; char_num = 7; source = "pi" };
-              lexed = Form.Symbol "pi"
+              value = Form.Symbol "pi"
             };
             {
               metadata = { line_num = 1; char_num = 10; source = "num" };
-              lexed = Form.Symbol "num"
+              value = Form.Symbol "num"
             }
           ]
         };
         {
           metadata = { line_num = 1; char_num = 15; source = "num" };
-          lexed = Form.Symbol "num"
+          value = Form.Symbol "num"
         }
       ]
     };
     {
       metadata = { line_num = 1; char_num = 20; source = "(+ pi 5)" };
-      lexed = Form.List [
+      value = Form.List [
         {
           metadata = { line_num = 1; char_num = 21; source = "+" };
-          lexed = Form.Symbol "+"
+          value = Form.Symbol "+"
         };
         {
           metadata = { line_num = 1; char_num = 23; source = "pi" };
-          lexed = Form.Symbol "pi"
+          value = Form.Symbol "pi"
         };
         {
           metadata = { line_num = 1; char_num = 26; source = "5" };
-          lexed = Form.Number 5.0
+          value = Form.Number 5.0
         }
       ]
     }

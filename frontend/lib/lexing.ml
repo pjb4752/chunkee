@@ -8,7 +8,7 @@ exception SyntaxError of int * int * string
 module Form = struct
   type t = {
     metadata: Metadata.t;
-    lexed: u
+    value: u
   }
   and u =
     | Number of float
@@ -22,16 +22,19 @@ module Form = struct
 
   let source form = form.metadata.source
 
-  let rec inspect { metadata; lexed } =
-    let metadata = Metadata.inspect metadata in
+  let inspect_form metadata form =
+    sprintf "{ metadata = %s; form = %s }" (Metadata.inspect metadata) form
+
+  let rec inspect { metadata; value } =
     let inspect_list l = String.concat " " (List.map inspect l) in
-    match lexed with
-    | Number value -> sprintf "Number(%s, %.5f)" metadata value
-    | String value -> sprintf "String(%s, %s)" metadata value
-    | Symbol value -> sprintf "Symbol(%s, %s)" metadata value
-    | List value -> sprintf "List(%s, %s)" metadata (inspect_list value)
-    | Vector value -> sprintf "Vector(%s, %s)" metadata (inspect_list value)
-    | Extension value -> sprintf "Extension(%s, %s)" metadata (inspect value)
+    let inspected_form = match value with
+    | Number value -> sprintf "Number(%.5f)" value
+    | String value -> sprintf "String(%s)" value
+    | Symbol value -> sprintf "Symbol(%s)" value
+    | List value -> sprintf "List(%s)" (inspect_list value)
+    | Vector value -> sprintf "Vector(%s)" (inspect_list value)
+    | Extension value -> sprintf "Extension(%s)" (inspect value)
+    in inspect_form metadata inspected_form
 end
 
 module Result = struct
@@ -104,8 +107,8 @@ let lex_simple_form input_chars form_builder char_predicate =
 let lex_number line_num char_num input_chars =
   let form_builder output_string =
     let metadata = { Metadata.line_num; char_num; source = output_string } in
-    let lexed = Form.Number (float_of_string output_string) in
-    { Form.metadata; lexed }
+    let value = Form.Number (float_of_string output_string) in
+    { Form.metadata; value }
   in
   let is_not_digit = (fun c -> not (is_digit_char c)) in
   lex_simple_form input_chars form_builder is_not_digit
@@ -113,8 +116,8 @@ let lex_number line_num char_num input_chars =
 let lex_symbol line_num char_num input_chars =
   let form_builder output_string =
     let metadata = { Metadata.line_num; char_num; source = output_string } in
-    let lexed = Form.Symbol output_string in
-    { Form.metadata; lexed }
+    let value = Form.Symbol output_string in
+    { Form.metadata; value }
   in
   let is_not_symbol_char = (fun c -> not (is_symbol_char c)) in
   lex_simple_form input_chars form_builder is_not_symbol_char
@@ -138,8 +141,8 @@ let lex_delimited line_num char_num input_chars raw_source config =
 let lex_string line_num char_num input_chars =
   let form_builder output_string raw_source =
     let metadata = { Metadata.line_num; char_num; source = raw_source } in
-    let lexed = Form.String output_string in
-    { Form.metadata; lexed }
+    let value = Form.String output_string in
+    { Form.metadata; value }
   in
   let input_handler input_chars raw_source output_string =
     match input_chars with
@@ -186,16 +189,16 @@ let lex_collection recursively_lex input_chars form_builder final_char =
 let lex_list recursively_lex line_num char_num input_chars =
   let form_builder output_forms raw_source =
     let metadata = { Metadata.line_num; char_num; source = raw_source } in
-    let lexed = Form.List (List.rev output_forms) in
-    { Form.metadata; lexed }
+    let value = Form.List (List.rev output_forms) in
+    { Form.metadata; value }
   in
   lex_collection recursively_lex input_chars form_builder ')'
 
 let lex_vector recursively_lex line_num char_num input_chars =
   let form_builder output_forms raw_source =
     let metadata = { Metadata.line_num; char_num; source = raw_source } in
-    let lexed = Form.Vector (List.rev output_forms) in
-    { Form.metadata; lexed }
+    let value = Form.Vector (List.rev output_forms) in
+    { Form.metadata; value }
   in
   lex_collection recursively_lex input_chars form_builder ']'
 
@@ -209,8 +212,8 @@ let lex_extension recursively_lex line_num char_num input_chars =
     let (input_chars, raw_source, extension_form) = recursively_lex raw_extension in
     let raw_source = "^" ^ raw_source in
     let metadata = { Metadata.line_num; char_num; source = raw_source } in
-    let lexed = Form.Extension extension_form in
-    (input_chars, raw_source, { Form.metadata; lexed })
+    let value = Form.Extension extension_form in
+    (input_chars, raw_source, { Form.metadata; value })
   end
 
 let handle_unexpected_input line_num char_num input =

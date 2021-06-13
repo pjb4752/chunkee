@@ -12,38 +12,38 @@ let metadata = { line_num = 1; char_num = 1; source }
 
 let lexed_value = {
   Form.metadata = metadata;
-  lexed = Form.List [
+  value = Form.List [
     {
       metadata = { line_num = 1; char_num = 2; source = "if" };
-      lexed = Form.Symbol "if"
+      value = Form.Symbol "if"
     };
     {
       metadata = { line_num = 1; char_num = 5; source = "true" };
-      lexed = Form.Symbol "true"
+      value = Form.Symbol "true"
     };
     {
       metadata = { line_num = 2; char_num = 3; source = "(print \"hi\")" };
-      lexed = Form.List [
+      value = Form.List [
         {
           metadata = { line_num = 2; char_num = 4; source = "print" };
-          lexed = Form.Symbol "print"
+          value = Form.Symbol "print"
         };
         {
           metadata = { line_num = 2; char_num = 10; source = "\"hi\"" };
-          lexed = Form.String "hi"
+          value = Form.String "hi"
         }
       ]
     };
     {
       metadata = { line_num = 3; char_num = 3; source = "(print \"bye\")" };
-      lexed = Form.List [
+      value = Form.List [
         {
           metadata = { line_num = 3; char_num = 4; source = "print" };
-          lexed = Form.Symbol "print"
+          value = Form.Symbol "print"
         };
         {
           metadata = { line_num = 3; char_num = 10; source = "\"bye\"" };
-          lexed = Form.String "bye"
+          value = Form.String "bye"
         }
       ]
     }

@@ -5,7 +5,7 @@ type t = (Symbol_table.t * Ast.Resolved_node.t list, Cmpl_err.t) result
 
 let compile_form symbol_table form =
   let* parsed_node = Parsing.parse_node form in
-  let* symbol_table = Declare.define_node symbol_table parsed_node in
+  let* symbol_table = Defining.define_for_node symbol_table parsed_node in
   let* resolved_node = Resolving.resolve_node symbol_table parsed_node in
   let* _ = Typecheck.typecheck_node symbol_table resolved_node in
   return (symbol_table, resolved_node)
