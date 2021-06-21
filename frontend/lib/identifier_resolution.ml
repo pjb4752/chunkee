@@ -9,10 +9,10 @@ module RNode = Ast.Resolved_node
 module Scope = Set.Make(String)
 
 module Result = struct
-  type t = (RNode.t, Cmpl_err.t) result
+  type t = (RNode.t, Compile_error.t) result
 
   let inspect result =
-    Result.inspect result RNode.inspect Cmpl_err.to_string
+    Result.inspect RNode.inspect Compile_error.to_string result
 end
 
 let build_error_prefix { Metadata.line_num; char_num; _ } =
@@ -26,7 +26,7 @@ let resolve_symbol symbol_table scopes metadata name =
   | Ok name -> Ok { RNode.metadata; parsed = RNode.Symbol name }
   | Error error ->
       let prefix = build_error_prefix metadata in
-      Error (Cmpl_err.name_errors metadata prefix [
+      Error (Compile_error.name_errors metadata prefix [
         Symbol_table.err_string error
       ])
 
@@ -35,7 +35,7 @@ let resolve_type symbol_table metadata parsed_type =
   | Ok resolved_type -> Ok resolved_type
   | Error error ->
       let prefix = build_error_prefix metadata in
-      Error (Cmpl_err.name_errors metadata prefix [
+      Error (Compile_error.name_errors metadata prefix [
         Symbol_table.err_string error
       ])
 
@@ -114,7 +114,7 @@ let check_record_fields metadata record_type given_names =
         if List.exists ((=) given_name) defined_names then Ok given_name
         else
           let prefix = build_error_prefix metadata in
-          Error (Cmpl_err.name_errors metadata prefix [
+          Error (Compile_error.name_errors metadata prefix [
             sprintf "%s is not a valid record field" @@ Identifier.to_string given_name
           ])
       in
@@ -125,7 +125,7 @@ let check_record_fields metadata record_type given_names =
       List.fold_right check_fields_exist given_names (Ok [])
     else
       let prefix = build_error_prefix metadata in
-      Error (Cmpl_err.name_errors metadata prefix [
+      Error (Compile_error.name_errors metadata prefix [
         sprintf "Wrong number of fields for given for record"
       ])
   end
@@ -169,7 +169,7 @@ let resolve_cast recur_fn symbol_table scopes metadata target_type body_node =
   let* body_node = recur_fn scopes body_node in
   return { RNode.metadata; parsed = RNode.Cast { target_type; body_node } }
 
-let resolve_node symbol_table node =
+let resolve_identifiers symbol_table node =
   let rec resolve' scopes (node: PNode.t) =
     let metadata = node.metadata in
     match node.parsed with

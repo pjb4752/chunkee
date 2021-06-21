@@ -1,13 +1,13 @@
 open Printf
 
-type ert = { line_num: int; char_num: int; prefix: string; message: string }
+type payload_t = { line_num: int; char_num: int; prefix: string; message: string }
 
 type t =
-  | SyntaxError of ert
-  | ParseError of ert
-  | DefinitionError of ert
-  | NameError of ert
-  | TypeError of ert
+  | SyntaxError of payload_t
+  | ParseError of payload_t
+  | DefinitionError of payload_t
+  | NameError of payload_t
+  | TypeError of payload_t
 
 let message = function
   | SyntaxError { message; _ } -> message
@@ -30,9 +30,10 @@ let syntax_error line_num char_num message =
   let prefix = sprintf "in expression at %d:%d" line_num char_num in
   SyntaxError { line_num; char_num; prefix; message }
 
-let parse_errors { Metadata.line_num; char_num; _ } prefix messages =
+let parse_errors { Stream_position.line_number; char_number; _ } messages =
   let message = String.concat "" messages in
-  ParseError { line_num; char_num; prefix; message }
+  let prefix = sprintf "in expression at %d:%d" line_number char_number in
+  ParseError { line_num = line_number; char_num = char_number; prefix; message }
 
 let definition_errors { Metadata.line_num; char_num; _ } prefix messages =
   let message = String.concat "" messages in

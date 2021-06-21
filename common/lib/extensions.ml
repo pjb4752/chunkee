@@ -71,7 +71,7 @@ module Result = struct
 
   let (>>=) = Result.bind
 
-  let inspect r ok_fn err_fn =
+  let inspect ok_fn err_fn r =
     match r with
     | Ok v -> sprintf "Ok (%s)" @@ ok_fn v
     | Error e -> sprintf "Error (%s)" @@ err_fn e

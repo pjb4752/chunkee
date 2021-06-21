@@ -6,10 +6,10 @@ open Common.Extensions.Result.Syntax
 module Node = Ast.Parsed_node
 
 module Result = struct
-  type t = (Symbol_table.t, Cmpl_err.t) result
+  type t = (Symbol_table.t, Compile_error.t) result
 
   let inspect result =
-    Result.inspect result Symbol_table.inspect Cmpl_err.to_string
+    Result.inspect Symbol_table.inspect Compile_error.to_string result
 end
 
 module DeclaredTypes = Map.Make(Identifier)
@@ -28,7 +28,7 @@ let find_function_type symbol_table metadata parameters return_type =
   | Ok compound_type -> Ok compound_type
   | Error error -> begin
       let prefix = build_prefix metadata in
-      Error (Cmpl_err.definition_errors metadata prefix [
+      Error (Compile_error.definition_errors metadata prefix [
         Symbol_table.err_string error
       ])
   end
@@ -44,7 +44,7 @@ let define_variable symbol_table = function
   | { Node.metadata; parsed = Node.Def { name; body_node } } -> begin
     if variable_exists symbol_table name then
       let prefix = build_prefix metadata in
-      Error (Cmpl_err.definition_errors metadata prefix [
+      Error (Compile_error.definition_errors metadata prefix [
         sprintf "var with name '%s' is already defined" @@ Identifier.to_string name
       ])
     else (
@@ -54,5 +54,5 @@ let define_variable symbol_table = function
   end
   | _ -> assert false
 
-let define_for_node symbol_table node =
+let define_identifiers symbol_table node =
   define_variable symbol_table node
