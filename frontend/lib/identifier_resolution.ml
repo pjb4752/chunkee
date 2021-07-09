@@ -3,16 +3,16 @@ open Common.Extensions
 open Common.Extensions.Result
 open Common.Extensions.Result.Syntax
 
-module PNode = Ast.Parsed_node
-module RNode = Ast.Resolved_node
+module Sem_form = Ast.Semantic_form
+module Res_form = Ast.Resolved_form
 
 module Scope = Set.Make(String)
 
 module Result = struct
-  type t = (RNode.t, Compile_error.t) result
+  type t = (Res_form.t, Compile_error.t) result
 
   let inspect result =
-    Result.inspect RNode.inspect Compile_error.to_string result
+    Result.inspect Res_form.inspect Compile_error.to_string result
 end
 
 let build_error_prefix { Metadata.line_num; char_num; _ } =
@@ -23,7 +23,7 @@ let resolve_symbol symbol_table scopes metadata name =
     List.exists (Scope.mem name) scopes) name
   in
   match name with
-  | Ok name -> Ok { RNode.metadata; parsed = RNode.Symbol name }
+  | Ok name -> Ok { Res_form.metadata; parsed = Res_form.Symbol name }
   | Error error ->
       let prefix = build_error_prefix metadata in
       Error (Compile_error.name_errors metadata prefix [
@@ -39,40 +39,40 @@ let resolve_type symbol_table metadata parsed_type =
         Symbol_table.err_string error
       ])
 
-let resolve_def recur_fn scopes metadata name body_node =
-  let* body_node = recur_fn scopes body_node in
-  return { RNode.metadata; parsed = RNode.Def { name; body_node } }
+let resolve_def recur_fn scopes metadata name body_form =
+  let* body_form = recur_fn scopes body_form in
+  return { Res_form.metadata; parsed = Res_form.Def { name; body_form } }
 
-let resolve_function recur_fn symbol_table scopes metadata parameters return_type body_node =
+let resolve_function recur_fn symbol_table scopes metadata parameters return_type body_form =
   let resolve_vars parsed_var resolved_vars =
     let* resolved_vars = resolved_vars in
-    let (name, parsed_type) = PNode.VarDef.to_tuple parsed_var in
+    let (name, parsed_type) = Sem_form.VarDef.to_tuple parsed_var in
     let* resolved_type = resolve_type symbol_table metadata parsed_type in
-    let resolved_var = RNode.VarDef.from_parts name resolved_type in
+    let resolved_var = Res_form.VarDef.from_parts name resolved_type in
     return (resolved_var :: resolved_vars) in
   let extract_var_name resolved_var =
-    RNode.VarDef.to_tuple resolved_var |> fst |> Identifier.to_string in
+    Res_form.VarDef.to_tuple resolved_var |> fst |> Identifier.to_string in
   let* parameters = List.fold_right resolve_vars parameters (Ok []) in
   let param_names = List.map extract_var_name parameters in
   let function_scope = Scope.of_list param_names in
   let scopes = function_scope :: scopes in
   let* return_type = resolve_type symbol_table metadata return_type in
-  let* body_node = recur_fn scopes body_node in
-  return { RNode.metadata; parsed = RNode.Fn { parameters; return_type; body_node } }
+  let* body_form = recur_fn scopes body_form in
+  return { Res_form.metadata; parsed = Res_form.Fn { parameters; return_type; body_form } }
 
-let resolve_if recur_fn scopes metadata test_node if_node else_node =
-  let* test_node = recur_fn scopes test_node in
-  let* if_node = recur_fn scopes if_node in
-  let* else_node = recur_fn scopes else_node in
-  return { RNode.metadata; parsed = RNode.If { test_node; if_node; else_node } }
+let resolve_if recur_fn scopes metadata test_form if_form else_form =
+  let* test_form = recur_fn scopes test_form in
+  let* if_form = recur_fn scopes if_form in
+  let* else_form = recur_fn scopes else_form in
+  return { Res_form.metadata; parsed = Res_form.If { test_form; if_form; else_form } }
 
 let resolve_binding recur_fn scopes binding =
-  let (name, node) = PNode.Binding.to_tuple binding in
-  match recur_fn scopes node with
+  let (name, form) = Sem_form.Binding.to_tuple binding in
+  match recur_fn scopes form with
   | Error e -> Error e
-  | Ok node -> begin
+  | Ok form -> begin
     (*TODO we should always create new scope for each binding*)
-    let binding = RNode.Binding.from_node name node in
+    let binding = Res_form.Binding.from_form name form in
     let current_scope = List.hd_else scopes Scope.empty in
     let name = Identifier.to_string name in
     let updated_scope = Scope.add name current_scope in
@@ -81,7 +81,7 @@ let resolve_binding recur_fn scopes binding =
     | _ :: previous_scopes -> Ok (updated_scope :: previous_scopes, binding)
   end
 
-let resolve_let recur_fn scopes metadata bindings body_node =
+let resolve_let recur_fn scopes metadata bindings body_form =
   let rec resolve_bindings' scopes resolved = function
     | [] -> Ok (scopes, resolved)
     | binding :: bindings -> begin
@@ -92,18 +92,18 @@ let resolve_let recur_fn scopes metadata bindings body_node =
   match resolve_bindings' scopes [] bindings with
   | Error e -> Error e
   | Ok (scopes, bindings) -> begin
-    let* body_node = recur_fn scopes body_node in
-    return { RNode.metadata; parsed = RNode.Let { bindings = List.rev bindings; body_node } }
+    let* body_form = recur_fn scopes body_form in
+    return { Res_form.metadata; parsed = Res_form.Let { bindings = List.rev bindings; body_form } }
   end
 
-let resolve_apply recur_fn scopes metadata callable_node arguments =
+let resolve_apply recur_fn scopes metadata callable_form arguments =
   let resolve_arguments resolved argument =
     let* resolved = resolved in
     let* argument = recur_fn scopes argument in
     return (argument :: resolved) in
   let* arguments = List.fold_left resolve_arguments (Ok []) arguments in
-  let* callable_node = recur_fn scopes callable_node in
-  return { RNode.metadata; parsed = RNode.Apply { callable_node; arguments = List.rev arguments } }
+  let* callable_form = recur_fn scopes callable_form in
+  return { Res_form.metadata; parsed = Res_form.Apply { callable_form; arguments = List.rev arguments } }
 
 let check_record_fields metadata record_type given_names =
   match record_type with
@@ -131,71 +131,71 @@ let check_record_fields metadata record_type given_names =
   end
   | _ -> assert false
 
-let resolve_record_expressions recur_fn scopes expression_nodes =
-  let resolve_expressions expression_node resolved_nodes =
-    let* resolved_nodes = resolved_nodes in
-    let* resolved_node = recur_fn scopes expression_node in
-    return (resolved_node :: resolved_nodes) in
-  List.fold_right resolve_expressions expression_nodes (Ok [])
+let resolve_record_expressions recur_fn scopes expression_forms =
+  let resolve_expressions expression_form resolved_forms =
+    let* resolved_forms = resolved_forms in
+    let* resolved_form = recur_fn scopes expression_form in
+    return (resolved_form :: resolved_forms) in
+  List.fold_right resolve_expressions expression_forms (Ok [])
 
 let resolve_cons recur_fn symbol_table scopes metadata target_type fields =
   let* target_type = resolve_type symbol_table metadata target_type in
-  let given_fields = List.map PNode.Binding.name fields in
+  let given_fields = List.map Sem_form.Binding.name fields in
   let* existing_fields = check_record_fields metadata target_type given_fields in
-  let field_expressions = List.map PNode.Binding.expr fields in
+  let field_expressions = List.map Sem_form.Binding.expr fields in
   let* resolved_expressions = resolve_record_expressions recur_fn scopes field_expressions in
-  let resolved_fields = List.map2 RNode.Binding.from_node existing_fields resolved_expressions in
-  return { RNode.metadata; parsed = RNode.Cons { target_type; bindings = resolved_fields } }
+  let resolved_fields = List.map2 Res_form.Binding.from_form existing_fields resolved_expressions in
+  return { Res_form.metadata; parsed = Res_form.Cons { target_type; bindings = resolved_fields } }
 
-let resolve_get symbol_table scopes target_node field =
-  match target_node with
-  | { PNode.metadata; parsed = PNode.Symbol name } -> begin
-    let* target_node = resolve_symbol symbol_table scopes metadata name in
-    return { RNode.metadata; parsed = RNode.Get { target_node; field } }
+let resolve_get symbol_table scopes target_form field =
+  match target_form with
+  | { Sem_form.metadata; parsed = Sem_form.Symbol name } -> begin
+    let* target_form = resolve_symbol symbol_table scopes metadata name in
+    return { Res_form.metadata; parsed = Res_form.Get { target_form; field } }
   end
   | _ -> assert false
 
-let resolve_set recur_fn symbol_table scopes target_node field body_node =
-  match target_node with
-  | { PNode.metadata; parsed = PNode.Symbol name } -> begin
-    let* target_node = resolve_symbol symbol_table scopes metadata name in
-    let* body_node = recur_fn scopes body_node in
-    return { RNode.metadata; parsed = RNode.Set { target_node; field; body_node } }
+let resolve_set recur_fn symbol_table scopes target_form field body_form =
+  match target_form with
+  | { Sem_form.metadata; parsed = Sem_form.Symbol name } -> begin
+    let* target_form = resolve_symbol symbol_table scopes metadata name in
+    let* body_form = recur_fn scopes body_form in
+    return { Res_form.metadata; parsed = Res_form.Set { target_form; field; body_form } }
   end
   | _ -> assert false
 
-let resolve_cast recur_fn symbol_table scopes metadata target_type body_node =
+let resolve_cast recur_fn symbol_table scopes metadata target_type body_form =
   let* target_type = resolve_type symbol_table metadata target_type in
-  let* body_node = recur_fn scopes body_node in
-  return { RNode.metadata; parsed = RNode.Cast { target_type; body_node } }
+  let* body_form = recur_fn scopes body_form in
+  return { Res_form.metadata; parsed = Res_form.Cast { target_type; body_form } }
 
-let resolve_identifiers symbol_table node =
-  let rec resolve' scopes (node: PNode.t) =
-    let metadata = node.metadata in
-    match node.parsed with
-    | PNode.NumLit value ->
-        Ok { RNode.metadata; parsed = RNode.NumLit value }
-    | PNode.StrLit value ->
-        Ok { RNode.metadata; parsed = RNode.StrLit value }
-    | PNode.Symbol value ->
+let resolve_identifiers symbol_table form =
+  let rec resolve' scopes (form: Sem_form.t) =
+    let metadata = form.metadata in
+    match form.parsed with
+    | Sem_form.NumLit value ->
+        Ok { Res_form.metadata; parsed = Res_form.NumLit value }
+    | Sem_form.StrLit value ->
+        Ok { Res_form.metadata; parsed = Res_form.StrLit value }
+    | Sem_form.Symbol value ->
         resolve_symbol symbol_table scopes metadata value
-    | PNode.Def { name; body_node }->
-        resolve_def resolve' scopes metadata name body_node
-    | PNode.Fn { parameters; return_type; body_node } ->
-        resolve_function resolve' symbol_table scopes metadata parameters return_type body_node
-    | PNode.If { test_node; if_node; else_node } ->
-        resolve_if resolve' scopes metadata test_node if_node else_node
-    | PNode.Let { bindings; body_node } ->
-        resolve_let resolve' scopes metadata bindings body_node
-    | PNode.Apply { callable_node; arguments }->
-        resolve_apply resolve' scopes metadata callable_node arguments
-    | PNode.Cons { target_type; bindings } ->
+    | Sem_form.Def { name; body_form }->
+        resolve_def resolve' scopes metadata name body_form
+    | Sem_form.Fn { parameters; return_type; body_form } ->
+        resolve_function resolve' symbol_table scopes metadata parameters return_type body_form
+    | Sem_form.If { test_form; if_form; else_form } ->
+        resolve_if resolve' scopes metadata test_form if_form else_form
+    | Sem_form.Let { bindings; body_form } ->
+        resolve_let resolve' scopes metadata bindings body_form
+    | Sem_form.Apply { callable_form; arguments }->
+        resolve_apply resolve' scopes metadata callable_form arguments
+    | Sem_form.Cons { target_type; bindings } ->
         resolve_cons resolve' symbol_table scopes metadata target_type bindings
-    | PNode.Get { target_node; field } ->
-        resolve_get symbol_table scopes target_node field
-    | PNode.Set { target_node; field; body_node } ->
-        resolve_set resolve' symbol_table scopes target_node field body_node
-    | PNode.Cast { target_type; body_node } ->
-        resolve_cast resolve' symbol_table scopes metadata target_type body_node
-    | PNode.Type _ -> assert false in
-  resolve' [] node
+    | Sem_form.Get { target_form; field } ->
+        resolve_get symbol_table scopes target_form field
+    | Sem_form.Set { target_form; field; body_form } ->
+        resolve_set resolve' symbol_table scopes target_form field body_form
+    | Sem_form.Cast { target_type; body_form } ->
+        resolve_cast resolve' symbol_table scopes metadata target_type body_form
+    | Sem_form.Type _ -> assert false in
+  resolve' [] form

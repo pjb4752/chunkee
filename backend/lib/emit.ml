@@ -2,7 +2,7 @@ open Printf
 open Frontend
 open Common.Extensions
 
-module Node = Ast.Resolved_node
+module Form = Ast.Resolved_form
 
 module Char_map = Map.Make(Char)
 
@@ -78,7 +78,7 @@ let emit_def recursively_emit name_generator name expression =
   Lua_fragment.insert_preamble def_statement expression_fragment
 
 let vardef_name vardef =
-  Node.VarDef.(to_tuple vardef |> fst |> Identifier.to_string |> escape_name)
+  Form.VarDef.(to_tuple vardef |> fst |> Identifier.to_string |> escape_name)
 
 let parameter_string parameters =
   let parameters = List.map vardef_name parameters in
@@ -109,7 +109,7 @@ let emit_if recursively_emit name_generator test_expression if_expression else_e
 
 let build_binding_statements recursively_emit bindings =
   List.map (fun binding ->
-    let (name, expression) = Node.Binding.to_tuple binding in
+    let (name, expression) = Form.Binding.to_tuple binding in
     let name = Identifier.to_string name |> escape_name in
     let result = sprintf "%s =" name in
     Lua_fragment.lua_string ~target:result (recursively_emit expression)) bindings
@@ -168,17 +168,17 @@ let emit_literal_apply recursively_emit name_generator function_literal argument
 
 let emit_apply recursively_emit name_generator callable arguments =
   match callable with
-  | { Node.parsed = Node.Symbol name; _ } when is_infix_operator name ->
+  | { Form.parsed = Form.Symbol name; _ } when is_infix_operator name ->
       emit_infix_apply (recursively_emit name_generator) name arguments
-  | { Node.parsed = Node.Symbol name; _ } ->
+  | { Form.parsed = Form.Symbol name; _ } ->
       emit_prefix_apply (recursively_emit name_generator) name arguments
-  | { Node.parsed = Node.Fn _; _ }->
+  | { Form.parsed = Form.Fn _; _ }->
       emit_literal_apply recursively_emit name_generator callable arguments
   | _ -> assert false
 
 let build_assign_statements generated_name recursively_emit bindings =
   List.map (fun binding ->
-    let (name, expression) = Node.Binding.to_tuple binding in
+    let (name, expression) = Form.Binding.to_tuple binding in
     let name = Identifier.to_string name |> escape_name in
     let result = sprintf "%s.%s =" generated_name name in
     Lua_fragment.lua_string ~target:result (recursively_emit expression)) bindings
@@ -192,7 +192,7 @@ let emit_cons recursively_emit name_generator bindings =
 
 let emit_get record field =
   match record with
-  | { Node.parsed = Node.Symbol name; _ } -> begin
+  | { Form.parsed = Form.Symbol name; _ } -> begin
     let record = emit_name ~wrap_ops:false name in
     let field = Identifier.to_string field in
     Lua_fragment.make_expression (sprintf "%s.%s" record field)
@@ -201,7 +201,7 @@ let emit_get record field =
 
 let emit_set recursively_emit name_generator record field expression =
   match record with
-  | { Node.parsed = Node.Symbol name; _ } -> begin
+  | { Form.parsed = Form.Symbol name; _ } -> begin
     let record = emit_name ~wrap_ops:false name in
     let field = Identifier.to_string field in
     let expression_fragment = recursively_emit name_generator expression in
@@ -212,34 +212,34 @@ let emit_set recursively_emit name_generator record field expression =
   end
   | _ -> assert false
 
-let rec emit_lua_fragment name_generator (node: Node.t) =
+let rec emit_lua_fragment name_generator (form: Form.t) =
   let recursively_emit = emit_lua_fragment in
-  match node.parsed with
-  | Node.NumLit value -> emit_number value
-  | Node.StrLit value -> emit_string value
-  | Node.Symbol value -> emit_symbol value
-  | Node.Def { name; body_node } ->
-      emit_def recursively_emit name_generator name body_node
-  | Node.Fn { parameters; body_node; _ } ->
-      emit_function recursively_emit name_generator parameters body_node
-  | Node.If { test_node; if_node; else_node } ->
-      emit_if recursively_emit name_generator test_node if_node else_node
-  | Node.Let { bindings; body_node }->
-      emit_let recursively_emit name_generator bindings body_node
-  | Node.Apply { callable_node; arguments } ->
-      emit_apply recursively_emit name_generator callable_node arguments
-  | Node.Cons { bindings; _ } ->
+  match form.parsed with
+  | Form.NumLit value -> emit_number value
+  | Form.StrLit value -> emit_string value
+  | Form.Symbol value -> emit_symbol value
+  | Form.Def { name; body_form } ->
+      emit_def recursively_emit name_generator name body_form
+  | Form.Fn { parameters; body_form; _ } ->
+      emit_function recursively_emit name_generator parameters body_form
+  | Form.If { test_form; if_form; else_form } ->
+      emit_if recursively_emit name_generator test_form if_form else_form
+  | Form.Let { bindings; body_form }->
+      emit_let recursively_emit name_generator bindings body_form
+  | Form.Apply { callable_form; arguments } ->
+      emit_apply recursively_emit name_generator callable_form arguments
+  | Form.Cons { bindings; _ } ->
       emit_cons recursively_emit name_generator bindings
-  | Node.Get { target_node; field }->
-      emit_get target_node field
-  | Node.Set { target_node; field; body_node } ->
-      emit_set recursively_emit name_generator target_node field body_node
-  | Node.Cast { body_node; _ }->
-      recursively_emit name_generator body_node
-  | Node.Type _ -> assert false
+  | Form.Get { target_form; field }->
+      emit_get target_form field
+  | Form.Set { target_form; field; body_form } ->
+      emit_set recursively_emit name_generator target_form field body_form
+  | Form.Cast { body_form; _ }->
+      recursively_emit name_generator body_form
+  | Form.Type _ -> assert false
 
-let emit_node_string node =
+let emit_form_string form =
   let generator = Name_gen.generator in
-  Lua_fragment.lua_string ~target:"" (emit_lua_fragment generator node)
+  Lua_fragment.lua_string ~target:"" (emit_lua_fragment generator form)
 
-let emit_node_strings nodes = List.map emit_node_string nodes
+let emit_form_strings forms = List.map emit_form_string forms

@@ -32,7 +32,7 @@ let compile_forms symbol_table source_forms =
         let () = printf "%s\n" @@ Frontend.Compile_error.to_string compile_error in
         symbol_table
     | Ok (symbol_table, resolved_form) ->
-        let () = printf "%s\n" @@ Frontend.Ast.Resolved_node.inspect resolved_form in
+        let () = printf "%s\n" @@ Frontend.Ast.Resolved_form.inspect resolved_form in
         symbol_table
   in
   List.fold_left compile_form symbol_table source_forms

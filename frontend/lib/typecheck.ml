@@ -3,7 +3,7 @@ open Common.Extensions
 open Common.Extensions.Result
 open Common.Extensions.Result.Syntax
 
-module Node = Ast.Resolved_node
+module Form = Ast.Resolved_form
 
 type t = (Type.t, Compile_error.t) result
 
@@ -37,7 +37,7 @@ let typecheck_name table scopes name =
 let build_parameter_scope parameters =
   let build_parameter_tuples param processed_params =
     let* processed_params = processed_params in
-    let (param_name, param_type) = Node.VarDef.to_tuple param in
+    let (param_name, param_type) = Form.VarDef.to_tuple param in
     let param_name = Identifier.to_string param_name in
     return ((param_name, param_type) :: processed_params) in
   let* parameter_tuples = List.fold_right build_parameter_tuples parameters (Ok []) in
@@ -47,10 +47,10 @@ let build_parameter_scope parameters =
     ) parameter_tuples Scope.empty
   )
 
-let typecheck_fn recursively_typecheck scopes metadata parameters return_type body_node =
+let typecheck_fn recursively_typecheck scopes metadata parameters return_type body_form =
   let actual_return_type =
     let* param_scope = build_parameter_scope parameters in
-    let* return_type = recursively_typecheck (param_scope :: scopes) body_node in
+    let* return_type = recursively_typecheck (param_scope :: scopes) body_form in
     return return_type in
   match actual_return_type with
   | Error e -> Error e
@@ -72,8 +72,8 @@ let check_test_type metadata test_type =
         sprintf "instead received type of %s" @@ Type.inspect actual_type
       ])
 
-let typecheck_test_node recursively_typecheck scopes metadata test_node =
-  let* test_type = recursively_typecheck scopes test_node in
+let typecheck_test_form recursively_typecheck scopes metadata test_form =
+  let* test_type = recursively_typecheck scopes test_form in
   return (check_test_type metadata test_type)
 
 let typecheck_if_branches metadata if_type else_type =
@@ -86,15 +86,15 @@ let typecheck_if_branches metadata if_type else_type =
       sprintf "which is incompatible with else-expr result type %s" @@ Type.inspect else_type
   ])
 
-let typecheck_if recursively_typecheck scopes metadata test_node if_node else_node =
-  let* _ = typecheck_test_node recursively_typecheck scopes metadata test_node in
-  let* if_type = recursively_typecheck scopes if_node in
-  let* else_type = recursively_typecheck scopes else_node in
+let typecheck_if recursively_typecheck scopes metadata test_form if_form else_form =
+  let* _ = typecheck_test_form recursively_typecheck scopes metadata test_form in
+  let* if_type = recursively_typecheck scopes if_form in
+  let* else_type = recursively_typecheck scopes else_form in
   let* return_type = typecheck_if_branches metadata if_type else_type in
   return return_type
 
 let typecheck_binding recursively_typecheck scopes binding =
-  let (binding_name, binding_body) = Node.Binding.to_tuple binding in
+  let (binding_name, binding_body) = Form.Binding.to_tuple binding in
   match recursively_typecheck scopes binding_body with
   | Error e -> Error e
   | Ok binding_type -> begin
@@ -103,7 +103,7 @@ let typecheck_binding recursively_typecheck scopes binding =
     Ok (scope :: scopes)
   end
 
-let typecheck_let recursively_typecheck scopes bindings body_node =
+let typecheck_let recursively_typecheck scopes bindings body_form =
   let rec typecheck_bindings scopes = function
     | [] -> Ok scopes
     | binding :: remaining_bindings -> begin
@@ -112,7 +112,7 @@ let typecheck_let recursively_typecheck scopes bindings body_node =
       | Ok scopes -> typecheck_bindings scopes remaining_bindings
     end in
   let* scopes = typecheck_bindings scopes bindings in
-  let* return_type = recursively_typecheck scopes body_node in
+  let* return_type = recursively_typecheck scopes body_form in
   return return_type
 
 let typecheck_parameter_types metadata expected_types actual_types return_type =
@@ -156,13 +156,13 @@ let typecheck_callable_arguments metadata defined_type argument_types =
         sprintf "attempt to apply non-function type of %s" @@ Type.inspect defined_type
       ])
 
-let typecheck_apply recursively_typecheck scopes metadata callable_node arguments =
+let typecheck_apply recursively_typecheck scopes metadata callable_form arguments =
   let typecheck_arguments argument checked_types =
     let* checked_types = checked_types in
     let* next_type = recursively_typecheck scopes argument in
     return (next_type :: checked_types) in
   let* argument_types = List.fold_right typecheck_arguments arguments (Ok []) in
-  let* defined_type = recursively_typecheck scopes callable_node in
+  let* defined_type = recursively_typecheck scopes callable_form in
   let* return_type = typecheck_callable_arguments metadata defined_type argument_types in
   return return_type
 
@@ -183,8 +183,8 @@ let typecheck_cons recursively_typecheck scopes metadata target_type bindings =
   | Type.Record (target_fields) -> begin
     let typecheck_field_types binding bound_types =
       let* bound_types = bound_types in
-      let (bound_field, body_node) = Node.Binding.to_tuple binding in
-      let* bound_type = recursively_typecheck scopes body_node in
+      let (bound_field, body_form) = Form.Binding.to_tuple binding in
+      let* bound_type = recursively_typecheck scopes body_form in
       let* bound_type = compare_field_types metadata target_fields bound_field bound_type in
       return (bound_type :: bound_types) in
     let bound_types = List.fold_right typecheck_field_types bindings (Ok []) in
@@ -211,9 +211,9 @@ let typecheck_record_field metadata target_fields field =
         sprintf "record does not have field %s" @@ Identifier.to_string field
       ])
 
-let typecheck_get symbol_table scopes metadata target_node field =
-  match target_node with
-  | { Node.parsed = Node.Symbol name; _ } -> begin
+let typecheck_get symbol_table scopes metadata target_form field =
+  match target_form with
+  | { Form.parsed = Form.Symbol name; _ } -> begin
     let* target_type = typecheck_name symbol_table scopes name in
     let* target_fields = typecheck_record_type metadata target_type in
     let* target_type = typecheck_record_field metadata target_fields field in
@@ -230,49 +230,49 @@ let compare_set_type metadata target_type actual_type =
       sprintf "but instead received type of %s" @@ Type.inspect actual_type
     ])
 
-let typecheck_set recursively_typecheck symbol_table scopes metadata target_node field body_node =
-  match target_node with
-  | { Node.parsed = Node.Symbol name; _ } -> begin
+let typecheck_set recursively_typecheck symbol_table scopes metadata target_form field body_form =
+  match target_form with
+  | { Form.parsed = Form.Symbol name; _ } -> begin
     let* target_type = typecheck_name symbol_table scopes name in
     let* target_fields = typecheck_record_type metadata target_type in
     let* target_type = typecheck_record_field metadata target_fields field in
-    let* actual_type = recursively_typecheck scopes body_node in
+    let* actual_type = recursively_typecheck scopes body_form in
     let* _ = compare_set_type metadata target_type actual_type in
     return Type.Unit
   end
   | _ -> assert false
 
-let typecheck_cast recursively_typecheck scopes target_type body_node =
-  let* _ = recursively_typecheck scopes body_node in
+let typecheck_cast recursively_typecheck scopes target_type body_form =
+  let* _ = recursively_typecheck scopes body_form in
   return target_type
 
-let typecheck_node table node =
-  let rec recursively_typecheck scopes (node: Node.t) =
-    let metadata = node.metadata in
-    match node.parsed with
-    | Node.NumLit _ ->
+let typecheck_form table form =
+  let rec recursively_typecheck scopes (form: Form.t) =
+    let metadata = form.metadata in
+    match form.parsed with
+    | Form.NumLit _ ->
         Ok Type.Number
-    | Node.StrLit _ ->
+    | Form.StrLit _ ->
         Ok Type.String
-    | Node.Symbol name ->
+    | Form.Symbol name ->
         typecheck_name table scopes name
-    | Node.Fn { parameters; return_type; body_node } ->
-        typecheck_fn recursively_typecheck scopes metadata parameters return_type body_node
-    | Node.If { test_node; if_node; else_node } ->
-        typecheck_if recursively_typecheck scopes metadata test_node if_node else_node
-    | Node.Let { bindings; body_node } ->
-        typecheck_let recursively_typecheck scopes bindings body_node
-    | Node.Apply { callable_node; arguments } ->
-        typecheck_apply recursively_typecheck scopes metadata callable_node arguments
-    | Node.Cons { target_type; bindings } ->
+    | Form.Fn { parameters; return_type; body_form } ->
+        typecheck_fn recursively_typecheck scopes metadata parameters return_type body_form
+    | Form.If { test_form; if_form; else_form } ->
+        typecheck_if recursively_typecheck scopes metadata test_form if_form else_form
+    | Form.Let { bindings; body_form } ->
+        typecheck_let recursively_typecheck scopes bindings body_form
+    | Form.Apply { callable_form; arguments } ->
+        typecheck_apply recursively_typecheck scopes metadata callable_form arguments
+    | Form.Cons { target_type; bindings } ->
         typecheck_cons recursively_typecheck scopes metadata target_type bindings
-    | Node.Get { target_node; field } ->
-        typecheck_get table scopes metadata target_node field
-    | Node.Set { target_node; field; body_node } ->
-        typecheck_set recursively_typecheck table scopes metadata target_node field body_node
-    | Node.Cast { target_type; body_node } ->
-        typecheck_cast recursively_typecheck scopes target_type body_node
-    | Node.Type _ -> assert false
-    | Node.Def _ -> assert false
+    | Form.Get { target_form; field } ->
+        typecheck_get table scopes metadata target_form field
+    | Form.Set { target_form; field; body_form } ->
+        typecheck_set recursively_typecheck table scopes metadata target_form field body_form
+    | Form.Cast { target_type; body_form } ->
+        typecheck_cast recursively_typecheck scopes target_type body_form
+    | Form.Type _ -> assert false
+    | Form.Def _ -> assert false
   in
-  recursively_typecheck [] node
+  recursively_typecheck [] form

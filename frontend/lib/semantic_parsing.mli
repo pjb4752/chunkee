@@ -1,7 +1,5 @@
-module Node = Ast.Parsed_node
-
 module Result : sig
-  type t = (Node.t, Compile_error.t) result
+  type t = (Ast.Semantic_form.t, Compile_error.t) result
 
   val inspect: t -> string
 end

@@ -4,4 +4,4 @@ module Result : sig
   val inspect: t -> string
 end
 
-val define_identifiers: Symbol_table.t -> Ast.Parsed_node.t -> Result.t
+val define_identifiers: Symbol_table.t -> Ast.Semantic_form.t -> Result.t

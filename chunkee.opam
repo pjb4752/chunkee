@@ -1,7 +1,7 @@
 opam-version: "2.0"
 
 name: "chunkee"
-synopsis: "Compiler frontend for flop"
+synopsis: "Compiler for flop"
 version: "0.0.1"
 
 maintainer: "pjb4752 <pjb4752@gmail.com>"

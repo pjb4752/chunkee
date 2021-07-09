@@ -3,13 +3,13 @@ open Common.Extensions
 open Common.Extensions.Result
 open Common.Extensions.Result.Syntax
 
-module Node = Ast.Parsed_node
+module Form = Ast.Semantic_form
 
 module Result = struct
-  type t = (Node.t, Compile_error.t) result
+  type t = (Form.t, Compile_error.t) result
 
   let inspect result =
-    Result.inspect Node.inspect Compile_error.to_string result
+    Result.inspect Form.inspect Compile_error.to_string result
 end
 
 let metadata_from_position position =
@@ -99,10 +99,10 @@ let is_const_literal { Source_form.value; _ } =
 
 let parse_def recursively_parse position = function
   | { Source_form.value = Source_form.Symbol name; _ } :: body_expr :: [] when is_const_literal body_expr ->
-      let* body_node = recursively_parse body_expr in
+      let* body_form = recursively_parse body_expr in
       let name = Identifier.from_string name in
       let metadata = metadata_from_position position in
-      return { Node.metadata; parsed = Node.Def { name; body_node } }
+      return { Form.metadata; parsed = Form.Def { name; body_form } }
   | { Source_form.value = Source_form.Symbol _; _ } :: invalid_form :: [] -> begin
     let invalid_form = sprintf "%s" invalid_form.position.source in
     Error (Compile_error.parse_errors position [
@@ -123,9 +123,9 @@ let parse_get position = function
   | [{ Source_form.position; value = Source_form.Symbol target; _ }; { value = Source_form.Symbol field; _ }] ->
     let* target = parse_name_expr position target in
     let metadata = metadata_from_position position in
-    let target_node = { Node.metadata; parsed = Node.Symbol target } in
+    let target_form = { Form.metadata; parsed = Form.Symbol target } in
     let field = Identifier.from_string field in
-    return { Node.metadata; parsed = Node.Get { target_node; field } }
+    return { Form.metadata; parsed = Form.Get { target_form; field } }
   | _ -> begin
     Error (Compile_error.parse_errors position [
       "get expression must provide the record and field name, ";
@@ -138,10 +138,10 @@ let parse_set recursively_parse position = function
   | [{ Source_form.position; value = Source_form.Symbol target; _ }; { value = Source_form.Symbol field; _ }; body] ->
     let* target = parse_name_expr position target in
     let field = Identifier.from_string field in
-    let* body_node = recursively_parse body in
+    let* body_form = recursively_parse body in
     let metadata = metadata_from_position position in
-    let target_node = { Node.metadata; parsed = Node.Symbol target } in
-    return { Node.metadata; parsed = Node.Set { target_node; field; body_node } }
+    let target_form = { Form.metadata; parsed = Form.Symbol target } in
+    return { Form.metadata; parsed = Form.Set { target_form; field; body_form } }
   | _ -> begin
     Error (Compile_error.parse_errors position [
       "set expression must provide record and field names, and expression, ";
@@ -154,7 +154,7 @@ let parse_function_parameters position parameters =
   let parse_parameter (name, param_type) parsed_params =
     let* parsed_params = parsed_params in
     let* (name, param_type) = parse_var_def [name; param_type] in
-    let param = Node.VarDef.from_parts name param_type in
+    let param = Form.VarDef.from_parts name param_type in
     return (param :: parsed_params) in
   if (List.length parameters mod 2) = 0 then
     List.fold_right parse_parameter (List.as_pairs parameters) (Ok [])
@@ -182,9 +182,9 @@ let parse_function_header position header_forms =
 let parse_function recursively_parse position = function
   | { Source_form.position = header_position; value = Source_form.Vector raw_header; _ } :: body :: [] ->
     let* (parameters, return_type) = parse_function_header header_position raw_header in
-    let* body_node = recursively_parse body in
+    let* body_form = recursively_parse body in
     let metadata = metadata_from_position position in
-    return { Node.metadata; parsed = Node.Fn { parameters; return_type; body_node } }
+    return { Form.metadata; parsed = Form.Fn { parameters; return_type; body_form } }
   | _ -> begin
     Error (Compile_error.parse_errors position [
       "function forms must contain a function header and singular body expression, ";
@@ -194,12 +194,12 @@ let parse_function recursively_parse position = function
   end
 
 let parse_if recursively_parse position = function
-  | test_node :: if_node :: else_node :: [] ->
-      let* test_node = recursively_parse test_node in
-      let* if_node = recursively_parse if_node in
-      let* else_node = recursively_parse else_node in
+  | test_form :: if_form :: else_form :: [] ->
+      let* test_form = recursively_parse test_form in
+      let* if_form = recursively_parse if_form in
+      let* else_form = recursively_parse else_form in
       let metadata = metadata_from_position position in
-      return { Node.metadata; parsed = Node.If { test_node; if_node; else_node } }
+      return { Form.metadata; parsed = Form.If { test_form; if_form; else_form } }
   | _ -> begin
     Error (Compile_error.parse_errors position [
       "if forms must contain a test expression, an if expression and an else expression, ";
@@ -212,7 +212,7 @@ let parse_binding recursively_parse = function
   | ({ Source_form.value = Source_form.Symbol name; _ }, expression) ->
     let name = Identifier.from_string name in
     let* expression = recursively_parse expression in
-    return (Node.Binding.from_node name expression)
+    return (Form.Binding.from_form name expression)
   | (first_form, _) -> begin
     Error (Compile_error.parse_errors first_form.position [
       "a binding must be a pair of a name and an expression, ";
@@ -239,9 +239,9 @@ let parse_bindings recursively_parse position bindings =
 let parse_let recursively_parse position = function
   | { Source_form.position = binding_position; value = Source_form.Vector bindings; _ } :: body :: [] ->
     let* bindings = parse_bindings recursively_parse binding_position bindings in
-    let* body_node = recursively_parse body in
+    let* body_form = recursively_parse body in
     let metadata = metadata_from_position position in
-    return { Node.metadata; parsed = Node.Let { bindings; body_node } }
+    return { Form.metadata; parsed = Form.Let { bindings; body_form } }
   | _ -> begin
     Error (Compile_error.parse_errors position [
       "let forms must contain a vector of variable bindings and a singular body expression, ";
@@ -253,9 +253,9 @@ let parse_let recursively_parse position = function
 let parse_cast recursively_parse position = function
   | target :: body :: [] -> begin
     let* target_type = parse_type_expr target in
-    let* body_node = recursively_parse body in
+    let* body_form = recursively_parse body in
     let metadata = metadata_from_position position in
-    return { Node.metadata; parsed = Node.Cast { target_type; body_node } }
+    return { Form.metadata; parsed = Form.Cast { target_type; body_form } }
   end
   | _ -> begin
     Error (Compile_error.parse_errors position [
@@ -275,31 +275,31 @@ let parse_apply_arguments recursively_parse arguments =
 let parse_number_apply recursively_parse apply_position number_position value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
   let number_metadata = metadata_from_position number_position in
-  let callable_node = { Node.metadata = number_metadata; parsed = Node.NumLit value } in
+  let callable_form = { Form.metadata = number_metadata; parsed = Form.NumLit value } in
   let apply_metadata = metadata_from_position apply_position in
-  return { Node.metadata = apply_metadata; parsed = Node.Apply { callable_node; arguments } }
+  return { Form.metadata = apply_metadata; parsed = Form.Apply { callable_form; arguments } }
 
 let parse_string_apply recursively_parse apply_position string_position value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
   let string_metadata = metadata_from_position string_position in
-  let callable_node = { Node.metadata = string_metadata; parsed = Node.StrLit value } in
+  let callable_form = { Form.metadata = string_metadata; parsed = Form.StrLit value } in
   let apply_metadata = metadata_from_position apply_position in
-  return { Node.metadata = apply_metadata; parsed = Node.Apply { callable_node; arguments } }
+  return { Form.metadata = apply_metadata; parsed = Form.Apply { callable_form; arguments } }
 
 let parse_symbol_apply recursively_parse apply_position symbol_position function_name arguments =
   let* function_name = parse_name_expr symbol_position function_name in
   let* arguments = parse_apply_arguments recursively_parse arguments in
   let symbol_metadata = metadata_from_position symbol_position in
-  let callable_node = { Node.metadata = symbol_metadata; parsed = Node.Symbol function_name } in
+  let callable_form = { Form.metadata = symbol_metadata; parsed = Form.Symbol function_name } in
   let apply_metadata = metadata_from_position apply_position in
-  return { Node.metadata = apply_metadata; parsed = Node.Apply { callable_node; arguments } }
+  return { Form.metadata = apply_metadata; parsed = Form.Apply { callable_form; arguments } }
 
 let parse_function_apply recursively_parse apply_position callable_position function_value arguments =
   let form_to_parse = { Source_form.position = callable_position; value = Source_form.List function_value } in
-  let* callable_node = recursively_parse form_to_parse in
+  let* callable_form = recursively_parse form_to_parse in
   let* arguments = parse_apply_arguments recursively_parse arguments in
   let apply_metadata = metadata_from_position apply_position in
-  return { Node.metadata = apply_metadata; parsed = Node.Apply { callable_node; arguments } }
+  return { Form.metadata = apply_metadata; parsed = Form.Apply { callable_form; arguments } }
 
 let parse_builtin recursively_parse list_position builtin_position builtin (arguments: Source_form.t list) =
   if builtin = "get" then parse_get list_position arguments
@@ -314,7 +314,7 @@ let parse_builtin recursively_parse list_position builtin_position builtin (argu
 let parse_symbol position symbol =
   let* symbol = parse_name_expr position symbol in
   let metadata = metadata_from_position position in
-  return { Node.metadata; parsed = Node.Symbol symbol }
+  return { Form.metadata; parsed = Form.Symbol symbol }
 
 let parse_list recursively_parse list_position = function
   | { Source_form.position = number_position; Source_form.value = Source_form.Number value; _ } :: arguments ->
@@ -336,10 +336,10 @@ let rec parse_form { Source_form.position; value; _ } =
   match value with
   | Source_form.Number value ->
       let metadata = metadata_from_position position in
-      Ok { Node.metadata; parsed = Node.NumLit value }
+      Ok { Form.metadata; parsed = Form.NumLit value }
   | Source_form.String value ->
       let metadata = metadata_from_position position in
-      Ok { Node.metadata; parsed = Node.StrLit value }
+      Ok { Form.metadata; parsed = Form.StrLit value }
   | Source_form.Symbol value -> parse_symbol position value
   | Source_form.List value -> parse_list parse_form position value
   | Source_form.Vector _ -> begin
