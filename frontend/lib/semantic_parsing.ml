@@ -349,22 +349,3 @@ let rec parse_form { Source_form.position; value; _ } =
     ])
   end
   (*| Source_form.Extension value -> parse_extension parse_form metadata value*)
-
-let toplevel_error position raw =
-  Error (Compile_error.parse_errors position [
-    sprintf "top-level forms must be either a def or defrecord, instead found %s" raw;
-    "\n\tplease use the correct forms at the top-level"
-  ])
-
-let parse_form ?check_toplevel:(check_toplevel=true) source_form =
-  match source_form with
-  | _ when not check_toplevel -> parse_form source_form
-  | { Source_form.value = Source_form.List value; _ } -> begin
-    match value with
-    | { Source_form.position = symbol_position; value = Source_form.Symbol operation; _ } :: args -> begin
-      if operation = "def" then parse_def parse_form source_form.position args
-      else toplevel_error symbol_position operation
-    end
-    | _ -> toplevel_error source_form.position "<SOURCE HERE>"
-  end
-  | { Source_form.position; _ } -> toplevel_error position "<SOURCE HERE>"

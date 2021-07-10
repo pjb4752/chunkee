@@ -17,9 +17,9 @@ module DeclaredTypes = Map.Make(Identifier)
 let build_prefix { Metadata.line_num; char_num; _ } =
   sprintf "in expression at %d:%d" line_num char_num
 
-let variable_exists symbol_table name =
-  let module_name = Symbol_table.current_module symbol_table |> Module.name in
-  Option.is_some @@ Symbol_table.module_var symbol_table module_name name
+let module_variable_exists symbol_table name =
+  let module_name = Module.name @@ Symbol_table.current_module symbol_table in
+  Option.is_some @@ Symbol_table.find_variable symbol_table module_name name
 
 let find_function_type symbol_table metadata parameters return_type =
   let param_types = List.map (fun param -> snd @@ Form.VarDef.to_tuple param) parameters in
@@ -40,19 +40,19 @@ let find_variable_type symbol_table metadata expression =
   | Form.Fn { parameters; return_type; _ } -> find_function_type symbol_table metadata parameters return_type
   | _ -> assert false
 
-let define_variable symbol_table = function
+let define_module_variables symbol_table = function
   | { Form.metadata; parsed = Form.Def { name; body_form } } -> begin
-    if variable_exists symbol_table name then
+    if module_variable_exists symbol_table name then
       let prefix = build_prefix metadata in
       Error (Compile_error.definition_errors metadata prefix [
         sprintf "var with name '%s' is already defined" @@ Identifier.to_string name
       ])
     else (
       let* variable_type = find_variable_type symbol_table metadata body_form.parsed in
-      return (Symbol_table.define_var symbol_table name variable_type)
+      return (Symbol_table.define_variable symbol_table name variable_type)
     )
   end
-  | _ -> assert false
+  | _ -> return symbol_table
 
 let define_identifiers symbol_table form =
-  define_variable symbol_table form
+  define_module_variables symbol_table form

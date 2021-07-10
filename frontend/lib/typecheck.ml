@@ -24,15 +24,15 @@ let typecheck_local_name scopes name =
       | Some t -> Ok t
   end
 
-let typecheck_module_name table module_name var_name =
-  match Symbol_table.module_vartype table module_name var_name with
+let typecheck_module_name symbol_table module_name var_name =
+  match Symbol_table.find_variable_type symbol_table module_name var_name with
   | None -> assert false
   | Some tipe -> Ok tipe
 
-let typecheck_name table scopes name =
+let typecheck_name symbol_table scopes name =
   match name with
   | Name.Local name -> typecheck_local_name scopes name
-  | Name.Module (module_name, var_name) -> typecheck_module_name table module_name var_name
+  | Name.Module (module_name, var_name) -> typecheck_module_name symbol_table module_name var_name
 
 let build_parameter_scope parameters =
   let build_parameter_tuples param processed_params =
@@ -211,10 +211,10 @@ let typecheck_record_field metadata target_fields field =
         sprintf "record does not have field %s" @@ Identifier.to_string field
       ])
 
-let typecheck_get symbol_table scopes metadata target_form field =
+let typecheck_get symbol_symbol_table scopes metadata target_form field =
   match target_form with
   | { Form.parsed = Form.Symbol name; _ } -> begin
-    let* target_type = typecheck_name symbol_table scopes name in
+    let* target_type = typecheck_name symbol_symbol_table scopes name in
     let* target_fields = typecheck_record_type metadata target_type in
     let* target_type = typecheck_record_field metadata target_fields field in
     return target_type
@@ -230,10 +230,10 @@ let compare_set_type metadata target_type actual_type =
       sprintf "but instead received type of %s" @@ Type.inspect actual_type
     ])
 
-let typecheck_set recursively_typecheck symbol_table scopes metadata target_form field body_form =
+let typecheck_set recursively_typecheck symbol_symbol_table scopes metadata target_form field body_form =
   match target_form with
   | { Form.parsed = Form.Symbol name; _ } -> begin
-    let* target_type = typecheck_name symbol_table scopes name in
+    let* target_type = typecheck_name symbol_symbol_table scopes name in
     let* target_fields = typecheck_record_type metadata target_type in
     let* target_type = typecheck_record_field metadata target_fields field in
     let* actual_type = recursively_typecheck scopes body_form in
@@ -246,7 +246,7 @@ let typecheck_cast recursively_typecheck scopes target_type body_form =
   let* _ = recursively_typecheck scopes body_form in
   return target_type
 
-let typecheck_form table form =
+let typecheck_form symbol_table form =
   let rec recursively_typecheck scopes (form: Form.t) =
     let metadata = form.metadata in
     match form.parsed with
@@ -255,7 +255,7 @@ let typecheck_form table form =
     | Form.StrLit _ ->
         Ok Type.String
     | Form.Symbol name ->
-        typecheck_name table scopes name
+        typecheck_name symbol_table scopes name
     | Form.Fn { parameters; return_type; body_form } ->
         typecheck_fn recursively_typecheck scopes metadata parameters return_type body_form
     | Form.If { test_form; if_form; else_form } ->
@@ -267,9 +267,9 @@ let typecheck_form table form =
     | Form.Cons { target_type; bindings } ->
         typecheck_cons recursively_typecheck scopes metadata target_type bindings
     | Form.Get { target_form; field } ->
-        typecheck_get table scopes metadata target_form field
+        typecheck_get symbol_table scopes metadata target_form field
     | Form.Set { target_form; field; body_form } ->
-        typecheck_set recursively_typecheck table scopes metadata target_form field body_form
+        typecheck_set recursively_typecheck symbol_table scopes metadata target_form field body_form
     | Form.Cast { target_type; body_form } ->
         typecheck_cast recursively_typecheck scopes target_type body_form
     | Form.Type _ -> assert false

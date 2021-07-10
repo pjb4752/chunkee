@@ -4,8 +4,8 @@ open Common.Extensions.Option.Syntax
 
 type t = {
   intrinsics: Intrinsics.t;
-  tree: Module_tree.t;
-  modul: Module.t;
+  module_tree: Module_tree.t;
+  current_module: Module.t;
 }
 
 type err_t =
@@ -16,12 +16,12 @@ type exists_in_scope = string -> bool
 
 type exists_in_decls = Identifier.t -> Type.t option
 
-let make (intrinsics: Intrinsics.t) modul =
-  let tree = Module_tree.empty in
-  let tree = Module_tree.insert_module tree intrinsics.common_module in
-  { intrinsics; tree; modul }
+let make (intrinsics: Intrinsics.t) current_module =
+  let module_tree = Module_tree.empty in
+  let module_tree = Module_tree.insert_module module_tree intrinsics.common_module in
+  { intrinsics; module_tree; current_module }
 
-let current_module { modul; _ } = modul
+let current_module { current_module; _ } = current_module
 
 let undefined_name_error name =
   Error (NameError (sprintf "%s is undefined" name))
@@ -30,104 +30,94 @@ let undefined_module_error module_name =
   let module_name = Module_name.to_string module_name in
   Error (ModuleError (sprintf "unknown module %s" module_name))
 
-let select_module { tree; modul; _ } module_name =
-  if (Module.name modul) = module_name then Some modul
-  else Module_tree.find_module tree module_name
+let find_module { module_tree; current_module; _ } module_name =
+  if (Module.name current_module) = module_name then Some current_module
+  else Module_tree.find_module module_tree module_name
 
-let resolve_module_name modul name =
+let resolve_name_in_module module_to_search name =
   let name = Identifier.from_string name in
-  let module_name = Module.name modul in
-  if Module.var_exists modul name then Ok (Name.Module (module_name, name))
+  let module_name = Module.name module_to_search in
+  if Module.variable_exists module_to_search name then Ok (Name.Module (module_name, name))
   else undefined_name_error (Identifier.to_string name)
 
-let resolve_qualified_name table module_name name =
-  match select_module table module_name with
-  | Some modul -> resolve_module_name modul name
+let resolve_qualified_name symbol_table module_name name =
+  match find_module symbol_table module_name with
+  | Some module_to_search -> resolve_name_in_module module_to_search name
   | None -> undefined_module_error module_name
 
-let resolve_unqualified_name { intrinsics; modul; _ } name =
-  match resolve_module_name modul name with
+let resolve_unqualified_name { intrinsics; current_module; _ } name =
+  match resolve_name_in_module current_module name with
   | Ok name -> Ok name
-  | Error _ -> begin
-    match resolve_module_name intrinsics.common_module name with
-    | Error _ -> resolve_module_name modul name
-    | Ok name -> Ok name
-  end
+  | Error _ -> resolve_name_in_module intrinsics.common_module name
 
 let resolve_name table exists_in_scope = function
-  | Name_expr.QualName (module_name, name) ->
-      resolve_qualified_name table module_name name
+  | Name_expr.QualName (module_name, name) -> resolve_qualified_name table module_name name
   | Name_expr.BareName name -> begin
     if exists_in_scope name then Ok (Name.Local name)
     else resolve_unqualified_name table name
   end
 
-let resolve_module_type modul tipe =
-  let name = Identifier.from_string tipe in
-  match Module.find_type modul name with
-  | Some tipe -> Ok tipe
-  | None -> undefined_name_error tipe
+let resolve_type_in_module module_to_search target_type =
+  let name = Identifier.from_string target_type in
+  match Module.find_type module_to_search name with
+  | Some found_type -> Ok found_type
+  | None -> undefined_name_error target_type
 
-let resolve_qualified_type table module_name tipe =
-  match select_module table module_name with
-  | Some modul -> resolve_module_type modul tipe
+let resolve_qualified_type symbol_table module_name target_type =
+  match find_module symbol_table module_name with
+  | Some module_to_search -> resolve_type_in_module module_to_search target_type
   | None -> undefined_module_error module_name
 
-let resolve_unqualified_type modul lookup_fn tipe =
-  match Type.find_builtin tipe with
-  | Some tipe -> Ok tipe
+let resolve_unqualified_type module_to_search lookup_fn target_type =
+  match Type.find_builtin target_type with
+  | Some found_type -> Ok found_type
   | None -> begin
-    let name = Identifier.from_string tipe in
-    let maybe_type =
-      let* lookup_fn = lookup_fn in
-      let* tipe = lookup_fn name in
-      return tipe in
+    let name = Identifier.from_string target_type in
+    let maybe_type = let* lookup_fn = lookup_fn in lookup_fn name in
     match maybe_type with
-    | Some tipe -> Ok tipe
-    | None -> resolve_module_type modul tipe
+    | Some found_type -> Ok found_type
+    | None -> resolve_type_in_module module_to_search target_type
   end
 
-let resolve_simple_type table lookup_fn = function
-  | Name_expr.QualName (module_name, tipe) -> resolve_qualified_type table module_name tipe
-  | Name_expr.BareName tipe -> resolve_unqualified_type table.modul lookup_fn tipe
+let resolve_simple_type symbol_table lookup_fn = function
+  | Name_expr.QualName (module_name, type_name) -> resolve_qualified_type symbol_table module_name type_name
+  | Name_expr.BareName type_name -> resolve_unqualified_type symbol_table.current_module lookup_fn type_name
 
-let rec resolve_type table ?lookup_fn:(lookup_fn=None) = function
-  | Type_expr.SimpleType tipe -> resolve_simple_type table lookup_fn tipe
-  | Type_expr.CompoundType types ->
-      let fold_fn types tipe =
+let rec resolve_type symbol_table ?lookup_fn:(lookup_fn=None) = function
+  | Type_expr.SimpleType type_name -> resolve_simple_type symbol_table lookup_fn type_name
+  | Type_expr.CompoundType type_names ->
+      let fold_fn resolved_types current_type =
         Common.Extensions.Result.(
           Syntax.(
-            let* types = types in
-            let* tipe = resolve_type table ~lookup_fn:lookup_fn tipe in
-            return (tipe :: types))
+            let* resolved_types = resolved_types in
+            let* current_type = resolve_type symbol_table ~lookup_fn:lookup_fn current_type in
+            return (current_type :: resolved_types))
           ) in
-      match List.fold_left fold_fn (Ok []) types with
+      match List.fold_left fold_fn (Ok []) type_names with
       | Error e -> Error e
-      | Ok (rtype :: ptypes) -> Ok (Type.Function (List.rev ptypes, rtype))
+      | Ok (return_type :: parameter_types) -> Ok (Type.Function (List.rev parameter_types, return_type))
       | Ok _ -> assert false
 
-let module_var table module_name var_name =
-  let* modul = (select_module table module_name) in
-  let* var = (Module.find_var modul var_name) in
-  return var
+let find_variable symbol_table module_name variable_name =
+  let* found_module = (find_module symbol_table module_name) in
+  Module.find_variable found_module variable_name
 
-let module_vartype table module_name var_name =
-  let* var = (module_var table module_name var_name) in
-  return (Var.tipe var)
+let find_variable_type symbol_table module_name variable_name =
+  let* variable = find_variable symbol_table module_name variable_name in
+  return (Var.tipe variable)
 
-let module_type table module_name type_name =
-  let* modul = (select_module table module_name) in
-  let* tipe = (Module.find_type modul type_name) in
-  return tipe
+let find_type symbol_table module_name type_name =
+  let* found_module = (find_module symbol_table module_name) in
+  Module.find_type found_module type_name
 
-let define_var table var tipe =
-  let new_modul = Module.define_var table.modul var tipe in
-  { table with modul = new_modul }
+let define_variable symbol_table variable_name variable_type =
+  let updated_module = Module.define_variable symbol_table.current_module variable_name variable_type in
+  { symbol_table with current_module = updated_module }
 
-let inspect { tree; modul; _ } =
-  let tree = Module_tree.inspect tree in
-  let modul = Module.inspect modul in
-  sprintf "SymbolTable(%s, %s)" tree modul
+let inspect { module_tree; current_module; _ } =
+  let module_tree = Module_tree.inspect module_tree in
+  let current_module = Module.inspect current_module in
+  sprintf "SymbolTable(%s, %s)" module_tree current_module
 
 let err_string = function
   | ModuleError message -> message

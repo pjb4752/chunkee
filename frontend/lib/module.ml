@@ -29,41 +29,41 @@ let basename { name; _ } = Module_name.base name
 let path_segments { name; _ } = Module_name.path_segments name
 
 (*TODO use Map.find_else ?*)
-let find_var { variable_names; variable_types; _ } name =
-  let* name = VariableNames.find_opt name variable_names in
-  match VariableTypes.find_opt name variable_types with
-  | Some tipe -> return (Var.make name tipe)
+let find_variable { variable_names; variable_types; _ } requested_name =
+  let* found_name = VariableNames.find_opt requested_name variable_names in
+  match VariableTypes.find_opt found_name variable_types with
+  | Some found_type -> return (Var.make found_name found_type)
   | None -> assert false
 
-let var_exists modul var_name =
-  is_some @@ find_var modul var_name
+let variable_exists module_to_search variable_name =
+  is_some @@ find_variable module_to_search variable_name
 
-let find_type modul type_name =
-  match find_var modul type_name with
+let find_type module_to_search type_name =
+  match find_variable module_to_search type_name with
   | None -> None
-  | Some var -> begin
-    let tipe = Var.tipe var in
-    match tipe with
-    | Record _ -> Some tipe
+  | Some variable -> begin
+    let variable_type = Var.tipe variable in
+    match variable_type with
+    | Record _ -> Some variable_type
     | _ -> None
   end
 
-let type_exists modul type_name =
-  is_some @@ find_type modul type_name
+let type_exists module_to_search type_name =
+  is_some @@ find_type module_to_search type_name
 
-let define_var modul name tipe =
-  let variable_names = VariableNames.add name modul.variable_names in
-  let variable_types = VariableTypes.add name tipe modul.variable_types in
-  { modul with variable_names = variable_names; variable_types = variable_types }
+let define_variable target_module variable_name variable_type =
+  let variable_names = VariableNames.add variable_name target_module.variable_names in
+  let variable_types = VariableTypes.add variable_name variable_type target_module.variable_types in
+  { target_module with variable_names; variable_types }
 
 let inspect { name; variable_names; variable_types; } =
-  let inspect_var name =
+  let inspect_variable name =
     let variable_type = VariableTypes.find_opt name variable_types in
     match variable_type with
-    | Some tipe -> sprintf "Some(Var(%s, %s))" (Identifier.inspect name) (Type.inspect tipe)
+    | Some found_type -> sprintf "Some(Var(%s, %s))" (Identifier.inspect name) (Type.inspect found_type)
     | None -> "None"
   in
   let variable_names = VariableNames.elements variable_names in
-  let variable_types = String.concat " " (List.map inspect_var variable_names) in
+  let variable_types = String.concat " " (List.map inspect_variable variable_names) in
   let name = Module_name.to_string name in
   sprintf "Module{ name: %s; variable_types: %s }" name variable_types
