@@ -84,8 +84,8 @@ let resolve_simple_type symbol_table lookup_fn = function
       resolve_unqualified_type symbol_table.current_module lookup_fn type_name
 
 let rec resolve_type symbol_table ?lookup_fn:(lookup_fn=None) = function
-  | Type_expr.SimpleType type_name -> resolve_simple_type symbol_table lookup_fn type_name
-  | Type_expr.CompoundType type_names ->
+  | Type_expression.SimpleType type_name -> resolve_simple_type symbol_table lookup_fn type_name
+  | Type_expression.CompoundType type_names ->
       let fold_fn resolved_types current_type =
         Common.Extensions.Result.(
           Syntax.(

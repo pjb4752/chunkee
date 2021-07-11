@@ -23,7 +23,7 @@ let module_variable_exists symbol_table name =
 
 let find_function_type symbol_table metadata parameters return_type =
   let param_types = List.map (fun param -> snd @@ Form.VarDef.to_tuple param) parameters in
-  let compound_type = Type_expr.CompoundType (List.append param_types [return_type]) in
+  let compound_type = Type_expression.CompoundType (List.append param_types [return_type]) in
   match Symbol_table.resolve_type symbol_table compound_type with
   | Ok compound_type -> Ok compound_type
   | Error error -> begin

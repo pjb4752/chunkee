@@ -63,7 +63,7 @@ let rec parse_type_expr { Source_form.position; value } =
   match value with
   | Symbol value -> begin
     let* parsed_type = parse_name_expr position value in
-    return (Type_expr.SimpleType parsed_type)
+    return (Type_expression.SimpleType parsed_type)
   end
   | Vector forms -> begin
    match parse_type_list parse_type_expr forms with
@@ -73,7 +73,7 @@ let rec parse_type_expr { Source_form.position; value } =
         "aggregate type expressions must contain 1 or more types, instead found an empty expression";
         "\n\tplease use the correct form [type1 type2 type3]"
      ])
-   | Ok parsed_types -> Ok (Type_expr.CompoundType parsed_types)
+   | Ok parsed_types -> Ok (Type_expression.CompoundType parsed_types)
   end
   | _ -> invalid_type_error position
 
