@@ -172,10 +172,10 @@ let resolve_identifiers symbol_table form =
   let rec resolve' scopes (form: Semantic_form.t) =
     let metadata = form.metadata in
     match form.parsed with
-    | Semantic_form.NumLit value ->
-        Ok { Resolved_form.metadata; parsed = Resolved_form.NumLit value }
-    | Semantic_form.StrLit value ->
-        Ok { Resolved_form.metadata; parsed = Resolved_form.StrLit value }
+    | Semantic_form.Number value ->
+        Ok { Resolved_form.metadata; parsed = Resolved_form.Number value }
+    | Semantic_form.String value ->
+        Ok { Resolved_form.metadata; parsed = Resolved_form.String value }
     | Semantic_form.Symbol value ->
         resolve_symbol symbol_table scopes metadata value
     | Semantic_form.Def { name; body_form }->

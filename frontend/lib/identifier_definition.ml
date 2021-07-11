@@ -35,8 +35,8 @@ let find_function_type symbol_table metadata parameters return_type =
 
 let find_variable_type symbol_table metadata expression =
   match expression with
-  | Form.NumLit _ -> Ok Type.Number
-  | Form.StrLit _ -> Ok Type.String
+  | Form.Number _ -> Ok Type.Number
+  | Form.String _ -> Ok Type.String
   | Form.Fn { parameters; return_type; _ } -> find_function_type symbol_table metadata parameters return_type
   | _ -> assert false
 

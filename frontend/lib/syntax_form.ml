@@ -7,8 +7,8 @@ module type InspectableType = sig
 end
 
 module type N = sig
-  type name_expr_t
-  type type_expr_t
+  type name_t
+  type type_t
 
   module Binding: sig
     type 'a t
@@ -25,35 +25,35 @@ module type N = sig
   module VarDef: sig
     type t
 
-    val from_parts: string -> type_expr_t -> t
+    val from_parts: string -> type_t -> t
 
-    val to_tuple: t -> string * type_expr_t
+    val to_tuple: t -> string * type_t
   end
 
   type t = {
     metadata: Metadata.t;
     parsed: u
   } and u =
-    | NumLit of float
-    | StrLit of string
-    | Symbol of name_expr_t
-    | Type of name_expr_t
+    | Number of float
+    | String of string
+    | Symbol of name_t
+    | Type of name_t
     | Def of { name: string; body_form: t }
-    | Fn of { parameters: VarDef.t list; return_type: type_expr_t; body_form: t }
+    | Fn of { parameters: VarDef.t list; return_type: type_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
     | Let of { bindings: t Binding.t list; body_form: t }
     | Apply of { callable_form: t; arguments: t list }
-    | Cons of { target_type: type_expr_t; bindings: t Binding.t list }
+    | Cons of { target_type: type_t; bindings: t Binding.t list }
     | Get of { target_form: t; field: string }
     | Set of { target_form: t; field: string; body_form: t }
-    | Cast of { target_type: type_expr_t; body_form: t }
+    | Cast of { target_type: type_t; body_form: t }
 
   val inspect: t -> string
 end
 
 module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
-  type name_expr_t = NameExpr.t
-  type type_expr_t = TypeExpr.t
+  type name_t = NameExpr.t
+  type type_t = TypeExpr.t
 
   module Binding = struct
     type 'a t = {
@@ -76,7 +76,7 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
   module VarDef = struct
     type t = {
       name: string;
-      tipe: type_expr_t
+      tipe: type_t
     }
 
     let from_parts name tipe = { name; tipe; }
@@ -92,28 +92,28 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     metadata: Metadata.t;
     parsed: u
   } and u =
-    | NumLit of float
-    | StrLit of string
-    | Symbol of name_expr_t
-    | Type of name_expr_t
+    | Number of float
+    | String of string
+    | Symbol of name_t
+    | Type of name_t
     | Def of { name: string; body_form: t }
-    | Fn of { parameters: VarDef.t list; return_type: type_expr_t; body_form: t }
+    | Fn of { parameters: VarDef.t list; return_type: type_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
     | Let of { bindings: t Binding.t list; body_form: t }
     | Apply of { callable_form: t; arguments: t list }
-    | Cons of { target_type: type_expr_t; bindings: t Binding.t list }
+    | Cons of { target_type: type_t; bindings: t Binding.t list }
     | Get of { target_form: t; field: string }
     | Set of { target_form: t; field: string; body_form: t }
-    | Cast of { target_type: type_expr_t; body_form: t }
+    | Cast of { target_type: type_t; body_form: t }
 
   let inspect_form metadata parsed =
     sprintf "{ metadata = %s; parsed = %s }" (Metadata.inspect metadata) parsed
 
   let inspect_numlit value =
-    sprintf "NumLit(%.2f)" value
+    sprintf "Number(%.2f)" value
 
   let inspect_strlit value =
-    sprintf "StrLit(\"%s\")" value
+    sprintf "String(\"%s\")" value
 
   let inspect_symbol value =
     sprintf "Symbol(%s)" (NameExpr.inspect value)
@@ -175,8 +175,8 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     let inspect_set = inspect_set inspect in
     let inspect_cast = inspect_cast inspect in
     let inspected_form = match form.parsed with
-    | NumLit value -> inspect_numlit value
-    | StrLit value -> inspect_strlit value
+    | Number value -> inspect_numlit value
+    | String value -> inspect_strlit value
     | Symbol value -> inspect_symbol value
     | Type value -> inspect_type value
     | Def { name; body_form } -> inspect_def name body_form

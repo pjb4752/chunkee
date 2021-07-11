@@ -271,14 +271,14 @@ let parse_apply_arguments recursively_parse arguments =
 let parse_number_apply recursively_parse apply_position number_position value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
   let number_metadata = metadata_from_position number_position in
-  let callable_form = { Form.metadata = number_metadata; parsed = Form.NumLit value } in
+  let callable_form = { Form.metadata = number_metadata; parsed = Form.Number value } in
   let apply_metadata = metadata_from_position apply_position in
   return { Form.metadata = apply_metadata; parsed = Form.Apply { callable_form; arguments } }
 
 let parse_string_apply recursively_parse apply_position string_position value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
   let string_metadata = metadata_from_position string_position in
-  let callable_form = { Form.metadata = string_metadata; parsed = Form.StrLit value } in
+  let callable_form = { Form.metadata = string_metadata; parsed = Form.String value } in
   let apply_metadata = metadata_from_position apply_position in
   return { Form.metadata = apply_metadata; parsed = Form.Apply { callable_form; arguments } }
 
@@ -332,10 +332,10 @@ let rec parse_form { Source_form.position; value; _ } =
   match value with
   | Source_form.Number value ->
       let metadata = metadata_from_position position in
-      Ok { Form.metadata; parsed = Form.NumLit value }
+      Ok { Form.metadata; parsed = Form.Number value }
   | Source_form.String value ->
       let metadata = metadata_from_position position in
-      Ok { Form.metadata; parsed = Form.StrLit value }
+      Ok { Form.metadata; parsed = Form.String value }
   | Source_form.Symbol value -> parse_symbol position value
   | Source_form.List value -> parse_list parse_form position value
   | Source_form.Vector _ -> begin

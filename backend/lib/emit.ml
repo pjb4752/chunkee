@@ -212,8 +212,8 @@ let emit_set recursively_emit name_generator record field expression =
 let rec emit_lua_fragment name_generator (form: Form.t) =
   let recursively_emit = emit_lua_fragment in
   match form.parsed with
-  | Form.NumLit value -> emit_number value
-  | Form.StrLit value -> emit_string value
+  | Form.Number value -> emit_number value
+  | Form.String value -> emit_string value
   | Form.Symbol value -> emit_symbol value
   | Form.Def { name; body_form } ->
       emit_def recursively_emit name_generator name body_form

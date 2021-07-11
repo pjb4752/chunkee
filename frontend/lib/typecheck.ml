@@ -249,9 +249,9 @@ let typecheck_form symbol_table form =
   let rec recursively_typecheck scopes (form: Form.t) =
     let metadata = form.metadata in
     match form.parsed with
-    | Form.NumLit _ ->
+    | Form.Number _ ->
         Ok Type.Number
-    | Form.StrLit _ ->
+    | Form.String _ ->
         Ok Type.String
     | Form.Symbol name ->
         typecheck_name symbol_table scopes name
