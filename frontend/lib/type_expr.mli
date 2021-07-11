@@ -1,5 +1,5 @@
 type t =
-  | SimpleType of Name_expr.t
+  | SimpleType of Names.Unresolved_name.t
   | CompoundType of t list
 
 val inspect: t -> string

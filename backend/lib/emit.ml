@@ -1,6 +1,7 @@
 open Printf
 open Frontend
 open Common.Extensions
+open Names
 
 module Form = Ast.Resolved_form
 
@@ -18,13 +19,13 @@ let char_maps = Char_map.empty |>
   (Char_map.add '=' (String.to_chars "__eqls__"))
 
 let is_infix_operator = function
-  | Name.Module (module_name, variable_name) -> begin
+  | Resolved_name.ModuleName (module_name, variable_name) -> begin
     let variable_name = Identifier.to_string variable_name in
     match Stdlib.find_lua_module module_name with
     | Some matching_module -> Lua_module.operator_exists matching_module variable_name
     | None -> false
   end
-  | Name.Local _ -> false
+  | Resolved_name.LocalName _ -> false
 
 let emit_module_alias segments = String.concat "_" segments
 
@@ -58,8 +59,8 @@ let find_operator module_name variable_name =
     return operator)
 
 let emit_name ?wrap_ops:(wrap_ops=true) = function
-  | Name.Local local_name -> escape_name local_name
-  | Name.Module (module_name, variable_name) ->
+  | Resolved_name.LocalName local_name -> escape_name (Identifier.to_string local_name)
+  | Resolved_name.ModuleName (module_name, variable_name) ->
     let variable_name = Identifier.to_string variable_name in
     match find_operator module_name variable_name with
     | Some operator when wrap_ops -> Lua_operator.wrapper_function_name operator

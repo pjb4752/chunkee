@@ -2,6 +2,7 @@ open Printf
 open Common.Extensions
 open Common.Extensions.Result
 open Common.Extensions.Result.Syntax
+open Names
 
 module Form = Ast.Semantic_form
 
@@ -25,7 +26,7 @@ let parse_qualified_name position name =
     | basename :: segments -> begin
       let module_path = Module_name.Path.from_segments segments in
       let module_name = Module_name.from_path_and_base module_path basename in
-      Ok (Name_expr.QualName (module_name, object_name))
+      Ok (Unresolved_name.QualifiedName (module_name, object_name))
     end
     | _ ->
         Error (Compile_error.parse_errors position [
@@ -43,7 +44,7 @@ let parse_qualified_name position name =
 
 let parse_name_expr position name =
   if String.contains name '.' then parse_qualified_name position name
-  else Ok (Name_expr.BareName name)
+  else Ok (Unresolved_name.UnqualifiedName name)
 
 let parse_type_list parse_type_expr' forms_to_parse =
   List.fold_right (fun type_form parsed_types ->

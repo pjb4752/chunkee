@@ -1,6 +1,7 @@
 open Printf
 open Common.Extensions.Option
 open Common.Extensions.Option.Syntax
+open Names
 
 type t = {
   intrinsics: Intrinsics.t;
@@ -37,7 +38,7 @@ let find_module { module_tree; current_module; _ } module_name =
 let resolve_name_in_module module_to_search name =
   let name = Identifier.from_string name in
   let module_name = Module.name module_to_search in
-  if Module.variable_exists module_to_search name then Ok (Name.Module (module_name, name))
+  if Module.variable_exists module_to_search name then Ok (Resolved_name.ModuleName (module_name, name))
   else undefined_name_error (Identifier.to_string name)
 
 let resolve_qualified_name symbol_table module_name name =
@@ -51,9 +52,9 @@ let resolve_unqualified_name { intrinsics; current_module; _ } name =
   | Error _ -> resolve_name_in_module intrinsics.common_module name
 
 let resolve_name table exists_in_scope = function
-  | Name_expr.QualName (module_name, name) -> resolve_qualified_name table module_name name
-  | Name_expr.BareName name -> begin
-    if exists_in_scope name then Ok (Name.Local name)
+  | Unresolved_name.QualifiedName (module_name, name) -> resolve_qualified_name table module_name name
+  | Unresolved_name.UnqualifiedName name -> begin
+    if exists_in_scope name then Ok (Resolved_name.LocalName (Identifier.from_string name))
     else resolve_unqualified_name table name
   end
 
@@ -80,8 +81,10 @@ let resolve_unqualified_type module_to_search lookup_fn target_type =
   end
 
 let resolve_simple_type symbol_table lookup_fn = function
-  | Name_expr.QualName (module_name, type_name) -> resolve_qualified_type symbol_table module_name type_name
-  | Name_expr.BareName type_name -> resolve_unqualified_type symbol_table.current_module lookup_fn type_name
+  | Unresolved_name.QualifiedName (module_name, type_name) ->
+      resolve_qualified_type symbol_table module_name type_name
+  | Unresolved_name.UnqualifiedName type_name ->
+      resolve_unqualified_type symbol_table.current_module lookup_fn type_name
 
 let rec resolve_type symbol_table ?lookup_fn:(lookup_fn=None) = function
   | Type_expr.SimpleType type_name -> resolve_simple_type symbol_table lookup_fn type_name

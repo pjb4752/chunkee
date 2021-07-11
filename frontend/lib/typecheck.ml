@@ -2,6 +2,7 @@ open Printf
 open Common.Extensions
 open Common.Extensions.Result
 open Common.Extensions.Result.Syntax
+open Names
 
 module Form = Ast.Resolved_form
 
@@ -31,8 +32,8 @@ let typecheck_module_name symbol_table module_name var_name =
 
 let typecheck_name symbol_table scopes name =
   match name with
-  | Name.Local name -> typecheck_local_name scopes name
-  | Name.Module (module_name, var_name) -> typecheck_module_name symbol_table module_name var_name
+  | Resolved_name.LocalName name -> typecheck_local_name scopes (Identifier.to_string name)
+  | Resolved_name.ModuleName (module_name, name) -> typecheck_module_name symbol_table module_name name
 
 let build_parameter_scope parameters =
   let build_parameter_tuples param processed_params =
