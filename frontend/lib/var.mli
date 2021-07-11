@@ -1,8 +1,8 @@
 type t
 
-val make: Identifier.t -> Type.t -> t
+val make: string -> Type.t -> t
 
-val name: t -> Identifier.t
+val name: t -> string
 
 val tipe: t -> Type.t
 

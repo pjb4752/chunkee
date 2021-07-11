@@ -32,14 +32,13 @@ let typecheck_module_name symbol_table module_name var_name =
 
 let typecheck_name symbol_table scopes name =
   match name with
-  | Resolved_name.LocalName name -> typecheck_local_name scopes (Identifier.to_string name)
+  | Resolved_name.LocalName name -> typecheck_local_name scopes name
   | Resolved_name.ModuleName (module_name, name) -> typecheck_module_name symbol_table module_name name
 
 let build_parameter_scope parameters =
   let build_parameter_tuples param processed_params =
     let* processed_params = processed_params in
     let (param_name, param_type) = Form.VarDef.to_tuple param in
-    let param_name = Identifier.to_string param_name in
     return ((param_name, param_type) :: processed_params) in
   let* parameter_tuples = List.fold_right build_parameter_tuples parameters (Ok []) in
   return (
@@ -99,7 +98,6 @@ let typecheck_binding recursively_typecheck scopes binding =
   match recursively_typecheck scopes binding_body with
   | Error e -> Error e
   | Ok binding_type -> begin
-    let binding_name = Identifier.to_string binding_name in
     let (scope: 'a Scope.t) = Scope.add binding_name binding_type Scope.empty in
     Ok (scope :: scopes)
   end
@@ -209,7 +207,7 @@ let typecheck_record_field metadata target_fields field =
   | None ->
       let prefix = build_error_prefix metadata "record.get operation" in
       Error (Compile_error.name_errors metadata prefix [
-        sprintf "record does not have field %s" @@ Identifier.to_string field
+        sprintf "record does not have field %s" field
       ])
 
 let typecheck_get symbol_symbol_table scopes metadata target_form field =

@@ -27,7 +27,6 @@ let to_compiler_module { compiler_name; definitions } =
   let make_compiler_variable compiler_module definition =
     let compiler_name = Lua_definition.compiler_name definition in
     let compiler_type = Lua_definition.compiler_type definition in
-    let compiler_name = Identifier.from_string compiler_name in
     Module.define_variable compiler_module compiler_name compiler_type
   in
   let mempty = Module.with_name compiler_name in

@@ -5,7 +5,7 @@ type t =
   | String
   | Bool
   | List
-  | Record of (Identifier.t * t) list
+  | Record of (string * t) list
   | Function of t list * t
 
 val find_builtin: string -> t option

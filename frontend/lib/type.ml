@@ -7,7 +7,7 @@ type t =
   | String
   | Bool
   | List
-  | Record of (Identifier.t * t) list
+  | Record of (string * t) list
   | Function of t list * t
 
 let type_of_str s =

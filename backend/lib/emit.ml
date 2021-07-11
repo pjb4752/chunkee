@@ -20,7 +20,6 @@ let char_maps = Char_map.empty |>
 
 let is_infix_operator = function
   | Resolved_name.ModuleName (module_name, variable_name) -> begin
-    let variable_name = Identifier.to_string variable_name in
     match Stdlib.find_lua_module module_name with
     | Some matching_module -> Lua_module.operator_exists matching_module variable_name
     | None -> false
@@ -59,9 +58,8 @@ let find_operator module_name variable_name =
     return operator)
 
 let emit_name ?wrap_ops:(wrap_ops=true) = function
-  | Resolved_name.LocalName local_name -> escape_name (Identifier.to_string local_name)
+  | Resolved_name.LocalName local_name -> escape_name local_name
   | Resolved_name.ModuleName (module_name, variable_name) ->
-    let variable_name = Identifier.to_string variable_name in
     match find_operator module_name variable_name with
     | Some operator when wrap_ops -> Lua_operator.wrapper_function_name operator
     | Some operator -> Lua_operator.name operator
@@ -71,7 +69,7 @@ let emit_symbol ?wrap_ops:(wrap_ops=true) value =
   Lua_fragment.make_expression @@ emit_name ~wrap_ops:wrap_ops value
 
 let emit_def recursively_emit name_generator name expression =
-  let name = Identifier.to_string name |> escape_name in
+  let name = escape_name name in
   let expression_fragment = recursively_emit name_generator expression in
   let result_expression = Lua_fragment.result_expression expression_fragment in
   let assignment = sprintf "%s = %s" name result_expression in
@@ -79,7 +77,7 @@ let emit_def recursively_emit name_generator name expression =
   Lua_fragment.insert_preamble def_statement expression_fragment
 
 let vardef_name vardef =
-  Form.VarDef.(to_tuple vardef |> fst |> Identifier.to_string |> escape_name)
+  Form.VarDef.(to_tuple vardef |> fst |> escape_name)
 
 let parameter_string parameters =
   let parameters = List.map vardef_name parameters in
@@ -111,7 +109,7 @@ let emit_if recursively_emit name_generator test_expression if_expression else_e
 let build_binding_statements recursively_emit bindings =
   List.map (fun binding ->
     let (name, expression) = Form.Binding.to_tuple binding in
-    let name = Identifier.to_string name |> escape_name in
+    let name = escape_name name in
     let result = sprintf "%s =" name in
     Lua_fragment.lua_string ~target:result (recursively_emit expression)) bindings
 
@@ -180,7 +178,7 @@ let emit_apply recursively_emit name_generator callable arguments =
 let build_assign_statements generated_name recursively_emit bindings =
   List.map (fun binding ->
     let (name, expression) = Form.Binding.to_tuple binding in
-    let name = Identifier.to_string name |> escape_name in
+    let name =  escape_name name in
     let result = sprintf "%s.%s =" generated_name name in
     Lua_fragment.lua_string ~target:result (recursively_emit expression)) bindings
 
@@ -195,7 +193,6 @@ let emit_get record field =
   match record with
   | { Form.parsed = Form.Symbol name; _ } -> begin
     let record = emit_name ~wrap_ops:false name in
-    let field = Identifier.to_string field in
     Lua_fragment.make_expression (sprintf "%s.%s" record field)
   end
   | _ -> assert false
@@ -204,7 +201,6 @@ let emit_set recursively_emit name_generator record field expression =
   match record with
   | { Form.parsed = Form.Symbol name; _ } -> begin
     let record = emit_name ~wrap_ops:false name in
-    let field = Identifier.to_string field in
     let expression_fragment = recursively_emit name_generator expression in
     let result_expression = Lua_fragment.result_expression expression_fragment in
     let assignment = sprintf "%s.%s = %s" record field result_expression in

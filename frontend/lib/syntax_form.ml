@@ -13,21 +13,21 @@ module type N = sig
   module Binding: sig
     type 'a t
 
-    val from_form: Identifier.t -> 'a -> 'a t
+    val from_form: string -> 'a -> 'a t
 
-    val name: 'a t -> Identifier.t
+    val name: 'a t -> string
 
     val expr: 'a t -> 'a
 
-    val to_tuple: 'a t -> Identifier.t * 'a
+    val to_tuple: 'a t -> string * 'a
   end
 
   module VarDef: sig
     type t
 
-    val from_parts: Identifier.t -> type_expr_t -> t
+    val from_parts: string -> type_expr_t -> t
 
-    val to_tuple: t -> Identifier.t * type_expr_t
+    val to_tuple: t -> string * type_expr_t
   end
 
   type t = {
@@ -38,14 +38,14 @@ module type N = sig
     | StrLit of string
     | Symbol of name_expr_t
     | Type of name_expr_t
-    | Def of { name: Identifier.t; body_form: t }
+    | Def of { name: string; body_form: t }
     | Fn of { parameters: VarDef.t list; return_type: type_expr_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
     | Let of { bindings: t Binding.t list; body_form: t }
     | Apply of { callable_form: t; arguments: t list }
     | Cons of { target_type: type_expr_t; bindings: t Binding.t list }
-    | Get of { target_form: t; field: Identifier.t }
-    | Set of { target_form: t; field: Identifier.t; body_form: t }
+    | Get of { target_form: t; field: string }
+    | Set of { target_form: t; field: string; body_form: t }
     | Cast of { target_type: type_expr_t; body_form: t }
 
   val inspect: t -> string
@@ -57,7 +57,7 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
 
   module Binding = struct
     type 'a t = {
-      name: Identifier.t;
+      name: string;
       expr: 'a;
     }
 
@@ -70,12 +70,12 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     let to_tuple { name; expr; } = (name, expr)
 
     let inspect inspect' { name; expr; } =
-      sprintf "Binding(%s, %s)" (Identifier.inspect name) (inspect' expr)
+      sprintf "Binding(%s, %s)" name (inspect' expr)
   end
 
   module VarDef = struct
     type t = {
-      name: Identifier.t;
+      name: string;
       tipe: type_expr_t
     }
 
@@ -84,7 +84,6 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     let to_tuple { name; tipe; } = (name, tipe)
 
     let inspect { name; tipe; } =
-      let name = Identifier.inspect name in
       let tipe = TypeExpr.inspect tipe in
       sprintf "VarDef({ name = %s; tipe = %s })" name tipe
   end
@@ -97,14 +96,14 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | StrLit of string
     | Symbol of name_expr_t
     | Type of name_expr_t
-    | Def of { name: Identifier.t; body_form: t }
+    | Def of { name: string; body_form: t }
     | Fn of { parameters: VarDef.t list; return_type: type_expr_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
     | Let of { bindings: t Binding.t list; body_form: t }
     | Apply of { callable_form: t; arguments: t list }
     | Cons of { target_type: type_expr_t; bindings: t Binding.t list }
-    | Get of { target_form: t; field: Identifier.t }
-    | Set of { target_form: t; field: Identifier.t; body_form: t }
+    | Get of { target_form: t; field: string }
+    | Set of { target_form: t; field: string; body_form: t }
     | Cast of { target_type: type_expr_t; body_form: t }
 
   let inspect_form metadata parsed =
@@ -123,7 +122,7 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     sprintf "Type(%s)" (NameExpr.inspect value)
 
   let inspect_def inspect' name body_form =
-    sprintf "Def{ name = %s; body_form = %s }" (Identifier.inspect name) (inspect' body_form)
+    sprintf "Def{ name = %s; body_form = %s }" name (inspect' body_form)
 
   let inspect_fn inspect' parameters return_type body_form =
     let parameters = List.map VarDef.inspect parameters in
@@ -154,11 +153,10 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     sprintf "Cons{ target_type = %s; bindings = [%s] }" (TypeExpr.inspect target_type) bindings
 
   let inspect_get inspect' target_form field =
-    sprintf "Get{ target_form = %s; field = %s; }" (inspect' target_form) (Identifier.inspect field)
+    sprintf "Get{ target_form = %s; field = %s; }" (inspect' target_form) field
 
   let inspect_set inspect' target_form field body_form =
     let target_form = inspect' target_form in
-    let field = Identifier.inspect field in
     let body_form = inspect' body_form in
     sprintf "Set{ target_form = %s; field = %s; body_form = %s }" target_form field body_form
 

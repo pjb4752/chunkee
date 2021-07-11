@@ -2,11 +2,11 @@ open Printf
 open Common.Extensions.Option
 open Common.Extensions.Option.Syntax
 
-module VariableNames = Set.Make(Identifier)
-module VariableTypes = Map.Make(Identifier)
+module VariableNames = Set.Make(String)
+module VariableTypes = Map.Make(String)
 
-module TypeNames = Set.Make(Identifier)
-module TypeConstructors = Map.Make(Identifier)
+module TypeNames = Set.Make(String)
+module TypeConstructors = Map.Make(String)
 
 type t = {
   name: Module_name.t;
@@ -60,7 +60,7 @@ let inspect { name; variable_names; variable_types; } =
   let inspect_variable name =
     let variable_type = VariableTypes.find_opt name variable_types in
     match variable_type with
-    | Some found_type -> sprintf "Some(Var(%s, %s))" (Identifier.inspect name) (Type.inspect found_type)
+    | Some found_type -> sprintf "Some(Var(%s, %s))" name (Type.inspect found_type)
     | None -> "None"
   in
   let variable_names = VariableNames.elements variable_names in

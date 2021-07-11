@@ -3,16 +3,16 @@ open Common.Extensions
 open Common.Extensions.Result
 open Common.Extensions.Result.Syntax
 
-module Sem_form = Ast.Semantic_form
-module Res_form = Ast.Resolved_form
+module Semantic_form = Ast.Semantic_form
+module Resolved_form = Ast.Resolved_form
 
 module Scope = Set.Make(String)
 
 module Result = struct
-  type t = (Res_form.t, Compile_error.t) result
+  type t = (Resolved_form.t, Compile_error.t) result
 
   let inspect result =
-    Result.inspect Res_form.inspect Compile_error.to_string result
+    Result.inspect Resolved_form.inspect Compile_error.to_string result
 end
 
 let build_error_prefix { Metadata.line_num; char_num; _ } =
@@ -23,7 +23,7 @@ let resolve_symbol symbol_table scopes metadata name =
     List.exists (Scope.mem name) scopes) name
   in
   match name with
-  | Ok name -> Ok { Res_form.metadata; parsed = Res_form.Symbol name }
+  | Ok name -> Ok { Resolved_form.metadata; parsed = Resolved_form.Symbol name }
   | Error error ->
       let prefix = build_error_prefix metadata in
       Error (Compile_error.name_errors metadata prefix [
@@ -41,40 +41,39 @@ let resolve_type symbol_table metadata parsed_type =
 
 let resolve_def recur_fn scopes metadata name body_form =
   let* body_form = recur_fn scopes body_form in
-  return { Res_form.metadata; parsed = Res_form.Def { name; body_form } }
+  return { Resolved_form.metadata; parsed = Resolved_form.Def { name; body_form } }
 
 let resolve_function recur_fn symbol_table scopes metadata parameters return_type body_form =
   let resolve_vars parsed_var resolved_vars =
     let* resolved_vars = resolved_vars in
-    let (name, parsed_type) = Sem_form.VarDef.to_tuple parsed_var in
+    let (name, parsed_type) = Semantic_form.VarDef.to_tuple parsed_var in
     let* resolved_type = resolve_type symbol_table metadata parsed_type in
-    let resolved_var = Res_form.VarDef.from_parts name resolved_type in
+    let resolved_var = Resolved_form.VarDef.from_parts name resolved_type in
     return (resolved_var :: resolved_vars) in
   let extract_var_name resolved_var =
-    Res_form.VarDef.to_tuple resolved_var |> fst |> Identifier.to_string in
+    Resolved_form.VarDef.to_tuple resolved_var |> fst in
   let* parameters = List.fold_right resolve_vars parameters (Ok []) in
   let param_names = List.map extract_var_name parameters in
   let function_scope = Scope.of_list param_names in
   let scopes = function_scope :: scopes in
   let* return_type = resolve_type symbol_table metadata return_type in
   let* body_form = recur_fn scopes body_form in
-  return { Res_form.metadata; parsed = Res_form.Fn { parameters; return_type; body_form } }
+  return { Resolved_form.metadata; parsed = Resolved_form.Fn { parameters; return_type; body_form } }
 
 let resolve_if recur_fn scopes metadata test_form if_form else_form =
   let* test_form = recur_fn scopes test_form in
   let* if_form = recur_fn scopes if_form in
   let* else_form = recur_fn scopes else_form in
-  return { Res_form.metadata; parsed = Res_form.If { test_form; if_form; else_form } }
+  return { Resolved_form.metadata; parsed = Resolved_form.If { test_form; if_form; else_form } }
 
 let resolve_binding recur_fn scopes binding =
-  let (name, form) = Sem_form.Binding.to_tuple binding in
+  let (name, form) = Semantic_form.Binding.to_tuple binding in
   match recur_fn scopes form with
   | Error e -> Error e
   | Ok form -> begin
     (*TODO we should always create new scope for each binding*)
-    let binding = Res_form.Binding.from_form name form in
+    let binding = Resolved_form.Binding.from_form name form in
     let current_scope = List.hd_else scopes Scope.empty in
-    let name = Identifier.to_string name in
     let updated_scope = Scope.add name current_scope in
     match scopes with
     | [] -> Ok ([updated_scope], binding)
@@ -93,7 +92,7 @@ let resolve_let recur_fn scopes metadata bindings body_form =
   | Error e -> Error e
   | Ok (scopes, bindings) -> begin
     let* body_form = recur_fn scopes body_form in
-    return { Res_form.metadata; parsed = Res_form.Let { bindings = List.rev bindings; body_form } }
+    return { Resolved_form.metadata; parsed = Resolved_form.Let { bindings = List.rev bindings; body_form } }
   end
 
 let resolve_apply recur_fn scopes metadata callable_form arguments =
@@ -103,7 +102,7 @@ let resolve_apply recur_fn scopes metadata callable_form arguments =
     return (argument :: resolved) in
   let* arguments = List.fold_left resolve_arguments (Ok []) arguments in
   let* callable_form = recur_fn scopes callable_form in
-  return { Res_form.metadata; parsed = Res_form.Apply { callable_form; arguments = List.rev arguments } }
+  return { Resolved_form.metadata; parsed = Resolved_form.Apply { callable_form; arguments = List.rev arguments } }
 
 let check_record_fields metadata record_type given_names =
   match record_type with
@@ -115,7 +114,7 @@ let check_record_fields metadata record_type given_names =
         else
           let prefix = build_error_prefix metadata in
           Error (Compile_error.name_errors metadata prefix [
-            sprintf "%s is not a valid record field" @@ Identifier.to_string given_name
+            sprintf "%s is not a valid record field" given_name
           ])
       in
       let check_fields_exist given_name existing_names =
@@ -140,62 +139,62 @@ let resolve_record_expressions recur_fn scopes expression_forms =
 
 let resolve_cons recur_fn symbol_table scopes metadata target_type fields =
   let* target_type = resolve_type symbol_table metadata target_type in
-  let given_fields = List.map Sem_form.Binding.name fields in
+  let given_fields = List.map Semantic_form.Binding.name fields in
   let* existing_fields = check_record_fields metadata target_type given_fields in
-  let field_expressions = List.map Sem_form.Binding.expr fields in
+  let field_expressions = List.map Semantic_form.Binding.expr fields in
   let* resolved_expressions = resolve_record_expressions recur_fn scopes field_expressions in
-  let resolved_fields = List.map2 Res_form.Binding.from_form existing_fields resolved_expressions in
-  return { Res_form.metadata; parsed = Res_form.Cons { target_type; bindings = resolved_fields } }
+  let resolved_fields = List.map2 Resolved_form.Binding.from_form existing_fields resolved_expressions in
+  return { Resolved_form.metadata; parsed = Resolved_form.Cons { target_type; bindings = resolved_fields } }
 
 let resolve_get symbol_table scopes target_form field =
   match target_form with
-  | { Sem_form.metadata; parsed = Sem_form.Symbol name } -> begin
+  | { Semantic_form.metadata; parsed = Semantic_form.Symbol name } -> begin
     let* target_form = resolve_symbol symbol_table scopes metadata name in
-    return { Res_form.metadata; parsed = Res_form.Get { target_form; field } }
+    return { Resolved_form.metadata; parsed = Resolved_form.Get { target_form; field } }
   end
   | _ -> assert false
 
 let resolve_set recur_fn symbol_table scopes target_form field body_form =
   match target_form with
-  | { Sem_form.metadata; parsed = Sem_form.Symbol name } -> begin
+  | { Semantic_form.metadata; parsed = Semantic_form.Symbol name } -> begin
     let* target_form = resolve_symbol symbol_table scopes metadata name in
     let* body_form = recur_fn scopes body_form in
-    return { Res_form.metadata; parsed = Res_form.Set { target_form; field; body_form } }
+    return { Resolved_form.metadata; parsed = Resolved_form.Set { target_form; field; body_form } }
   end
   | _ -> assert false
 
 let resolve_cast recur_fn symbol_table scopes metadata target_type body_form =
   let* target_type = resolve_type symbol_table metadata target_type in
   let* body_form = recur_fn scopes body_form in
-  return { Res_form.metadata; parsed = Res_form.Cast { target_type; body_form } }
+  return { Resolved_form.metadata; parsed = Resolved_form.Cast { target_type; body_form } }
 
 let resolve_identifiers symbol_table form =
-  let rec resolve' scopes (form: Sem_form.t) =
+  let rec resolve' scopes (form: Semantic_form.t) =
     let metadata = form.metadata in
     match form.parsed with
-    | Sem_form.NumLit value ->
-        Ok { Res_form.metadata; parsed = Res_form.NumLit value }
-    | Sem_form.StrLit value ->
-        Ok { Res_form.metadata; parsed = Res_form.StrLit value }
-    | Sem_form.Symbol value ->
+    | Semantic_form.NumLit value ->
+        Ok { Resolved_form.metadata; parsed = Resolved_form.NumLit value }
+    | Semantic_form.StrLit value ->
+        Ok { Resolved_form.metadata; parsed = Resolved_form.StrLit value }
+    | Semantic_form.Symbol value ->
         resolve_symbol symbol_table scopes metadata value
-    | Sem_form.Def { name; body_form }->
+    | Semantic_form.Def { name; body_form }->
         resolve_def resolve' scopes metadata name body_form
-    | Sem_form.Fn { parameters; return_type; body_form } ->
+    | Semantic_form.Fn { parameters; return_type; body_form } ->
         resolve_function resolve' symbol_table scopes metadata parameters return_type body_form
-    | Sem_form.If { test_form; if_form; else_form } ->
+    | Semantic_form.If { test_form; if_form; else_form } ->
         resolve_if resolve' scopes metadata test_form if_form else_form
-    | Sem_form.Let { bindings; body_form } ->
+    | Semantic_form.Let { bindings; body_form } ->
         resolve_let resolve' scopes metadata bindings body_form
-    | Sem_form.Apply { callable_form; arguments }->
+    | Semantic_form.Apply { callable_form; arguments }->
         resolve_apply resolve' scopes metadata callable_form arguments
-    | Sem_form.Cons { target_type; bindings } ->
+    | Semantic_form.Cons { target_type; bindings } ->
         resolve_cons resolve' symbol_table scopes metadata target_type bindings
-    | Sem_form.Get { target_form; field } ->
+    | Semantic_form.Get { target_form; field } ->
         resolve_get symbol_table scopes target_form field
-    | Sem_form.Set { target_form; field; body_form } ->
+    | Semantic_form.Set { target_form; field; body_form } ->
         resolve_set resolve' symbol_table scopes target_form field body_form
-    | Sem_form.Cast { target_type; body_form } ->
+    | Semantic_form.Cast { target_type; body_form } ->
         resolve_cast resolve' symbol_table scopes metadata target_type body_form
-    | Sem_form.Type _ -> assert false in
+    | Semantic_form.Type _ -> assert false in
   resolve' [] form

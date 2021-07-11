@@ -78,10 +78,9 @@ let rec parse_type_expr { Source_form.position; value } =
   | _ -> invalid_type_error position
 
 let parse_var_def = function
-  | { Source_form.value = Source_form.Symbol raw_name; _ } :: type_form :: [] -> begin
+  | { Source_form.value = Source_form.Symbol name; _ } :: type_form :: [] -> begin
     let* parsed_type = parse_type_expr type_form in
-    let parsed_name = Identifier.from_string raw_name in
-    return (parsed_name, parsed_type)
+    return (name, parsed_type)
   end
   | first_form :: last_form :: [] -> begin
     Error (Compile_error.parse_errors first_form.position [
@@ -101,7 +100,6 @@ let is_const_literal { Source_form.value; _ } =
 let parse_def recursively_parse position = function
   | { Source_form.value = Source_form.Symbol name; _ } :: body_expr :: [] when is_const_literal body_expr ->
       let* body_form = recursively_parse body_expr in
-      let name = Identifier.from_string name in
       let metadata = metadata_from_position position in
       return { Form.metadata; parsed = Form.Def { name; body_form } }
   | { Source_form.value = Source_form.Symbol _; _ } :: invalid_form :: [] -> begin
@@ -125,7 +123,6 @@ let parse_get position = function
     let* target = parse_name_expr position target in
     let metadata = metadata_from_position position in
     let target_form = { Form.metadata; parsed = Form.Symbol target } in
-    let field = Identifier.from_string field in
     return { Form.metadata; parsed = Form.Get { target_form; field } }
   | _ -> begin
     Error (Compile_error.parse_errors position [
@@ -138,7 +135,6 @@ let parse_get position = function
 let parse_set recursively_parse position = function
   | [{ Source_form.position; value = Source_form.Symbol target; _ }; { value = Source_form.Symbol field; _ }; body] ->
     let* target = parse_name_expr position target in
-    let field = Identifier.from_string field in
     let* body_form = recursively_parse body in
     let metadata = metadata_from_position position in
     let target_form = { Form.metadata; parsed = Form.Symbol target } in
@@ -211,7 +207,6 @@ let parse_if recursively_parse position = function
 
 let parse_binding recursively_parse = function
   | ({ Source_form.value = Source_form.Symbol name; _ }, expression) ->
-    let name = Identifier.from_string name in
     let* expression = recursively_parse expression in
     return (Form.Binding.from_form name expression)
   | (first_form, _) -> begin

@@ -1,7 +1,7 @@
 open Printf
 
 type t = {
-  name: Identifier.t;
+  name: string;
   tipe: Type.t
 }
 
@@ -11,4 +11,4 @@ let name { name; _ } = name
 
 let tipe { tipe; _ } = tipe
 
-let inspect { name; tipe } = sprintf "Var(%s, %s)" (Identifier.inspect name) (Type.inspect tipe)
+let inspect { name; tipe } = sprintf "Var(%s, %s)" name (Type.inspect tipe)

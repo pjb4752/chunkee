@@ -8,8 +8,8 @@ end
 
 module Resolved_name: sig
   type t =
-    | LocalName of Identifier.t
-    | ModuleName of Module_name.t * Identifier.t
+    | LocalName of string
+    | ModuleName of Module_name.t * string
 
   val inspect: t -> string
 end

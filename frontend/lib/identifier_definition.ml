@@ -12,7 +12,7 @@ module Result = struct
     Result.inspect Symbol_table.inspect Compile_error.to_string result
 end
 
-module DeclaredTypes = Map.Make(Identifier)
+module DeclaredTypes = Map.Make(String)
 
 let build_prefix { Metadata.line_num; char_num; _ } =
   sprintf "in expression at %d:%d" line_num char_num
@@ -45,7 +45,7 @@ let define_module_variables symbol_table = function
     if module_variable_exists symbol_table name then
       let prefix = build_prefix metadata in
       Error (Compile_error.definition_errors metadata prefix [
-        sprintf "var with name '%s' is already defined" @@ Identifier.to_string name
+        sprintf "var with name '%s' is already defined" name
       ])
     else (
       let* variable_type = find_variable_type symbol_table metadata body_form.parsed in

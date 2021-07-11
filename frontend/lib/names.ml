@@ -15,12 +15,12 @@ end
 
 module Resolved_name = struct
   type t =
-    | LocalName of Identifier.t
-    | ModuleName of Module_name.t * Identifier.t
+    | LocalName of string
+    | ModuleName of Module_name.t * string
 
   let inspect = function
-    | LocalName identifier -> sprintf "LocalName(%s)" (Identifier.inspect identifier)
-    | ModuleName (qualified_name, identifier) -> begin
-      sprintf "ModuleName(%s, %s)" (Module_name.inspect qualified_name) (Identifier.inspect identifier)
+    | LocalName name -> sprintf "LocalName(%s)" name
+    | ModuleName (module_name, name) -> begin
+      sprintf "ModuleName(%s, %s)" (Module_name.inspect module_name) name
     end
 end

@@ -15,7 +15,7 @@ type err_t =
 
 type exists_in_scope = string -> bool
 
-type exists_in_decls = Identifier.t -> Type.t option
+type exists_in_decls = string -> Type.t option
 
 let make (intrinsics: Intrinsics.t) current_module =
   let module_tree = Module_tree.empty in
@@ -36,10 +36,9 @@ let find_module { module_tree; current_module; _ } module_name =
   else Module_tree.find_module module_tree module_name
 
 let resolve_name_in_module module_to_search name =
-  let name = Identifier.from_string name in
   let module_name = Module.name module_to_search in
   if Module.variable_exists module_to_search name then Ok (Resolved_name.ModuleName (module_name, name))
-  else undefined_name_error (Identifier.to_string name)
+  else undefined_name_error name
 
 let resolve_qualified_name symbol_table module_name name =
   match find_module symbol_table module_name with
@@ -54,13 +53,12 @@ let resolve_unqualified_name { intrinsics; current_module; _ } name =
 let resolve_name table exists_in_scope = function
   | Unresolved_name.QualifiedName (module_name, name) -> resolve_qualified_name table module_name name
   | Unresolved_name.UnqualifiedName name -> begin
-    if exists_in_scope name then Ok (Resolved_name.LocalName (Identifier.from_string name))
+    if exists_in_scope name then Ok (Resolved_name.LocalName name)
     else resolve_unqualified_name table name
   end
 
 let resolve_type_in_module module_to_search target_type =
-  let name = Identifier.from_string target_type in
-  match Module.find_type module_to_search name with
+  match Module.find_type module_to_search target_type with
   | Some found_type -> Ok found_type
   | None -> undefined_name_error target_type
 
@@ -73,8 +71,7 @@ let resolve_unqualified_type module_to_search lookup_fn target_type =
   match Type.find_builtin target_type with
   | Some found_type -> Ok found_type
   | None -> begin
-    let name = Identifier.from_string target_type in
-    let maybe_type = let* lookup_fn = lookup_fn in lookup_fn name in
+    let maybe_type = let* lookup_fn = lookup_fn in lookup_fn target_type in
     match maybe_type with
     | Some found_type -> Ok found_type
     | None -> resolve_type_in_module module_to_search target_type
