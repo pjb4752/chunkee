@@ -14,9 +14,6 @@ end
 
 module DeclaredTypes = Map.Make(String)
 
-let build_prefix { Metadata.line_num; char_num; _ } =
-  sprintf "in expression at %d:%d" line_num char_num
-
 let module_variable_exists symbol_table name =
   let module_name = Module.name @@ Symbol_table.current_module symbol_table in
   Option.is_some @@ Symbol_table.find_variable symbol_table module_name name
@@ -27,8 +24,7 @@ let find_function_type symbol_table metadata parameters return_type =
   match Symbol_table.resolve_type symbol_table compound_type with
   | Ok compound_type -> Ok compound_type
   | Error error -> begin
-      let prefix = build_prefix metadata in
-      Error (Compile_error.definition_errors metadata prefix [
+      Error (Compile_error.definition_errors metadata [
         Symbol_table.err_string error
       ])
   end
@@ -43,8 +39,7 @@ let find_variable_type symbol_table metadata expression =
 let define_module_variables symbol_table = function
   | { Form.metadata; parsed = Form.Def { name; body_form } } -> begin
     if module_variable_exists symbol_table name then
-      let prefix = build_prefix metadata in
-      Error (Compile_error.definition_errors metadata prefix [
+      Error (Compile_error.definition_errors metadata [
         sprintf "var with name '%s' is already defined" name
       ])
     else (

@@ -10,9 +10,6 @@ type t = (Type.t, Compile_error.t) result
 
 module Scope = Map.Make(String)
 
-let build_error_prefix { Metadata.line_num; char_num; _ } message =
-  sprintf "in %s at %d:%d" message line_num char_num
-
 let is_compatible expected actual =
   expected = actual || expected == Type.Any
 
@@ -56,8 +53,7 @@ let typecheck_fn recursively_typecheck scopes metadata parameters return_type bo
   | Error e -> Error e
   | Ok actual_return_type when return_type = actual_return_type -> Ok actual_return_type
   | Ok actual_return_type ->
-      let prefix = build_error_prefix metadata "function definition" in
-      Error (Compile_error.type_errors metadata prefix [
+      Error (Compile_error.type_errors metadata [
         sprintf "expected return type is %s, " @@ Type.inspect return_type;
         sprintf "but actual return type found is %s" @@ Type.inspect actual_return_type
       ])
@@ -66,8 +62,7 @@ let check_test_type metadata test_type =
   match test_type with
   | Type.Bool -> Ok Type.Bool
   | actual_type ->
-      let prefix = build_error_prefix metadata "if test-expr" in
-      Error (Compile_error.type_errors metadata prefix [
+      Error (Compile_error.type_errors metadata [
         "if test-exprs must evaulate to a boolean value, ";
         sprintf "instead received type of %s" @@ Type.inspect actual_type
       ])
@@ -80,8 +75,7 @@ let typecheck_if_branches metadata if_type else_type =
   if if_type = else_type then Ok if_type
   else if if_type = Type.Any || else_type = Type.Any then Ok Type.Any
   else
-    let prefix = build_error_prefix metadata "if expr" in
-    Error (Compile_error.type_errors metadata prefix [
+    Error (Compile_error.type_errors metadata [
       sprintf "result of if-expr was %s, " @@ Type.inspect if_type;
       sprintf "which is incompatible with else-expr result type %s" @@ Type.inspect else_type
   ])
@@ -134,8 +128,7 @@ let typecheck_parameter_types metadata expected_types actual_types return_type =
   let errors = List.fold_left combine_results [] results in
   if List.is_empty errors then Ok return_type
   else
-    let prefix = build_error_prefix metadata "function application" in
-    Error (Compile_error.type_errors metadata prefix errors)
+    Error (Compile_error.type_errors metadata errors)
 
 let typecheck_callable_arguments metadata defined_type argument_types =
   match defined_type with
@@ -143,15 +136,13 @@ let typecheck_callable_arguments metadata defined_type argument_types =
     if List.compare_lengths expected_types argument_types = 0 then
       typecheck_parameter_types metadata expected_types argument_types return_type
     else
-      let prefix = build_error_prefix metadata "function application" in
-      Error (Compile_error.type_errors metadata prefix [
+      Error (Compile_error.type_errors metadata [
         sprintf "function expected %d arguments, " @@ List.length expected_types;
         sprintf "but instead received %d" @@ List.length argument_types
       ])
   end
   | defined_type ->
-      let prefix = build_error_prefix metadata "expression" in
-      Error (Compile_error.type_errors metadata prefix [
+      Error (Compile_error.type_errors metadata [
         sprintf "attempt to apply non-function type of %s" @@ Type.inspect defined_type
       ])
 
@@ -170,8 +161,7 @@ let compare_field_types metadata target_fields bound_field bound_type =
   match List.find_opt (fun target_field -> (fst target_field) = bound_field) target_fields with
   | Some (_, target_type) when is_compatible target_type bound_type -> Ok bound_type
   | Some (_, target_type) ->
-      let prefix = build_error_prefix metadata "record constructor" in
-      Error (Compile_error.type_errors metadata prefix [
+      Error (Compile_error.type_errors metadata [
         sprintf "constructor expected type of %s, " @@ Type.inspect target_type;
         sprintf "but instead received type of %s" @@ Type.inspect bound_type
   ])
@@ -195,8 +185,7 @@ let typecheck_record_type metadata target_type =
   match target_type with
   | Type.Record fields -> Ok fields
   | actual_type ->
-      let prefix = build_error_prefix metadata "record.get operation" in
-      Error (Compile_error.type_errors metadata prefix [
+      Error (Compile_error.type_errors metadata [
         "first arg to 'get' builtin must be record type, ";
         sprintf "instead received %s" @@ Type.inspect actual_type
   ])
@@ -205,8 +194,7 @@ let typecheck_record_field metadata target_fields field =
   match List.find_opt (fun (name, _) -> name = field) target_fields with
   | Some (_, target_type) -> Ok (target_type)
   | None ->
-      let prefix = build_error_prefix metadata "record.get operation" in
-      Error (Compile_error.name_errors metadata prefix [
+      Error (Compile_error.name_errors metadata [
         sprintf "record does not have field %s" field
       ])
 
@@ -223,8 +211,7 @@ let typecheck_get symbol_symbol_table scopes metadata target_form field =
 let compare_set_type metadata target_type actual_type =
   if is_compatible target_type actual_type then Ok actual_type
   else
-    let prefix = build_error_prefix metadata "record.set operation" in
-    Error (Compile_error.type_errors metadata prefix [
+    Error (Compile_error.type_errors metadata [
       sprintf "builtin 'set' expected type of %s, " @@ Type.inspect target_type;
       sprintf "but instead received type of %s" @@ Type.inspect actual_type
     ])

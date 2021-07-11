@@ -26,23 +26,25 @@ let to_string = function
   | NameError payload -> message_to_string "Name Error" payload
   | TypeError payload -> message_to_string "Type Error" payload
 
+let build_message_parts messages line_num char_num =
+  (String.concat "" messages, sprintf "in expression at %d:%d" line_num char_num)
+
 let syntax_error line_num char_num message =
   let prefix = sprintf "in expression at %d:%d" line_num char_num in
   SyntaxError { line_num; char_num; prefix; message }
 
 let parse_errors { Stream_position.line_number; char_number; _ } messages =
-  let message = String.concat "" messages in
-  let prefix = sprintf "in expression at %d:%d" line_number char_number in
+  let (message, prefix) = build_message_parts messages line_number char_number in
   ParseError { line_num = line_number; char_num = char_number; prefix; message }
 
-let definition_errors { Metadata.line_num; char_num; _ } prefix messages =
-  let message = String.concat "" messages in
+let definition_errors { Metadata.line_num; char_num; _ } messages =
+  let (message, prefix) = build_message_parts messages line_num char_num in
   DefinitionError { line_num; char_num; prefix; message }
 
-let name_errors { Metadata.line_num; char_num; _ } prefix messages =
-  let message = String.concat "" messages in
+let name_errors { Metadata.line_num; char_num; _ } messages =
+  let (message, prefix) = build_message_parts messages line_num char_num in
   NameError { line_num; char_num; prefix; message }
 
-let type_errors { Metadata.line_num; char_num; _ } prefix messages =
-  let message = String.concat "" messages in
+let type_errors { Metadata.line_num; char_num; _ } messages =
+  let (message, prefix) = build_message_parts messages line_num char_num in
   TypeError { line_num; char_num; prefix; message }

@@ -15,8 +15,8 @@ val syntax_error: int -> int -> string -> t
 
 val parse_errors: Stream_position.t -> string list -> t
 
-val definition_errors: Metadata.t -> string -> string list -> t
+val definition_errors: Metadata.t -> string list -> t
 
-val name_errors: Metadata.t -> string -> string list -> t
+val name_errors: Metadata.t -> string list -> t
 
-val type_errors: Metadata.t -> string -> string list -> t
+val type_errors: Metadata.t -> string list -> t

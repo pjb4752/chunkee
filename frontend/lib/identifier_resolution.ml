@@ -15,9 +15,6 @@ module Result = struct
     Result.inspect Resolved_form.inspect Compile_error.to_string result
 end
 
-let build_error_prefix { Metadata.line_num; char_num; _ } =
-  sprintf "in expression at %d:%d" line_num char_num
-
 let resolve_symbol symbol_table scopes metadata name =
   let name = Symbol_table.resolve_name symbol_table (fun name ->
     List.exists (Scope.mem name) scopes) name
@@ -25,8 +22,7 @@ let resolve_symbol symbol_table scopes metadata name =
   match name with
   | Ok name -> Ok { Resolved_form.metadata; parsed = Resolved_form.Symbol name }
   | Error error ->
-      let prefix = build_error_prefix metadata in
-      Error (Compile_error.name_errors metadata prefix [
+      Error (Compile_error.name_errors metadata [
         Symbol_table.err_string error
       ])
 
@@ -34,8 +30,7 @@ let resolve_type symbol_table metadata parsed_type =
   match Symbol_table.resolve_type symbol_table parsed_type with
   | Ok resolved_type -> Ok resolved_type
   | Error error ->
-      let prefix = build_error_prefix metadata in
-      Error (Compile_error.name_errors metadata prefix [
+      Error (Compile_error.name_errors metadata [
         Symbol_table.err_string error
       ])
 
@@ -112,8 +107,7 @@ let check_record_fields metadata record_type given_names =
       let field_exists defined_names given_name =
         if List.exists ((=) given_name) defined_names then Ok given_name
         else
-          let prefix = build_error_prefix metadata in
-          Error (Compile_error.name_errors metadata prefix [
+          Error (Compile_error.name_errors metadata [
             sprintf "%s is not a valid record field" given_name
           ])
       in
@@ -123,8 +117,7 @@ let check_record_fields metadata record_type given_names =
         return (existing_name :: existing_names) in
       List.fold_right check_fields_exist given_names (Ok [])
     else
-      let prefix = build_error_prefix metadata in
-      Error (Compile_error.name_errors metadata prefix [
+      Error (Compile_error.name_errors metadata [
         sprintf "Wrong number of fields for given for record"
       ])
   end
