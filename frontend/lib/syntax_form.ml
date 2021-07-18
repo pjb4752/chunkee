@@ -31,7 +31,7 @@ module type N = sig
   end
 
   type t = {
-    metadata: Metadata.t;
+    position: Stream_position.t;
     parsed: u
   } and u =
     | Number of float
@@ -89,7 +89,7 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
   end
 
   type t = {
-    metadata: Metadata.t;
+    position: Stream_position.t;
     parsed: u
   } and u =
     | Number of float
@@ -106,8 +106,8 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | Set of { target_form: t; field: string; body_form: t }
     | Cast of { target_type: type_t; body_form: t }
 
-  let inspect_form metadata parsed =
-    sprintf "{ metadata = %s; parsed = %s }" (Metadata.inspect metadata) parsed
+  let inspect_form position parsed =
+    sprintf "{ position = %s; parsed = %s }" (Stream_position.inspect position) parsed
 
   let inspect_numlit value =
     sprintf "Number(%.2f)" value
@@ -189,5 +189,5 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | Set { target_form; field; body_form } -> inspect_set target_form field body_form
     | Cast { target_type; body_form } -> inspect_cast target_type body_form
     in
-    inspect_form form.metadata inspected_form
+    inspect_form form.position inspected_form
 end

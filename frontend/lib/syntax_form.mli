@@ -29,7 +29,7 @@ module type N = sig
   end
 
   type t = {
-    metadata: Metadata.t;
+    position: Stream_position.t;
     parsed: u
   } and u =
     | Number of float
