@@ -1,6 +1,5 @@
 module Result: sig
-  type value_t = (Source_form.t, Compile_error.t) result
-  type t = value_t list
+  type t = (Source_form.t list, Compile_error.t) result
 
   val inspect: t -> string
 end

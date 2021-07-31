@@ -10,6 +10,12 @@ type t = (Type.t, Compile_error.t) result
 
 module Scope = Map.Make(String)
 
+let create_type_error position message_fragments =
+  Error (Compile_error.create_type_error position message_fragments)
+
+let create_name_error position message_fragments =
+  Error (Compile_error.create_name_error position message_fragments)
+
 let is_compatible expected actual =
   expected = actual || expected == Type.Any
 
@@ -52,20 +58,18 @@ let typecheck_fn recursively_typecheck scopes position parameters return_type bo
   match actual_return_type with
   | Error e -> Error e
   | Ok actual_return_type when return_type = actual_return_type -> Ok actual_return_type
-  | Ok actual_return_type ->
-      Error (Compile_error.type_errors position [
-        sprintf "expected return type is %s, " @@ Type.inspect return_type;
-        sprintf "but actual return type found is %s" @@ Type.inspect actual_return_type
-      ])
+  | Ok actual_return_type -> create_type_error position [
+      sprintf "expected return type is %s, " @@ Type.inspect return_type;
+      sprintf "but actual return type found is %s" @@ Type.inspect actual_return_type
+    ]
 
 let check_test_type position test_type =
   match test_type with
   | Type.Bool -> Ok Type.Bool
-  | actual_type ->
-      Error (Compile_error.type_errors position [
-        "if test-exprs must evaulate to a boolean value, ";
-        sprintf "instead received type of %s" @@ Type.inspect actual_type
-      ])
+  | actual_type -> create_type_error position [
+      "if test-exprs must evaulate to a boolean value, ";
+      sprintf "instead received type of %s" @@ Type.inspect actual_type
+    ]
 
 let typecheck_test_form recursively_typecheck scopes position test_form =
   let* test_type = recursively_typecheck scopes test_form in
@@ -74,11 +78,10 @@ let typecheck_test_form recursively_typecheck scopes position test_form =
 let typecheck_if_branches position if_type else_type =
   if if_type = else_type then Ok if_type
   else if if_type = Type.Any || else_type = Type.Any then Ok Type.Any
-  else
-    Error (Compile_error.type_errors position [
+  else create_type_error position [
       sprintf "result of if-expr was %s, " @@ Type.inspect if_type;
       sprintf "which is incompatible with else-expr result type %s" @@ Type.inspect else_type
-  ])
+    ]
 
 let typecheck_if recursively_typecheck scopes position test_form if_form else_form =
   let* _ = typecheck_test_form recursively_typecheck scopes position test_form in
@@ -127,24 +130,21 @@ let typecheck_parameter_types position expected_types actual_types return_type =
   let results = List.mapi typecheck_param_type @@ List.zip expected_types actual_types in
   let errors = List.fold_left combine_results [] results in
   if List.is_empty errors then Ok return_type
-  else
-    Error (Compile_error.type_errors position errors)
+  else create_type_error position errors
 
 let typecheck_callable_arguments position defined_type argument_types =
   match defined_type with
   | Type.Function (expected_types, return_type) -> begin
     if List.compare_lengths expected_types argument_types = 0 then
       typecheck_parameter_types position expected_types argument_types return_type
-    else
-      Error (Compile_error.type_errors position [
+    else create_type_error position [
         sprintf "function expected %d arguments, " @@ List.length expected_types;
         sprintf "but instead received %d" @@ List.length argument_types
-      ])
+      ]
   end
-  | defined_type ->
-      Error (Compile_error.type_errors position [
-        sprintf "attempt to apply non-function type of %s" @@ Type.inspect defined_type
-      ])
+  | defined_type -> create_type_error position [
+      sprintf "attempt to apply non-function type of %s" @@ Type.inspect defined_type
+    ]
 
 let typecheck_apply recursively_typecheck scopes position callable_form arguments =
   let typecheck_arguments argument checked_types =
@@ -160,11 +160,10 @@ let typecheck_apply recursively_typecheck scopes position callable_form argument
 let compare_field_types position target_fields bound_field bound_type =
   match List.find_opt (fun target_field -> (fst target_field) = bound_field) target_fields with
   | Some (_, target_type) when is_compatible target_type bound_type -> Ok bound_type
-  | Some (_, target_type) ->
-      Error (Compile_error.type_errors position [
-        sprintf "constructor expected type of %s, " @@ Type.inspect target_type;
-        sprintf "but instead received type of %s" @@ Type.inspect bound_type
-  ])
+  | Some (_, target_type) -> create_type_error position [
+      sprintf "constructor expected type of %s, " @@ Type.inspect target_type;
+      sprintf "but instead received type of %s" @@ Type.inspect bound_type
+    ]
   | None -> assert false
 
 let typecheck_cons recursively_typecheck scopes position target_type bindings =
@@ -184,19 +183,15 @@ let typecheck_cons recursively_typecheck scopes position target_type bindings =
 let typecheck_record_type position target_type =
   match target_type with
   | Type.Record fields -> Ok fields
-  | actual_type ->
-      Error (Compile_error.type_errors position [
-        "first arg to 'get' builtin must be record type, ";
-        sprintf "instead received %s" @@ Type.inspect actual_type
-  ])
+  | actual_type -> create_type_error position [
+      "first arg to 'get' builtin must be record type, ";
+      sprintf "instead received %s" @@ Type.inspect actual_type
+    ]
 
 let typecheck_record_field position target_fields field =
   match List.find_opt (fun (name, _) -> name = field) target_fields with
   | Some (_, target_type) -> Ok (target_type)
-  | None ->
-      Error (Compile_error.name_errors position [
-        sprintf "record does not have field %s" field
-      ])
+  | None -> create_name_error position [sprintf "record does not have field %s" field]
 
 let typecheck_get symbol_symbol_table scopes position target_form field =
   match target_form with
@@ -210,11 +205,10 @@ let typecheck_get symbol_symbol_table scopes position target_form field =
 
 let compare_set_type position target_type actual_type =
   if is_compatible target_type actual_type then Ok actual_type
-  else
-    Error (Compile_error.type_errors position [
+  else create_type_error position [
       sprintf "builtin 'set' expected type of %s, " @@ Type.inspect target_type;
       sprintf "but instead received type of %s" @@ Type.inspect actual_type
-    ])
+    ]
 
 let typecheck_set recursively_typecheck symbol_symbol_table scopes position target_form field body_form =
   match target_form with
@@ -242,6 +236,8 @@ let typecheck_form symbol_table form =
         Ok Type.String
     | Form.Symbol name ->
         typecheck_name symbol_table scopes name
+    | Form.Type _ -> assert false
+    | Form.Def _ -> assert false
     | Form.Fn { parameters; return_type; body_form } ->
         typecheck_fn recursively_typecheck scopes position parameters return_type body_form
     | Form.If { test_form; if_form; else_form } ->
@@ -258,7 +254,5 @@ let typecheck_form symbol_table form =
         typecheck_set recursively_typecheck symbol_table scopes position target_form field body_form
     | Form.Cast { target_type; body_form } ->
         typecheck_cast recursively_typecheck scopes target_type body_form
-    | Form.Type _ -> assert false
-    | Form.Def _ -> assert false
   in
   recursively_typecheck [] form

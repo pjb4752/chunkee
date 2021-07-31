@@ -145,7 +145,7 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
   let inspect_apply inspect' callable_form arguments =
     let arguments = List.map inspect' arguments in
     let arguments = String.concat "; " arguments in
-    sprintf "Apply{ callable_form = [%s]; arguments = %s }" (inspect' callable_form) arguments
+    sprintf "Apply{ callable_form = %s; arguments = [%s] }" (inspect' callable_form) arguments
 
   let inspect_cons inspect' target_type bindings =
     let bindings = List.map (Binding.inspect inspect') bindings in

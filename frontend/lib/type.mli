@@ -5,6 +5,7 @@ type t =
   | String
   | Bool
   | List
+  | Vector
   | Record of (string * t) list
   | Function of t list * t
 

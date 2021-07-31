@@ -17,10 +17,9 @@ let create_module path_segments name =
   let module_name = Frontend.Module_name.Segment.from_string name in
   Frontend.Module.with_path_and_base module_path module_name
 
-let compile_forms symbol_table source_forms =
+let compile_forms symbol_table source_parsing_result =
   let compile_in_stages symbol_table source_form =
     let open Common.Extensions.Result.Syntax in
-    let* source_form = source_form in
     let* semantic_form = Frontend.Semantic_parsing.parse_form source_form in
     let* symbol_table = Frontend.Identifier_definition.define_identifiers symbol_table semantic_form in
     let* resolved_form = Frontend.Identifier_resolution.resolve_identifiers symbol_table semantic_form in
@@ -35,7 +34,12 @@ let compile_forms symbol_table source_forms =
         let () = printf "%s\n" @@ Frontend.Ast.Resolved_form.inspect resolved_form in
         symbol_table
   in
-  List.fold_left compile_form symbol_table source_forms
+  match source_parsing_result with
+  | Error compile_error ->
+      let () = printf "%s\n" @@ Frontend.Compile_error.to_string compile_error in
+      symbol_table
+  | Ok source_forms ->
+      List.fold_left compile_form symbol_table source_forms
 
 let next_input_line in_channel previous_line_number =
   let line_number = previous_line_number + 1 in

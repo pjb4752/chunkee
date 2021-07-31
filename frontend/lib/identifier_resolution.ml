@@ -15,27 +15,24 @@ module Result = struct
     Result.inspect Resolved_form.inspect Compile_error.to_string result
 end
 
+let create_name_error position message_fragments =
+  Error (Compile_error.create_name_error position [message_fragments])
+
 let resolve_symbol symbol_table scopes position name =
   let name = Symbol_table.resolve_name symbol_table (fun name ->
     List.exists (Scope.mem name) scopes) name
   in
   match name with
+  | Error error -> create_name_error position @@ Symbol_table.err_string error
   | Ok name -> Ok { Resolved_form.position; parsed = Resolved_form.Symbol name }
-  | Error error ->
-      Error (Compile_error.name_errors position [
-        Symbol_table.err_string error
-      ])
 
 let resolve_type symbol_table position parsed_type =
   match Symbol_table.resolve_type symbol_table parsed_type with
+  | Error error -> create_name_error position @@ Symbol_table.err_string error
   | Ok resolved_type -> Ok resolved_type
-  | Error error ->
-      Error (Compile_error.name_errors position [
-        Symbol_table.err_string error
-      ])
 
-let resolve_def recur_fn scopes position name body_form =
-  let* body_form = recur_fn scopes body_form in
+let resolve_def recursively_resolve scopes position name body_form =
+  let* body_form = recursively_resolve scopes body_form in
   return { Resolved_form.position; parsed = Resolved_form.Def { name; body_form } }
 
 let resolve_function recur_fn symbol_table scopes position parameters return_type body_form =
@@ -106,20 +103,14 @@ let check_record_fields position record_type given_names =
     if (List.compare_lengths defined_names given_names) = 0 then
       let field_exists defined_names given_name =
         if List.exists ((=) given_name) defined_names then Ok given_name
-        else
-          Error (Compile_error.name_errors position [
-            sprintf "%s is not a valid record field" given_name
-          ])
+        else create_name_error position @@ sprintf "%s is not a valid record field" given_name
       in
       let check_fields_exist given_name existing_names =
         let* existing_names = existing_names in
         let* existing_name = field_exists defined_names given_name in
         return (existing_name :: existing_names) in
       List.fold_right check_fields_exist given_names (Ok [])
-    else
-      Error (Compile_error.name_errors position [
-        sprintf "Wrong number of fields for given for record"
-      ])
+    else create_name_error position "Wrong number of fields for given for record"
   end
   | _ -> assert false
 
@@ -171,6 +162,7 @@ let resolve_identifiers symbol_table form =
         Ok { Resolved_form.position; parsed = Resolved_form.String value }
     | Semantic_form.Symbol value ->
         resolve_symbol symbol_table scopes position value
+    | Semantic_form.Type _ -> assert false
     | Semantic_form.Def { name; body_form }->
         resolve_def resolve' scopes position name body_form
     | Semantic_form.Fn { parameters; return_type; body_form } ->
@@ -189,5 +181,5 @@ let resolve_identifiers symbol_table form =
         resolve_set resolve' symbol_table scopes target_form field body_form
     | Semantic_form.Cast { target_type; body_form } ->
         resolve_cast resolve' symbol_table scopes position target_type body_form
-    | Semantic_form.Type _ -> assert false in
+    in
   resolve' [] form

@@ -1,3 +1,5 @@
+exception Error of (Stream_position.t * string)
+
 type atom_t =
   | Number of float
   | String of string

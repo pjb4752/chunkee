@@ -1,16 +1,17 @@
 open Printf
 open Common.Extensions
 open Common.Extensions.Result
-open Common.Extensions.Result.Syntax
 
 module Result = struct
-  type value_t = (Source_form.t, Compile_error.t) result
-  type t = value_t list
+  type t = (Source_form.t list, Compile_error.t) result
 
-  let inspect values =
-    let values = List.map (Result.inspect Source_form.inspect Compile_error.to_string) values in
-    sprintf "Parsing.Result([%s])" @@ String.concat ", " values
+  let inspect result =
+    let result = (Result.inspect (List.inspect Source_form.inspect) Compile_error.to_string) result in
+    sprintf "Parsing.Result(%s)" result
 end
+
+let raise_error position message =
+  raise (Token.Error (position, message))
 
 let parse_atom position atom =
   let atom = match atom with
@@ -21,27 +22,26 @@ let parse_atom position atom =
 
 let parse_list token_stream starting_position =
   let rec parse_list' elements =
-    let* elements = elements in
     let { Token.position; value } = Token_stream.next token_stream in
     match value with
-    | Token.EndOfInput -> Error (Compile_error.parse_errors position ["unexpected end of input"])
+    | Token.EndOfInput -> raise_error position "unexpected end of input"
     | Token.Marker token -> begin
       match token with
-      | RightParen -> return {
+      | RightParen -> {
         Source_form.position = starting_position;
         value = Source_form.List (List.rev elements)
       }
       | LeftParen -> begin
-        let* parsed_form = parse_list' (Ok []) in
-        parse_list' (Ok (parsed_form :: elements))
+        let parsed_form = parse_list' [] in
+        parse_list' (parsed_form :: elements)
       end
     end
     | Token.Atom token -> begin
       let parsed_form = parse_atom position token in
-      parse_list' (Ok (parsed_form :: elements))
+      parse_list' (parsed_form :: elements)
     end
   in
-  parse_list' (Ok [])
+  parse_list' []
 
 let parse_incremental token_stream =
   let rec loop parsed_forms =
@@ -50,13 +50,15 @@ let parse_incremental token_stream =
     | Token.EndOfInput -> List.rev parsed_forms
     | Token.Marker token -> begin
       let parsed_form = match token with
-      | RightParen -> Error (Compile_error.parse_errors position ["unexpected ')'"])
+      | RightParen -> raise_error position "unmatched delimiter ')'"
       | LeftParen -> parse_list token_stream position
       in loop (parsed_form :: parsed_forms)
     end
     | Token.Atom token -> begin
         let parsed_form = parse_atom position token in
-        loop (Ok parsed_form :: parsed_forms)
+        loop (parsed_form :: parsed_forms)
     end
   in
-  loop []
+  try Ok (loop [])
+  with Token.Error (position, message) ->
+    Error (Compile_error.create_syntax_error position message)

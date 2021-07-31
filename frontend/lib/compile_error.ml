@@ -29,22 +29,22 @@ let to_string = function
 let build_message_parts messages line_number char_number =
   (String.concat "" messages, sprintf "in expression at %d:%d" line_number char_number)
 
-let syntax_error line_number char_number message =
+let create_syntax_error { Stream_position.line_number; char_number; _ } message =
   let prefix = sprintf "in expression at %d:%d" line_number char_number in
   SyntaxError { line_number; char_number; prefix; message }
 
-let parse_errors { Stream_position.line_number; char_number; _ } messages =
-  let (message, prefix) = build_message_parts messages line_number char_number in
+let create_parse_error { Stream_position.line_number; char_number; _ } message_fragments =
+  let (message, prefix) = build_message_parts message_fragments line_number char_number in
   ParseError { line_number; char_number; prefix; message }
 
-let definition_errors { Stream_position.line_number; char_number; _ } messages =
-  let (message, prefix) = build_message_parts messages line_number char_number in
+let create_definition_error { Stream_position.line_number; char_number; _ } message_fragments =
+  let (message, prefix) = build_message_parts message_fragments line_number char_number in
   DefinitionError { line_number; char_number; prefix; message }
 
-let name_errors { Stream_position.line_number; char_number; _ } messages =
-  let (message, prefix) = build_message_parts messages line_number char_number in
+let create_name_error { Stream_position.line_number; char_number; _ } message_fragments =
+  let (message, prefix) = build_message_parts message_fragments line_number char_number in
   NameError { line_number; char_number; prefix; message }
 
-let type_errors { Stream_position.line_number; char_number; _ } messages =
-  let (message, prefix) = build_message_parts messages line_number char_number in
+let create_type_error { Stream_position.line_number; char_number; _ } message_fragments =
+  let (message, prefix) = build_message_parts message_fragments line_number char_number in
   TypeError { line_number; char_number; prefix; message }

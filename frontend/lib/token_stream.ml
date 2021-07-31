@@ -8,15 +8,41 @@ type t = {
   next_stream_thunk: (int -> stream_t option)
 }
 
-exception Error of (Stream_position.t * string)
-
 let raise_error position message =
-  raise (Error (position, message))
+  raise (Token.Error (position, message))
 
 module Whitespace = struct
   let chars = [' '; '\t'; '\n']
 
   let is_char c = List.mem c chars
+end
+
+module LeftParen = struct
+  let start_char = '('
+
+  let is_start_char c = c = start_char
+
+  let tokenize input_stream =
+    let _ = Positional_stream.next input_stream
+    in Token.Marker LeftParen
+end
+
+module RightParen = struct
+  let start_char = ')'
+
+  let is_start_char c = c = start_char
+
+  let tokenize input_stream =
+    let _ = Positional_stream.next input_stream
+    in Token.Marker RightParen
+end
+
+module Delimiters = struct
+  let closing = [
+    RightParen.start_char;
+  ]
+
+  let is_closing_char c = List.mem c closing
 end
 
 module Number = struct
@@ -28,15 +54,13 @@ module Number = struct
 
   let start_chars = digit_chars
 
-  let final_chars = [')']
-
   let chars = digit_chars @ [decimal_char]
 
   let is_decimal_char c = decimal_char = c
 
   let is_start_char c = List.mem c start_chars
 
-  let is_final_char c = List.mem c final_chars
+  let is_final_char c = Delimiters.is_closing_char c
 
   let is_char c = List.mem c chars
 
@@ -45,14 +69,13 @@ module Number = struct
       let (position, character) = Positional_stream.peek input_stream in
       match character with
       | None -> characters
-      | Some c when Whitespace.is_char c -> characters
-      | Some c when is_final_char c -> characters
+      | Some c when Whitespace.is_char c || is_final_char c -> characters
       | Some c when is_char c && is_decimal_char c ->
-          if decimal_found then raise_error position (sprintf "unexpected %c in number" c)
+          if decimal_found then raise_error position (sprintf "unexpected character %c in number" c)
           else tokenize' ~decimal_found:true (Positional_stream.next_only input_stream :: characters)
       | Some c when is_char c ->
           tokenize' ~decimal_found:decimal_found (Positional_stream.next_only input_stream :: characters)
-      | Some c -> raise_error position (sprintf "invalid character in number %c" c)
+      | Some c -> raise_error position (sprintf "unexpected character %c in number" c)
     in
     let characters = tokenize' [] in
     let characters = List.rev characters in
@@ -103,40 +126,21 @@ module Symbol = struct
 
   let is_char c = List.mem c chars
 
+  let is_final_char c = Delimiters.is_closing_char c
+
   let tokenize input_stream =
     let rec tokenize' characters =
       let (position, character) = Positional_stream.peek input_stream in
       match character with
       | None -> characters
-      | Some c when Whitespace.is_char c -> characters
-      | Some c when is_char c ->
-          tokenize' (Positional_stream.next_only input_stream :: characters)
-      | Some c -> raise_error position (sprintf "invalid character in symbol %c" c)
+      | Some c when Whitespace.is_char c || is_final_char c -> characters
+      | Some c when is_char c -> tokenize' (Positional_stream.next_only input_stream :: characters)
+      | Some c -> raise_error position (sprintf "unexpected character %c in symbol" c)
     in
     let characters = tokenize' [] in
     let characters = List.rev characters in
     let token_text = StdString.of_seq (List.to_seq characters) in
     Token.Atom (Symbol token_text)
-end
-
-module LeftParen = struct
-  let start_char = '('
-
-  let is_start_char c = c = start_char
-
-  let tokenize input_stream =
-    let _ = Positional_stream.next input_stream
-    in Token.Marker LeftParen
-end
-
-module RightParen = struct
-  let start_char = ')'
-
-  let is_start_char c = c = start_char
-
-  let tokenize input_stream =
-    let _ = Positional_stream.next input_stream
-    in Token.Marker RightParen
 end
 
 let token_for_char input_stream position = function

@@ -10,10 +10,9 @@ let read_stream ?line_number:(line_number=1) message =
   let input = display message |> read_line in
   Frontend.Positional_stream.of_string ~source:"stdin" ~line_number:line_number input
 
-let evaluate_forms symbol_table source_forms =
+let evaluate_forms symbol_table source_parsing_result =
   let evaluate_in_stages symbol_table source_form =
     let open Common.Extensions.Result.Syntax in
-    let* source_form = source_form in
     let* semantic_form = Frontend.Semantic_parsing.parse_form source_form in
     let* symbol_table = Frontend.Identifier_definition.define_identifiers symbol_table semantic_form in
     let* resolved_form = Frontend.Identifier_resolution.resolve_identifiers symbol_table semantic_form in
@@ -28,7 +27,12 @@ let evaluate_forms symbol_table source_forms =
         let () = printf "%s\n" @@ Frontend.Ast.Resolved_form.inspect resolved_form in
         symbol_table
   in
-  List.fold_left evaluate_form symbol_table source_forms
+  match source_parsing_result with
+  | Error compile_error ->
+      let () = printf "%s\n" @@ Frontend.Compile_error.to_string compile_error in
+      symbol_table
+  | Ok source_forms ->
+      List.fold_left evaluate_form symbol_table source_forms
 
 let await_input previous_line =
   let line_number = previous_line + 1 in

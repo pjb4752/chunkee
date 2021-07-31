@@ -7,6 +7,7 @@ type t =
   | String
   | Bool
   | List
+  | Vector
   | Record of (string * t) list
   | Function of t list * t
 
@@ -17,6 +18,7 @@ let type_of_str s =
   else if s = "str" then Some String
   else if s = "bool" then Some Bool
   else if s = "list" then Some List
+  else if s = "vector" then Some Vector
   else None
 
 let find_builtin s = type_of_str s
@@ -41,5 +43,6 @@ let rec inspect tipe =
   | String -> "str"
   | Bool -> "bool"
   | List -> "list"
+  | Vector -> "vector"
   | Record fields -> inspect_record fields
   | Function (param_types, return_type) -> inspect_function param_types return_type
