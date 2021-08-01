@@ -36,15 +36,14 @@ let resolve_def recursively_resolve scopes position name body_form =
   return (Resolved_form.create_def position name body_form)
 
 let resolve_function recur_fn symbol_table scopes position parameters return_type body_form =
-  let resolve_vars parsed_var resolved_vars =
-    let* resolved_vars = resolved_vars in
+  let resolve_var parsed_var =
     let (name, parsed_type) = Semantic_form.VarDef.to_tuple parsed_var in
     let* resolved_type = resolve_type symbol_table position parsed_type in
-    let resolved_var = Resolved_form.VarDef.from_parts name resolved_type in
-    return (resolved_var :: resolved_vars) in
+    return (Resolved_form.VarDef.from_parts name resolved_type)
+  in
   let extract_var_name resolved_var =
     Resolved_form.VarDef.to_tuple resolved_var |> fst in
-  let* parameters = List.fold_right resolve_vars parameters (Ok []) in
+  let* parameters = List.bind_right resolve_var parameters in
   let param_names = List.map extract_var_name parameters in
   let function_scope = Scope.of_list param_names in
   let scopes = function_scope :: scopes in
@@ -88,11 +87,7 @@ let resolve_let recur_fn scopes position bindings body_form =
   end
 
 let resolve_apply recur_fn scopes position callable_form arguments =
-  let resolve_arguments resolved argument =
-    let* resolved = resolved in
-    let* argument = recur_fn scopes argument in
-    return (argument :: resolved) in
-  let* arguments = List.fold_left resolve_arguments (Ok []) arguments in
+  let* arguments = List.bind_left (fun argument -> recur_fn scopes argument) arguments in
   let* callable_form = recur_fn scopes callable_form in
   return (Resolved_form.create_apply position callable_form @@ List.rev arguments)
 
@@ -105,21 +100,13 @@ let check_record_fields position record_type given_names =
         if List.exists ((=) given_name) defined_names then Ok given_name
         else create_name_error position @@ sprintf "%s is not a valid record field" given_name
       in
-      let check_fields_exist given_name existing_names =
-        let* existing_names = existing_names in
-        let* existing_name = field_exists defined_names given_name in
-        return (existing_name :: existing_names) in
-      List.fold_right check_fields_exist given_names (Ok [])
+      List.bind_right (fun given_name -> field_exists defined_names given_name) given_names
     else create_name_error position "Wrong number of fields for given for record"
   end
   | _ -> assert false
 
 let resolve_record_expressions recur_fn scopes expression_forms =
-  let resolve_expressions expression_form resolved_forms =
-    let* resolved_forms = resolved_forms in
-    let* resolved_form = recur_fn scopes expression_form in
-    return (resolved_form :: resolved_forms) in
-  List.fold_right resolve_expressions expression_forms (Ok [])
+  List.bind_right (fun expression_form -> recur_fn scopes expression_form) expression_forms
 
 let resolve_cons recur_fn symbol_table scopes position target_type fields =
   let* target_type = resolve_type symbol_table position target_type in

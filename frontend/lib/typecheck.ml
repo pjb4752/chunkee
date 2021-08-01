@@ -39,11 +39,7 @@ let typecheck_name symbol_table scopes name =
   | Resolved_name.ModuleName (module_name, name) -> typecheck_module_name symbol_table module_name name
 
 let build_parameter_scope parameters =
-  let build_parameter_tuples param processed_params =
-    let* processed_params = processed_params in
-    let (param_name, param_type) = Form.VarDef.to_tuple param in
-    return ((param_name, param_type) :: processed_params) in
-  let* parameter_tuples = List.fold_right build_parameter_tuples parameters (Ok []) in
+  let* parameter_tuples = List.bind_right (fun param -> return (Form.VarDef.to_tuple param)) parameters in
   return (
     List.fold_right (fun (param_name, param_type) scope ->
       Scope.add param_name param_type scope
@@ -147,11 +143,7 @@ let typecheck_callable_arguments position defined_type argument_types =
     ]
 
 let typecheck_apply recursively_typecheck scopes position callable_form arguments =
-  let typecheck_arguments argument checked_types =
-    let* checked_types = checked_types in
-    let* next_type = recursively_typecheck scopes argument in
-    return (next_type :: checked_types) in
-  let* argument_types = List.fold_right typecheck_arguments arguments (Ok []) in
+  let* argument_types = List.bind_right (fun argument -> recursively_typecheck scopes argument) arguments in
   let* defined_type = recursively_typecheck scopes callable_form in
   let* return_type = typecheck_callable_arguments position defined_type argument_types in
   return return_type
@@ -169,13 +161,12 @@ let compare_field_types position target_fields bound_field bound_type =
 let typecheck_cons recursively_typecheck scopes position target_type bindings =
   match target_type with
   | Type.Record (target_fields) -> begin
-    let typecheck_field_types binding bound_types =
-      let* bound_types = bound_types in
+    let typecheck_field_type binding =
       let (bound_field, body_form) = Form.Binding.to_tuple binding in
       let* bound_type = recursively_typecheck scopes body_form in
-      let* bound_type = compare_field_types position target_fields bound_field bound_type in
-      return (bound_type :: bound_types) in
-    let bound_types = List.fold_right typecheck_field_types bindings (Ok []) in
+      compare_field_types position target_fields bound_field bound_type
+    in
+    let bound_types = List.bind_right typecheck_field_type bindings in
     let* _ = bound_types in return target_type
     end
   | _ -> assert false
