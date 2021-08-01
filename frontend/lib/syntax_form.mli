@@ -28,14 +28,13 @@ module type N = sig
     val to_tuple: t -> string * type_t
   end
 
-  type t = {
+  type t = private {
     position: Stream_position.t;
     parsed: u
-  } and u =
+  } and u = private
     | Number of float
     | String of string
     | Symbol of name_t
-    | Type of name_t
     | Def of { name: string; body_form: t }
     | Fn of { parameters: VarDef.t list; return_type: type_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
@@ -45,6 +44,19 @@ module type N = sig
     | Get of { target_form: t; field: string }
     | Set of { target_form: t; field: string; body_form: t }
     | Cast of { target_type: type_t; body_form: t }
+
+  val create_number: Stream_position.t -> float -> t
+  val create_string: Stream_position.t -> string -> t
+  val create_symbol: Stream_position.t -> name_t -> t
+  val create_def: Stream_position.t -> string -> t -> t
+  val create_fn: Stream_position.t -> VarDef.t list -> type_t -> t -> t
+  val create_if: Stream_position.t -> t -> t -> t -> t
+  val create_let: Stream_position.t -> t Binding.t list -> t -> t
+  val create_apply: Stream_position.t -> t -> t list -> t
+  val create_cons: Stream_position.t -> type_t -> t Binding.t list -> t
+  val create_get: Stream_position.t -> t -> string -> t
+  val create_set: Stream_position.t -> t -> string -> t -> t
+  val create_cast: Stream_position.t -> type_t -> t -> t
 
   val inspect: t -> string
 end

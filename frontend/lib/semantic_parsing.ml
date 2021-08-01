@@ -37,7 +37,7 @@ let parse_qualified_name position name =
         "\n\tplease use the correct form foo/bar.baz instead of bar.baz"
     ]
 
-let parse_name_expr position name =
+let parse_name position name =
   if String.contains name '.' then parse_qualified_name position name
   else Ok (Unresolved_name.UnqualifiedName name)
 
@@ -53,14 +53,14 @@ let invalid_type_error position =
     "\n\tplease use a correct simple or aggregate type."
   ]
 
-let rec parse_type_expr { Source_form.position; value } =
+let rec parse_type { Source_form.position; value } =
   match value with
   | Symbol value -> begin
-    let* parsed_type = parse_name_expr position value in
+    let* parsed_type = parse_name position value in
     return (Type_expression.SimpleType parsed_type)
   end
   | Vector forms -> begin
-   match parse_type_list parse_type_expr forms with
+   match parse_compound_type parse_type forms with
    | Error e -> Error e
    | Ok [] -> create_parse_error position [
         "aggregate type expressions must contain 1 or more types, instead found an empty expression";
@@ -71,8 +71,8 @@ let rec parse_type_expr { Source_form.position; value } =
   | _ -> invalid_type_error position
 
 let parse_var_def = function
-  | { Source_form.value = Source_form.Symbol name; _ } :: type_form :: [] -> begin
-    let* parsed_type = parse_type_expr type_form in
+  | { Source_form.value = Symbol name; _ } :: type_form :: [] -> begin
+    let* parsed_type = parse_type type_form in
     return (name, parsed_type)
   end
   | first_form :: _ -> create_parse_error first_form.position [
@@ -88,10 +88,10 @@ let is_const_literal { Source_form.value; _ } =
   | _ -> false
 
 let parse_def recursively_parse position = function
-  | { Source_form.value = Source_form.Symbol name; _ } :: body_expr :: [] when is_const_literal body_expr ->
+  | { Source_form.value = Symbol name; _ } :: body_expr :: [] when is_const_literal body_expr ->
       let* body_form = recursively_parse body_expr in
-      return { Form.position; parsed = Form.Def { name; body_form } }
-  | { Source_form.value = Source_form.Symbol _; _ } :: _ :: [] -> create_parse_error position [
+      return (Form.create_def position name body_form)
+  | { Source_form.value = Symbol _; _ } :: _ :: [] -> create_parse_error position [
       "top-level definitions must evaluate to a constant value";
       "\n\tplease use the correct form (def name <constant-expression>)"
     ]
@@ -101,21 +101,21 @@ let parse_def recursively_parse position = function
     ]
 
 let parse_get position = function
-  | [{ Source_form.position; value = Source_form.Symbol target; _ }; { value = Source_form.Symbol field; _ }] ->
-    let* target = parse_name_expr position target in
-    let target_form = { Form.position; parsed = Form.Symbol target } in
-    return { Form.position; parsed = Form.Get { target_form; field } }
+  | [{ Source_form.position; value = Symbol target; _ }; { value = Symbol field; _ }] ->
+    let* target = parse_name position target in
+    let target_form = Form.create_symbol position target in
+    return (Form.create_get position target_form field)
   | _ -> create_parse_error position [
       "get expression must provide the record and field name";
       "\n\tplease use the correct form (get record field)"
     ]
 
 let parse_set recursively_parse position = function
-  | [{ Source_form.position; value = Source_form.Symbol target; _ }; { value = Source_form.Symbol field; _ }; body] ->
-    let* target = parse_name_expr position target in
+  | [{ Source_form.position; value = Symbol target; _ }; { value = Symbol field; _ }; body] ->
+    let* target = parse_name position target in
     let* body_form = recursively_parse body in
-    let target_form = { Form.position; parsed = Form.Symbol target } in
-    return { Form.position; parsed = Form.Set { target_form; field; body_form } }
+    let target_form = Form.create_symbol position target in
+    return (Form.create_set position target_form field body_form)
   | _ -> create_parse_error position [
       "set expression must provide record and field names, and an expression";
       "\n\tplease use the correct form (set! record field expression)"
@@ -136,9 +136,9 @@ let parse_function_parameters position parameters =
 
 let parse_function_header position header_forms =
   match List.rev header_forms with
-  | return_type :: { Source_form.position; value = Source_form.Vector raw_parameters; _ } :: [] ->
+  | return_type :: { Source_form.position; value = Vector raw_parameters; _ } :: [] ->
     let* parsed_parameters = parse_function_parameters position raw_parameters in
-    let* return_type = parse_type_expr return_type in
+    let* return_type = parse_type return_type in
     return (parsed_parameters, return_type)
   | _ -> create_parse_error position [
       "function headers must be a vector containing a vector of parameters and the return type";
@@ -146,10 +146,10 @@ let parse_function_header position header_forms =
     ]
 
 let parse_function recursively_parse position = function
-  | { Source_form.position = header_position; value = Source_form.Vector raw_header; _ } :: body :: [] ->
+  | { Source_form.position = header_position; value = Vector raw_header; _ } :: body :: [] ->
     let* (parameters, return_type) = parse_function_header header_position raw_header in
     let* body_form = recursively_parse body in
-    return { Form.position; parsed = Form.Fn { parameters; return_type; body_form } }
+    return (Form.create_fn position parameters return_type body_form)
   | _ -> create_parse_error position [
       "function forms must contain a function header and singular body expression";
       "\n\tplease use the correct form (fn [[name type] type] <body-expression>)"
@@ -160,14 +160,14 @@ let parse_if recursively_parse position = function
       let* test_form = recursively_parse test_form in
       let* if_form = recursively_parse if_form in
       let* else_form = recursively_parse else_form in
-      return { Form.position; parsed = Form.If { test_form; if_form; else_form } }
+      return (Form.create_if position test_form if_form else_form)
   | _ -> create_parse_error position [
       "if forms must contain a test expression, an if expression and an else expression";
       "\n\tplease use the correct form (if <test-expression> <then-expression> <else-expression>)"
     ]
 
 let parse_binding recursively_parse = function
-  | ({ Source_form.value = Source_form.Symbol name; _ }, expression) ->
+  | ({ Source_form.value = Symbol name; _ }, expression) ->
     let* expression = recursively_parse expression in
     return (Form.Binding.from_form name expression)
   | (first_form, _) -> create_parse_error first_form.position [
@@ -176,23 +176,18 @@ let parse_binding recursively_parse = function
     ]
 
 let parse_bindings recursively_parse position bindings =
-  let parse_binding binding parsed_bindings =
-    let* parsed_bindings = parsed_bindings in
-    let* parsed_binding = parse_binding recursively_parse binding in
-    return (parsed_binding :: parsed_bindings)
-  in
   if (List.length bindings mod 2) = 0 then
-    List.fold_right parse_binding (List.as_pairs bindings) (Ok [])
+    List.bind_right (fun binding -> parse_binding recursively_parse binding) @@ List.as_pairs bindings
   else create_parse_error position [
       "bindings must be pairs of a name and an expression";
       "\n\tplease use the correct form ([name1 expression1 ... nameN expressionN])"
     ]
 
 let parse_let recursively_parse position = function
-  | { Source_form.position = binding_position; value = Source_form.Vector bindings; _ } :: body :: [] ->
+  | { Source_form.position = binding_position; value = Vector bindings; _ } :: body :: [] ->
     let* bindings = parse_bindings recursively_parse binding_position bindings in
     let* body_form = recursively_parse body in
-    return { Form.position; parsed = Form.Let { bindings; body_form } }
+    return (Form.create_let position bindings body_form)
   | _ -> create_parse_error position [
       "let forms must contain a vector of variable bindings and a singular body expression";
       "\n\tplease use the correct form (let [name expression] <body-expression>)"
@@ -200,9 +195,9 @@ let parse_let recursively_parse position = function
 
 let parse_cast recursively_parse position = function
   | target :: body :: [] -> begin
-    let* target_type = parse_type_expr target in
+    let* target_type = parse_type target in
     let* body_form = recursively_parse body in
-    return { Form.position; parsed = Form.Cast { target_type; body_form } }
+    return (Form.create_cast position target_type body_form)
   end
   | _ -> create_parse_error position [
       "cast forms must contain a type definition and a singular expression";
@@ -218,25 +213,25 @@ let parse_apply_arguments recursively_parse arguments =
 
 let parse_number_apply recursively_parse apply_position number_position value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
-  let callable_form = { Form.position = number_position; parsed = Form.Number value } in
-  return { Form.position = apply_position; parsed = Form.Apply { callable_form; arguments } }
+  let callable_form = Form.create_number number_position value in
+  return (Form.create_apply apply_position callable_form arguments)
 
 let parse_string_apply recursively_parse apply_position string_position value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
-  let callable_form = { Form.position = string_position; parsed = Form.String value } in
-  return { Form.position = apply_position; parsed = Form.Apply { callable_form; arguments } }
+  let callable_form = Form.create_string string_position value in
+  return (Form.create_apply apply_position callable_form arguments)
 
 let parse_symbol_apply recursively_parse apply_position symbol_position function_name arguments =
-  let* function_name = parse_name_expr symbol_position function_name in
+  let* function_name = parse_name symbol_position function_name in
   let* arguments = parse_apply_arguments recursively_parse arguments in
-  let callable_form = { Form.position = symbol_position; parsed = Form.Symbol function_name } in
-  return { Form.position = apply_position; parsed = Form.Apply { callable_form; arguments } }
+  let callable_form = Form.create_symbol symbol_position function_name in
+  return (Form.create_apply apply_position callable_form arguments)
 
 let parse_function_apply recursively_parse apply_position callable_position function_value arguments =
-  let form_to_parse = { Source_form.position = callable_position; value = Source_form.List function_value } in
+  let form_to_parse = { Source_form.position = callable_position; value = List function_value } in
   let* callable_form = recursively_parse form_to_parse in
   let* arguments = parse_apply_arguments recursively_parse arguments in
-  return { Form.position = apply_position; parsed = Form.Apply { callable_form; arguments } }
+  return (Form.create_apply apply_position callable_form arguments)
 
 let parse_builtin recursively_parse list_position builtin_position builtin (arguments: Source_form.t list) =
   if builtin = "get" then parse_get list_position arguments
@@ -249,17 +244,17 @@ let parse_builtin recursively_parse list_position builtin_position builtin (argu
   else parse_symbol_apply recursively_parse list_position builtin_position builtin arguments
 
 let parse_symbol position symbol =
-  let* symbol = parse_name_expr position symbol in
-  return { Form.position; parsed = Form.Symbol symbol }
+  let* symbol = parse_name position symbol in
+  return (Form.create_symbol position symbol)
 
 let parse_list recursively_parse list_position = function
-  | { Source_form.position = number_position; Source_form.value = Source_form.Number value; _ } :: arguments ->
+  | { Source_form.position = number_position; value = Number value; _ } :: arguments ->
       parse_number_apply recursively_parse list_position number_position value arguments
-  | { Source_form.position = string_position; Source_form.value = Source_form.String value; _ } :: arguments ->
+  | { Source_form.position = string_position; value = String value; _ } :: arguments ->
       parse_string_apply recursively_parse list_position string_position value arguments
-  | { Source_form.position = builtin_position; Source_form.value = Source_form.Symbol operation; _ } :: arguments ->
+  | { Source_form.position = builtin_position; value = Symbol operation; _ } :: arguments ->
       parse_builtin recursively_parse list_position builtin_position operation arguments
-  | { Source_form.position = callable_position; Source_form.value = Source_form.List expression; _ } :: arguments ->
+  | { Source_form.position = callable_position; value = List expression; _ } :: arguments ->
       parse_function_apply recursively_parse list_position callable_position expression arguments
   | _ -> create_parse_error list_position [
       sprintf "failed to parse invalid list form";
@@ -268,10 +263,8 @@ let parse_list recursively_parse list_position = function
 
 let rec parse_form { Source_form.position; value; _ } =
   match value with
-  | Source_form.Number value ->
-      Ok { Form.position; parsed = Form.Number value }
-  | Source_form.String value ->
-      Ok { Form.position; parsed = Form.String value }
+  | Source_form.Number value -> Ok (Form.create_number position value)
+  | Source_form.String value -> Ok (Form.create_string position value)
   | Source_form.Symbol value -> parse_symbol position value
   | Source_form.List elements -> parse_list parse_form position elements
   | Source_form.Vector _ -> create_parse_error position ["I don't understand vectors yet"]

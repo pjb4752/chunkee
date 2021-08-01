@@ -30,14 +30,13 @@ module type N = sig
     val to_tuple: t -> string * type_t
   end
 
-  type t = {
+  type t = private {
     position: Stream_position.t;
     parsed: u
-  } and u =
+  } and u = private
     | Number of float
     | String of string
     | Symbol of name_t
-    | Type of name_t
     | Def of { name: string; body_form: t }
     | Fn of { parameters: VarDef.t list; return_type: type_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
@@ -47,6 +46,19 @@ module type N = sig
     | Get of { target_form: t; field: string }
     | Set of { target_form: t; field: string; body_form: t }
     | Cast of { target_type: type_t; body_form: t }
+
+  val create_number: Stream_position.t -> float -> t
+  val create_string: Stream_position.t -> string -> t
+  val create_symbol: Stream_position.t -> name_t -> t
+  val create_def: Stream_position.t -> string -> t -> t
+  val create_fn: Stream_position.t -> VarDef.t list -> type_t -> t -> t
+  val create_if: Stream_position.t -> t -> t -> t -> t
+  val create_let: Stream_position.t -> t Binding.t list -> t -> t
+  val create_apply: Stream_position.t -> t -> t list -> t
+  val create_cons: Stream_position.t -> type_t -> t Binding.t list -> t
+  val create_get: Stream_position.t -> t -> string -> t
+  val create_set: Stream_position.t -> t -> string -> t -> t
+  val create_cast: Stream_position.t -> type_t -> t -> t
 
   val inspect: t -> string
 end
@@ -95,7 +107,6 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | Number of float
     | String of string
     | Symbol of name_t
-    | Type of name_t
     | Def of { name: string; body_form: t }
     | Fn of { parameters: VarDef.t list; return_type: type_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
@@ -105,6 +116,42 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | Get of { target_form: t; field: string }
     | Set of { target_form: t; field: string; body_form: t }
     | Cast of { target_type: type_t; body_form: t }
+
+  let create_number position value =
+    { position; parsed = Number value }
+
+  let create_string position value =
+    { position; parsed = String value }
+
+  let create_symbol position name =
+    { position; parsed = Symbol name }
+
+  let create_def position name body_form =
+    { position; parsed = Def { name; body_form } }
+
+  let create_fn position parameters return_type body_form =
+    { position; parsed = Fn { parameters; return_type; body_form } }
+
+  let create_if position test_form if_form else_form =
+    { position; parsed = If { test_form; if_form; else_form } }
+
+  let create_let position bindings body_form =
+    { position; parsed = Let { bindings; body_form } }
+
+  let create_apply position callable_form arguments =
+    { position; parsed = Apply { callable_form; arguments } }
+
+  let create_cons position target_type bindings =
+    { position; parsed = Cons { target_type; bindings } }
+
+  let create_get position target_form field =
+    { position; parsed = Get { target_form; field } }
+
+  let create_set position target_form field body_form =
+    { position; parsed = Set { target_form; field; body_form } }
+
+  let create_cast position target_type body_form =
+    { position; parsed = Cast { target_type; body_form } }
 
   let inspect_form position parsed =
     sprintf "{ position = %s; parsed = %s }" (Stream_position.inspect position) parsed
@@ -117,9 +164,6 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
 
   let inspect_symbol value =
     sprintf "Symbol(%s)" (NameExpr.inspect value)
-
-  let inspect_type value =
-    sprintf "Type(%s)" (NameExpr.inspect value)
 
   let inspect_def inspect' name body_form =
     sprintf "Def{ name = %s; body_form = %s }" name (inspect' body_form)
@@ -178,7 +222,6 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | Number value -> inspect_numlit value
     | String value -> inspect_strlit value
     | Symbol value -> inspect_symbol value
-    | Type value -> inspect_type value
     | Def { name; body_form } -> inspect_def name body_form
     | Fn { parameters; return_type; body_form } -> inspect_fn parameters return_type body_form
     | If { test_form; if_form; else_form } -> inspect_if test_form if_form else_form

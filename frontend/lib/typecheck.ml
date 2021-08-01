@@ -17,7 +17,7 @@ let create_name_error position message_fragments =
   Error (Compile_error.create_name_error position message_fragments)
 
 let is_compatible expected actual =
-  expected = actual || expected == Type.Any
+  expected = actual || expected = Type.Any
 
 let typecheck_local_name scopes name =
   match List.find_opt (Scope.mem name) scopes with
@@ -236,7 +236,6 @@ let typecheck_form symbol_table form =
         Ok Type.String
     | Form.Symbol name ->
         typecheck_name symbol_table scopes name
-    | Form.Type _ -> assert false
     | Form.Def _ -> assert false
     | Form.Fn { parameters; return_type; body_form } ->
         typecheck_fn recursively_typecheck scopes position parameters return_type body_form

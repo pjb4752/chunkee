@@ -215,7 +215,6 @@ let rec emit_lua_fragment name_generator (form: Form.t) =
   | Form.Number value -> emit_number value
   | Form.String value -> emit_string value
   | Form.Symbol value -> emit_symbol value
-  | Form.Type _ -> assert false
   | Form.Def { name; body_form } ->
       emit_def recursively_emit name_generator name body_form
   | Form.Fn { parameters; body_form; _ } ->
