@@ -23,6 +23,16 @@ module List = struct
   let zip left right =
     List.fold_left2 (fun acc l r -> (l, r) :: acc) [] left right |> List.rev
 
+  let bind_right input_fn input_list =
+    let fold_fn element output_list =
+      Result.bind output_list (fun output_list ->
+        Result.bind (input_fn element) (fun element ->
+          Result.ok (element :: output_list)
+        )
+      )
+    in
+    List.fold_right fold_fn input_list (Ok [])
+
   let inspect fn l =
     sprintf "[%s]" @@ String.concat "; " @@ List.map fn l
 end

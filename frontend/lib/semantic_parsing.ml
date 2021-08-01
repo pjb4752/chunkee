@@ -41,11 +41,8 @@ let parse_name position name =
   if String.contains name '.' then parse_qualified_name position name
   else Ok (Unresolved_name.UnqualifiedName name)
 
-let parse_type_list parse_type_expr' forms_to_parse =
-  List.fold_right (fun type_form parsed_types ->
-    let* parsed_types = parsed_types in
-    let* next_type = parse_type_expr' type_form in
-    return (next_type :: parsed_types)) forms_to_parse (Ok [])
+let parse_compound_type parse_type' forms_to_parse =
+  List.bind_right parse_type' forms_to_parse
 
 let invalid_type_error position =
   create_parse_error position [
@@ -122,13 +119,12 @@ let parse_set recursively_parse position = function
     ]
 
 let parse_function_parameters position parameters =
-  let parse_parameter (name, param_type) parsed_params =
-    let* parsed_params = parsed_params in
-    let* (name, param_type) = parse_var_def [name; param_type] in
-    let param = Form.VarDef.from_parts name param_type in
-    return (param :: parsed_params) in
   if (List.length parameters mod 2) = 0 then
-    List.fold_right parse_parameter (List.as_pairs parameters) (Ok [])
+    let parse_parameter (name, param_type) =
+      let* (name, param_type) = parse_var_def [name; param_type] in
+      return (Form.VarDef.from_parts name param_type )
+    in
+    List.bind_right parse_parameter @@ List.as_pairs parameters
   else create_parse_error position [
       "parameter lists must be pairs of a name and a type";
       "\n\tplease use the correct form [name1 type1 name2 type2]"
@@ -205,11 +201,7 @@ let parse_cast recursively_parse position = function
     ]
 
 let parse_apply_arguments recursively_parse arguments =
-  let parse_argument argument parsed_arguments =
-    let* parsed_arguments = parsed_arguments in
-    let* parsed_argument = recursively_parse argument in
-    return (parsed_argument :: parsed_arguments) in
-  List.fold_right parse_argument arguments (Ok [])
+  List.bind_right recursively_parse arguments
 
 let parse_number_apply recursively_parse apply_position number_position value arguments =
   let* arguments = parse_apply_arguments recursively_parse arguments in
