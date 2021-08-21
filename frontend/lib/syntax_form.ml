@@ -13,7 +13,7 @@ module type N = sig
   module Binding: sig
     type 'a t
 
-    val from_form: string -> 'a -> 'a t
+    val create: string -> 'a -> 'a t
 
     val name: 'a t -> string
 
@@ -22,10 +22,14 @@ module type N = sig
     val to_tuple: 'a t -> string * 'a
   end
 
-  module VarDef: sig
+  module Parameter: sig
     type t
 
-    val from_parts: string -> type_t -> t
+    val create: string -> type_t -> t
+
+    val name: t -> string
+
+    val ptype: t -> type_t
 
     val to_tuple: t -> string * type_t
   end
@@ -38,7 +42,7 @@ module type N = sig
     | String of string
     | Symbol of name_t
     | Def of { name: string; body_form: t }
-    | Fn of { parameters: VarDef.t list; return_type: type_t; body_form: t }
+    | Fn of { parameters: Parameter.t list; return_type: type_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
     | Let of { bindings: t Binding.t list; body_form: t }
     | Apply of { callable_form: t; arguments: t list }
@@ -51,7 +55,7 @@ module type N = sig
   val create_string: Stream_position.t -> string -> t
   val create_symbol: Stream_position.t -> name_t -> t
   val create_def: Stream_position.t -> string -> t -> t
-  val create_fn: Stream_position.t -> VarDef.t list -> type_t -> t -> t
+  val create_fn: Stream_position.t -> Parameter.t list -> type_t -> t -> t
   val create_if: Stream_position.t -> t -> t -> t -> t
   val create_let: Stream_position.t -> t Binding.t list -> t -> t
   val create_apply: Stream_position.t -> t -> t list -> t
@@ -73,7 +77,7 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
       expr: 'a;
     }
 
-    let from_form name expr = { name; expr; }
+    let create name expr = { name; expr; }
 
     let name { name; _ } = name
 
@@ -85,19 +89,20 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
       sprintf "Binding(%s, %s)" name (inspect' expr)
   end
 
-  module VarDef = struct
-    type t = {
-      name: string;
-      tipe: type_t
-    }
+  module Parameter = struct
+    type t = { name: string; ptype: type_t }
 
-    let from_parts name tipe = { name; tipe; }
+    let create name ptype = { name; ptype; }
 
-    let to_tuple { name; tipe; } = (name, tipe)
+    let name { name; _ } = name
 
-    let inspect { name; tipe; } =
-      let tipe = TypeExpr.inspect tipe in
-      sprintf "VarDef({ name = %s; tipe = %s })" name tipe
+    let ptype { ptype; _ } = ptype
+
+    let to_tuple { name; ptype; } = (name, ptype)
+
+    let inspect { name; ptype; } =
+      let tipe = TypeExpr.inspect ptype in
+      sprintf "Parameter({ name = %s; type = %s })" name tipe
   end
 
   type t = {
@@ -108,7 +113,7 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     | String of string
     | Symbol of name_t
     | Def of { name: string; body_form: t }
-    | Fn of { parameters: VarDef.t list; return_type: type_t; body_form: t }
+    | Fn of { parameters: Parameter.t list; return_type: type_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
     | Let of { bindings: t Binding.t list; body_form: t }
     | Apply of { callable_form: t; arguments: t list }
@@ -169,7 +174,7 @@ module Make (NameExpr: InspectableType) (TypeExpr: InspectableType) = struct
     sprintf "Def{ name = %s; body_form = %s }" name (inspect' body_form)
 
   let inspect_fn inspect' parameters return_type body_form =
-    let parameters = List.map VarDef.inspect parameters in
+    let parameters = List.map Parameter.inspect parameters in
     let parameters = String.concat "; " parameters in
     let return_type = TypeExpr.inspect return_type in
     let body_form = inspect' body_form in

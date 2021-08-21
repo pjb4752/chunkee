@@ -67,13 +67,13 @@ let rec parse_type { Source_form.position; value } =
   end
   | _ -> invalid_type_error position
 
-let parse_var_def = function
+let parse_parameter = function
   | { Source_form.value = Symbol name; _ } :: type_form :: [] -> begin
     let* parsed_type = parse_type type_form in
     return (name, parsed_type)
   end
   | first_form :: _ -> create_parse_error first_form.position [
-      "variable definitions must be pairs of a name and a type";
+      "parameter definitions must be pairs of a name and a type";
       "\n\tplease use the correct form [name type]"
     ]
   | _ -> assert false
@@ -121,8 +121,8 @@ let parse_set recursively_parse position = function
 let parse_function_parameters position parameters =
   if (List.length parameters mod 2) = 0 then
     let parse_parameter (name, param_type) =
-      let* (name, param_type) = parse_var_def [name; param_type] in
-      return (Form.VarDef.from_parts name param_type )
+      let* (name, param_type) = parse_parameter [name; param_type] in
+      return (Form.Parameter.create name param_type )
     in
     List.bind_right parse_parameter @@ List.as_pairs parameters
   else create_parse_error position [
@@ -165,7 +165,7 @@ let parse_if recursively_parse position = function
 let parse_binding recursively_parse = function
   | ({ Source_form.value = Symbol name; _ }, expression) ->
     let* expression = recursively_parse expression in
-    return (Form.Binding.from_form name expression)
+    return (Form.Binding.create name expression)
   | (first_form, _) -> create_parse_error first_form.position [
       "a binding must be a pair of a name and an expression";
       "\n\tplease use the correct form [name1 expression1 ... nameN expressionN]"

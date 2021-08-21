@@ -22,7 +22,7 @@ let module_variable_exists symbol_table name =
   Option.is_some @@ Symbol_table.find_variable symbol_table module_name name
 
 let find_function_type symbol_table position parameters return_type =
-  let param_types = List.map (fun param -> snd @@ Form.VarDef.to_tuple param) parameters in
+  let param_types = List.map Form.Parameter.ptype parameters in
   let compound_type = Type_expression.CompoundType (List.append param_types [return_type]) in
   match Symbol_table.resolve_type symbol_table compound_type with
   | Error error -> create_definition_error position [Symbol_table.err_string error]

@@ -11,7 +11,7 @@ module type N = sig
   module Binding: sig
     type 'a t
 
-    val from_form: string -> 'a -> 'a t
+    val create: string -> 'a -> 'a t
 
     val name: 'a t -> string
 
@@ -20,10 +20,14 @@ module type N = sig
     val to_tuple: 'a t -> string * 'a
   end
 
-  module VarDef: sig
+  module Parameter: sig
     type t
 
-    val from_parts: string -> type_t -> t
+    val create: string -> type_t -> t
+
+    val name: t -> string
+
+    val ptype: t -> type_t
 
     val to_tuple: t -> string * type_t
   end
@@ -36,7 +40,7 @@ module type N = sig
     | String of string
     | Symbol of name_t
     | Def of { name: string; body_form: t }
-    | Fn of { parameters: VarDef.t list; return_type: type_t; body_form: t }
+    | Fn of { parameters: Parameter.t list; return_type: type_t; body_form: t }
     | If of { test_form: t; if_form: t; else_form: t }
     | Let of { bindings: t Binding.t list; body_form: t }
     | Apply of { callable_form: t; arguments: t list }
@@ -49,7 +53,7 @@ module type N = sig
   val create_string: Stream_position.t -> string -> t
   val create_symbol: Stream_position.t -> name_t -> t
   val create_def: Stream_position.t -> string -> t -> t
-  val create_fn: Stream_position.t -> VarDef.t list -> type_t -> t -> t
+  val create_fn: Stream_position.t -> Parameter.t list -> type_t -> t -> t
   val create_if: Stream_position.t -> t -> t -> t -> t
   val create_let: Stream_position.t -> t Binding.t list -> t -> t
   val create_apply: Stream_position.t -> t -> t list -> t

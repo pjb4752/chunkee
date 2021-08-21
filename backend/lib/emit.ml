@@ -76,11 +76,11 @@ let emit_def recursively_emit name_generator name expression =
   let def_statement = Lua_fragment.make_unit_statement assignment in
   Lua_fragment.insert_preamble def_statement expression_fragment
 
-let vardef_name vardef =
-  Form.VarDef.(to_tuple vardef |> fst |> escape_name)
+let parameter_name parameter =
+  Form.Parameter.(name parameter |> escape_name)
 
 let parameter_string parameters =
-  let parameters = List.map vardef_name parameters in
+  let parameters = List.map parameter_name parameters in
   String.concat ", " parameters
 
 let emit_function recursively_emit name_generator parameters body =

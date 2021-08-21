@@ -36,16 +36,14 @@ let resolve_def recursively_resolve scopes position name body_form =
   return (Resolved_form.create_def position name body_form)
 
 let resolve_function recur_fn symbol_table scopes position parameters return_type body_form =
-  let resolve_var parsed_var =
-    let (name, parsed_type) = Semantic_form.VarDef.to_tuple parsed_var in
+  let resolve_parameter parameter =
+    let (name, parsed_type) = Semantic_form.Parameter.to_tuple parameter in
     let* resolved_type = resolve_type symbol_table position parsed_type in
-    return (Resolved_form.VarDef.from_parts name resolved_type)
+    return (Resolved_form.Parameter.create name resolved_type)
   in
-  let extract_var_name resolved_var =
-    Resolved_form.VarDef.to_tuple resolved_var |> fst in
-  let* parameters = List.bind_right resolve_var parameters in
-  let param_names = List.map extract_var_name parameters in
-  let function_scope = Scope.of_list param_names in
+  let* parameters = List.bind_right resolve_parameter parameters in
+  let parameter_names = List.map Resolved_form.Parameter.name parameters in
+  let function_scope = Scope.of_list parameter_names in
   let scopes = function_scope :: scopes in
   let* return_type = resolve_type symbol_table position return_type in
   let* body_form = recur_fn scopes body_form in
@@ -63,7 +61,7 @@ let resolve_binding recur_fn scopes binding =
   | Error e -> Error e
   | Ok form -> begin
     (*TODO we should always create new scope for each binding*)
-    let binding = Resolved_form.Binding.from_form name form in
+    let binding = Resolved_form.Binding.create name form in
     let current_scope = List.hd_else scopes Scope.empty in
     let updated_scope = Scope.add name current_scope in
     match scopes with
@@ -114,7 +112,7 @@ let resolve_cons recur_fn symbol_table scopes position target_type fields =
   let* existing_fields = check_record_fields position target_type given_fields in
   let field_expressions = List.map Semantic_form.Binding.expr fields in
   let* resolved_expressions = resolve_record_expressions recur_fn scopes field_expressions in
-  let resolved_fields = List.map2 Resolved_form.Binding.from_form existing_fields resolved_expressions in
+  let resolved_fields = List.map2 Resolved_form.Binding.create existing_fields resolved_expressions in
   return (Resolved_form.create_cons position target_type resolved_fields)
 
 let resolve_get symbol_table scopes target_form field =

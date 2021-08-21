@@ -39,7 +39,7 @@ let typecheck_name symbol_table scopes name =
   | Resolved_name.ModuleName (module_name, name) -> typecheck_module_name symbol_table module_name name
 
 let build_parameter_scope parameters =
-  let* parameter_tuples = List.bind_right (fun param -> return (Form.VarDef.to_tuple param)) parameters in
+  let* parameter_tuples = List.bind_right (fun param -> return (Form.Parameter.to_tuple param)) parameters in
   return (
     List.fold_right (fun (param_name, param_type) scope ->
       Scope.add param_name param_type scope
