@@ -84,7 +84,7 @@ let is_const_literal { Source_form.value; _ } =
   | Source_form.List ({ value = Source_form.Symbol "fn"; _ } :: _) -> true
   | _ -> false
 
-let parse_def recursively_parse position = function
+let parse_def_form recursively_parse position = function
   | { Source_form.value = Symbol name; _ } :: body_expr :: [] when is_const_literal body_expr ->
       let* body_form = recursively_parse body_expr in
       return (Form.create_def position name body_form)
@@ -97,7 +97,7 @@ let parse_def recursively_parse position = function
       "\n\tplease use the correct form (def name <constant-expression>)"
     ]
 
-let parse_get position = function
+let parse_get_form position = function
   | [{ Source_form.position; value = Symbol target; _ }; { value = Symbol field; _ }] ->
     let* target = parse_name position target in
     let target_form = Form.create_symbol position target in
@@ -107,7 +107,7 @@ let parse_get position = function
       "\n\tplease use the correct form (get record field)"
     ]
 
-let parse_set recursively_parse position = function
+let parse_set_form recursively_parse position = function
   | [{ Source_form.position; value = Symbol target; _ }; { value = Symbol field; _ }; body] ->
     let* target = parse_name position target in
     let* body_form = recursively_parse body in
@@ -141,7 +141,7 @@ let parse_function_header position header_forms =
       "\n\tplease use the correct form (fn [[name type] type] <body-expression>)"
     ]
 
-let parse_function recursively_parse position = function
+let parse_function_form recursively_parse position = function
   | { Source_form.position = header_position; value = Vector raw_header; _ } :: body :: [] ->
     let* (parameters, return_type) = parse_function_header header_position raw_header in
     let* body_form = recursively_parse body in
@@ -151,7 +151,7 @@ let parse_function recursively_parse position = function
       "\n\tplease use the correct form (fn [[name type] type] <body-expression>)"
     ]
 
-let parse_if recursively_parse position = function
+let parse_if_form recursively_parse position = function
   | test_form :: if_form :: else_form :: [] ->
       let* test_form = recursively_parse test_form in
       let* if_form = recursively_parse if_form in
@@ -179,7 +179,7 @@ let parse_bindings recursively_parse position bindings =
       "\n\tplease use the correct form ([name1 expression1 ... nameN expressionN])"
     ]
 
-let parse_let recursively_parse position = function
+let parse_let_form recursively_parse position = function
   | { Source_form.position = binding_position; value = Vector bindings; _ } :: body :: [] ->
     let* bindings = parse_bindings recursively_parse binding_position bindings in
     let* body_form = recursively_parse body in
@@ -189,7 +189,7 @@ let parse_let recursively_parse position = function
       "\n\tplease use the correct form (let [name expression] <body-expression>)"
     ]
 
-let parse_cast recursively_parse position = function
+let parse_cast_form recursively_parse position = function
   | target :: body :: [] -> begin
     let* target_type = parse_type target in
     let* body_form = recursively_parse body in
@@ -226,20 +226,20 @@ let parse_function_apply recursively_parse apply_position callable_position func
   return (Form.create_apply apply_position callable_form arguments)
 
 let parse_builtin recursively_parse list_position builtin_position builtin (arguments: Source_form.t list) =
-  if builtin = "get" then parse_get list_position arguments
-  else if builtin = "set!" then parse_set recursively_parse list_position arguments
-  else if builtin = "fn" then parse_function recursively_parse list_position arguments
-  else if builtin = "if" then parse_if recursively_parse list_position arguments
-  else if builtin = "let" then parse_let recursively_parse list_position arguments
-  else if builtin = "cast" then parse_cast recursively_parse list_position arguments
-  else if builtin = "def" then parse_def recursively_parse list_position arguments
+  if builtin = "get" then parse_get_form list_position arguments
+  else if builtin = "set!" then parse_set_form recursively_parse list_position arguments
+  else if builtin = "fn" then parse_function_form recursively_parse list_position arguments
+  else if builtin = "if" then parse_if_form recursively_parse list_position arguments
+  else if builtin = "let" then parse_let_form recursively_parse list_position arguments
+  else if builtin = "cast" then parse_cast_form recursively_parse list_position arguments
+  else if builtin = "def" then parse_def_form recursively_parse list_position arguments
   else parse_symbol_apply recursively_parse list_position builtin_position builtin arguments
 
-let parse_symbol position symbol =
+let parse_symbol_form position symbol =
   let* symbol = parse_name position symbol in
   return (Form.create_symbol position symbol)
 
-let parse_list recursively_parse list_position = function
+let parse_list_form recursively_parse list_position = function
   | { Source_form.position = number_position; value = Number value; _ } :: arguments ->
       parse_number_apply recursively_parse list_position number_position value arguments
   | { Source_form.position = string_position; value = String value; _ } :: arguments ->
@@ -257,7 +257,7 @@ let rec parse_form { Source_form.position; value; _ } =
   match value with
   | Source_form.Number value -> Ok (Form.create_number position value)
   | Source_form.String value -> Ok (Form.create_string position value)
-  | Source_form.Symbol value -> parse_symbol position value
-  | Source_form.List elements -> parse_list parse_form position elements
+  | Source_form.Symbol value -> parse_symbol_form position value
+  | Source_form.List elements -> parse_list_form parse_form position elements
   | Source_form.Vector _ -> create_parse_error position ["I don't understand vectors yet"]
   (*| Source_form.Extension value -> parse_extension parse_form position value*)

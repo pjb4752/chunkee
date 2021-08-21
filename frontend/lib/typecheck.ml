@@ -46,7 +46,7 @@ let build_parameter_scope parameters =
     ) parameter_tuples Scope.empty
   )
 
-let typecheck_fn recursively_typecheck scopes position parameters return_type body_form =
+let typecheck_function_form recursively_typecheck scopes position parameters return_type body_form =
   let actual_return_type =
     let* param_scope = build_parameter_scope parameters in
     let* return_type = recursively_typecheck (param_scope :: scopes) body_form in
@@ -79,7 +79,7 @@ let typecheck_if_branches position if_type else_type =
       sprintf "which is incompatible with else-expr result type %s" @@ Type.inspect else_type
     ]
 
-let typecheck_if recursively_typecheck scopes position test_form if_form else_form =
+let typecheck_if_form recursively_typecheck scopes position test_form if_form else_form =
   let* _ = typecheck_test_form recursively_typecheck scopes position test_form in
   let* if_type = recursively_typecheck scopes if_form in
   let* else_type = recursively_typecheck scopes else_form in
@@ -95,7 +95,7 @@ let typecheck_binding recursively_typecheck scopes binding =
     Ok (scope :: scopes)
   end
 
-let typecheck_let recursively_typecheck scopes bindings body_form =
+let typecheck_let_form recursively_typecheck scopes bindings body_form =
   let rec typecheck_bindings scopes = function
     | [] -> Ok scopes
     | binding :: remaining_bindings -> begin
@@ -142,7 +142,7 @@ let typecheck_callable_arguments position defined_type argument_types =
       sprintf "attempt to apply non-function type of %s" @@ Type.inspect defined_type
     ]
 
-let typecheck_apply recursively_typecheck scopes position callable_form arguments =
+let typecheck_apply_form recursively_typecheck scopes position callable_form arguments =
   let* argument_types = List.bind_right (fun argument -> recursively_typecheck scopes argument) arguments in
   let* defined_type = recursively_typecheck scopes callable_form in
   let* return_type = typecheck_callable_arguments position defined_type argument_types in
@@ -158,7 +158,7 @@ let compare_field_types position target_fields bound_field bound_type =
     ]
   | None -> assert false
 
-let typecheck_cons recursively_typecheck scopes position target_type bindings =
+let typecheck_cons_form recursively_typecheck scopes position target_type bindings =
   match target_type with
   | Type.Record (target_fields) -> begin
     let typecheck_field_type binding =
@@ -184,7 +184,7 @@ let typecheck_record_field position target_fields field =
   | Some (_, target_type) -> Ok (target_type)
   | None -> create_name_error position [sprintf "record does not have field %s" field]
 
-let typecheck_get symbol_symbol_table scopes position target_form field =
+let typecheck_get_form symbol_symbol_table scopes position target_form field =
   match target_form with
   | { Form.parsed = Form.Symbol name; _ } -> begin
     let* target_type = typecheck_name symbol_symbol_table scopes name in
@@ -201,7 +201,7 @@ let compare_set_type position target_type actual_type =
       sprintf "but instead received type of %s" @@ Type.inspect actual_type
     ]
 
-let typecheck_set recursively_typecheck symbol_symbol_table scopes position target_form field body_form =
+let typecheck_set_form recursively_typecheck symbol_symbol_table scopes position target_form field body_form =
   match target_form with
   | { Form.parsed = Form.Symbol name; _ } -> begin
     let* target_type = typecheck_name symbol_symbol_table scopes name in
@@ -213,7 +213,7 @@ let typecheck_set recursively_typecheck symbol_symbol_table scopes position targ
   end
   | _ -> assert false
 
-let typecheck_cast recursively_typecheck scopes target_type body_form =
+let typecheck_cast_form recursively_typecheck scopes target_type body_form =
   let* _ = recursively_typecheck scopes body_form in
   return target_type
 
@@ -229,20 +229,20 @@ let typecheck_form symbol_table form =
         typecheck_name symbol_table scopes name
     | Form.Def _ -> assert false
     | Form.Fn { parameters; return_type; body_form } ->
-        typecheck_fn recursively_typecheck scopes position parameters return_type body_form
+        typecheck_function_form recursively_typecheck scopes position parameters return_type body_form
     | Form.If { test_form; if_form; else_form } ->
-        typecheck_if recursively_typecheck scopes position test_form if_form else_form
+        typecheck_if_form recursively_typecheck scopes position test_form if_form else_form
     | Form.Let { bindings; body_form } ->
-        typecheck_let recursively_typecheck scopes bindings body_form
+        typecheck_let_form recursively_typecheck scopes bindings body_form
     | Form.Apply { callable_form; arguments } ->
-        typecheck_apply recursively_typecheck scopes position callable_form arguments
+        typecheck_apply_form recursively_typecheck scopes position callable_form arguments
     | Form.Cons { target_type; bindings } ->
-        typecheck_cons recursively_typecheck scopes position target_type bindings
+        typecheck_cons_form recursively_typecheck scopes position target_type bindings
     | Form.Get { target_form; field } ->
-        typecheck_get symbol_table scopes position target_form field
+        typecheck_get_form symbol_table scopes position target_form field
     | Form.Set { target_form; field; body_form } ->
-        typecheck_set recursively_typecheck symbol_table scopes position target_form field body_form
+        typecheck_set_form recursively_typecheck symbol_table scopes position target_form field body_form
     | Form.Cast { target_type; body_form } ->
-        typecheck_cast recursively_typecheck scopes target_type body_form
+        typecheck_cast_form recursively_typecheck scopes target_type body_form
   in
   recursively_typecheck [] form
