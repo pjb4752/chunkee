@@ -1,11 +1,10 @@
-module Identifier = Frontend.Identifier
 module Module = Frontend.Module
 module Module_name = Frontend.Module_name
 module Type = Frontend.Type
 
 module Common = struct
-  let pi_name = Identifier.from_string "pi"
-  let plus_name = Identifier.from_string "+"
+  let pi_name = "pi"
+  let plus_name = "+"
 
   let name =
     let module_segments = List.map Module_name.Segment.from_string ["test"] in
@@ -15,6 +14,6 @@ module Common = struct
 
   let defined_module =
     let named_module = Module.with_name name in
-    let named_module = Module.define_var named_module pi_name Type.Number in
-    Module.define_var named_module plus_name (Type.Function ([Type.Number; Type.Number], Type.Number))
+    let named_module = Module.define_variable named_module "pi" Type.Number in
+    Module.define_variable named_module "+" (Type.Function ([Type.Number; Type.Number], Type.Number))
 end

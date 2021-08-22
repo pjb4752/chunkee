@@ -21,7 +21,7 @@ let parse_atom position atom =
   in { Source_form.position; value = atom }
 
 let parse_list token_stream starting_position =
-  let rec parse_list' elements =
+  let rec parse_list' elements starting_position =
     let { Token.position; value } = Token_stream.next token_stream in
     match value with
     | Token.EndOfInput -> raise_error position "unexpected end of input"
@@ -32,16 +32,16 @@ let parse_list token_stream starting_position =
         value = Source_form.List (List.rev elements)
       }
       | LeftParen -> begin
-        let parsed_form = parse_list' [] in
-        parse_list' (parsed_form :: elements)
+        let parsed_form = parse_list' [] position in
+        parse_list' (parsed_form :: elements) starting_position
       end
     end
     | Token.Atom token -> begin
       let parsed_form = parse_atom position token in
-      parse_list' (parsed_form :: elements)
+      parse_list' (parsed_form :: elements) starting_position
     end
   in
-  parse_list' []
+  parse_list' [] starting_position
 
 let parse_incremental token_stream =
   let rec loop parsed_forms =

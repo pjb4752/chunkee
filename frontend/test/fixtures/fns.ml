@@ -1,120 +1,67 @@
 open Frontend.Ast
-open Frontend.Lexing
-open Frontend.Metadata
+open Frontend.Names
+open Frontend.Stream_position
 
-module Identifier = Frontend.Identifier
-module Name = Frontend.Name
+module Source_form = Frontend.Source_form
 module Type = Frontend.Type
+module Type_expression = Frontend.Type_expression
 
-let source = "(fn [[pi num] num] (+ pi 5))"
 
-let metadata = { line_num = 1; char_num = 1; source }
+let source_string = String.concat "\n" [
+  "(fn ((pi num) num)";
+  "  (+ pi 5))"
+]
 
-let lexed_value = {
-  Form.metadata = metadata;
-  value = Form.List [
-    {
-      metadata = { line_num = 1; char_num = 2; source = "fn" };
-      value = Form.Symbol "fn"
-    };
-    {
-      metadata = { line_num = 1; char_num = 5; source = "[[pi num] num]" };
-      value = Form.Vector [
-        {
-          metadata = { line_num = 1; char_num = 6; source = "[pi num]" };
-          value = Form.Vector [
-            {
-              metadata = { line_num = 1; char_num = 7; source = "pi" };
-              value = Form.Symbol "pi"
-            };
-            {
-              metadata = { line_num = 1; char_num = 10; source = "num" };
-              value = Form.Symbol "num"
-            }
-          ]
-        };
-        {
-          metadata = { line_num = 1; char_num = 15; source = "num" };
-          value = Form.Symbol "num"
-        }
-      ]
-    };
-    {
-      metadata = { line_num = 1; char_num = 20; source = "(+ pi 5)" };
-      value = Form.List [
-        {
-          metadata = { line_num = 1; char_num = 21; source = "+" };
-          value = Form.Symbol "+"
-        };
-        {
-          metadata = { line_num = 1; char_num = 23; source = "pi" };
-          value = Form.Symbol "pi"
-        };
-        {
-          metadata = { line_num = 1; char_num = 26; source = "5" };
-          value = Form.Number 5.0
-        }
-      ]
-    }
+let source_form =
+  Source_form.create_list { line_number = 1; char_number = 1 } [
+    Source_form.create_symbol { line_number = 1; char_number = 2 } "fn";
+    Source_form.create_list { line_number = 1; char_number = 5 } [
+      Source_form.create_list { line_number = 1; char_number = 6 } [
+        Source_form.create_symbol { line_number = 1; char_number = 7 } "pi";
+        Source_form.create_symbol { line_number = 1; char_number = 10 } "num";
+      ];
+      Source_form.create_symbol { line_number = 1; char_number = 15 } "num"
+    ];
+    Source_form.create_list { line_number = 2; char_number = 3 } [
+      Source_form.create_symbol { line_number = 2; char_number = 4 } "+";
+      Source_form.create_symbol { line_number = 2; char_number = 6 } "pi";
+      Source_form.create_number { line_number = 2; char_number = 9 } 5.0
+    ]
   ]
-}
 
-let parsed_value = {
-  Parsed_node.metadata = metadata;
-  parsed = Parsed_node.Fn {
-    parameters = [
-      Parsed_node.VarDef.from_parts (Identifier.from_string "pi") (SimpleType (BareName "num"));
-    ];
-    return_type = SimpleType (BareName "num");
-    body_node = {
-      metadata = { line_num = 1; char_num = 20; source = "(+ pi 5)" };
-      parsed = Parsed_node.Apply {
-        callable_node = {
-          metadata = { line_num = 1; char_num = 21; source = "+" };
-          parsed = Parsed_node.Symbol (BareName "+")
-        };
-        arguments = [
-          {
-            metadata = { line_num = 1; char_num = 23; source = "pi" };
-            parsed = Parsed_node.Symbol (BareName "pi")
-          };
-          {
-            metadata = { line_num = 1; char_num = 26; source = "5" };
-            parsed = Parsed_node.NumLit 5.0
-          }
-        ]
-      }
-    }
-  }
-}
+let semantic_form =
+  let num_name = Unresolved_name.UnqualifiedName "num" in
+  let plus_name = Unresolved_name.UnqualifiedName "+" in
+  let pi_name = Unresolved_name.UnqualifiedName "pi" in
+  let num_type = Type_expression.SimpleType num_name in
+  let parameters = [
+    Semantic_form.Parameter.create "pi" num_type
+  ]
+  in
+  let body_form =
+    Semantic_form.create_apply { line_number = 1; char_number = 20 }
+      (Semantic_form.create_symbol { line_number = 1; char_number = 21 } plus_name)
+      [
+        Semantic_form.create_symbol { line_number = 1; char_number = 23 } pi_name;
+        Semantic_form.create_number { line_number = 1; char_number = 26 } 5.0;
+      ]
+  in
+  Semantic_form.create_fn { line_number = 1; char_number = 1 } parameters num_type body_form
 
-let resolved_value = {
-  Resolved_node.metadata = metadata;
-  parsed = Resolved_node.Fn {
-    parameters = [
-      Resolved_node.VarDef.from_parts (Identifier.from_string "pi") Type.Number;
-    ];
-    return_type = Type.Number;
-    body_node = {
-      metadata = { line_num = 1; char_num = 20; source = "(+ pi 5)" };
-      parsed = Resolved_node.Apply {
-        callable_node = {
-          metadata = { line_num = 1; char_num = 21; source = "+" };
-          parsed = Resolved_node.Symbol (
-            Name.Module (Modules.Common.name, Modules.Common.plus_name)
-          )
-        };
-        arguments = [
-          {
-            metadata = { line_num = 1; char_num = 23; source = "pi" };
-            parsed = Resolved_node.Symbol (Name.Local "pi")
-          };
-          {
-            metadata = { line_num = 1; char_num = 26; source = "5" };
-            parsed = Resolved_node.NumLit 5.0
-          }
-        ]
-      }
-    }
-  }
-}
+let resolved_form =
+  let plus_name = Resolved_name.ModuleName (Modules.Common.name, Modules.Common.plus_name) in
+  let pi_name = Resolved_name.LocalName "pi" in
+  let num_type = Type.Number in
+  let parameters = [
+      Resolved_form.Parameter.create "pi" Type.Number
+  ]
+  in
+  let body_form =
+    Resolved_form.create_apply { line_number = 1; char_number = 20 }
+      (Resolved_form.create_symbol { line_number = 1; char_number = 21 } plus_name)
+      [
+        Resolved_form.create_symbol { line_number = 1; char_number = 23 } pi_name;
+        Resolved_form.create_number { line_number = 1; char_number = 26 } 5.0;
+      ]
+  in
+  Resolved_form.create_fn { line_number = 1; char_number = 1 } parameters num_type body_form

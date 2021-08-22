@@ -10,6 +10,19 @@ type t = {
   | List of t list
   | Vector of t list
 
+
+let create_number position value =
+  { position; value = Number value }
+
+let create_string position value =
+  { position; value = String value }
+
+let create_symbol position value =
+  { position; value = Symbol value }
+
+let create_list position value =
+  { position; value = List value }
+
 let inspect form =
   let rec inspect' { position; value; _ } =
     let position = Stream_position.inspect position in

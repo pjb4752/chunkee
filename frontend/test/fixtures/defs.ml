@@ -1,36 +1,18 @@
 open Frontend.Ast
-open Frontend.Lexing
-open Frontend.Metadata
+open Frontend.Stream_position
 
-let source = "(def x 5)"
+module Source_form = Frontend.Source_form
 
-let metadata = { line_num = 1; char_num = 1; source }
+let source_string = "(def x 5)"
 
-let lexed_value = {
-  Form.metadata = metadata;
-  value = Form.List [
-    {
-      metadata = { line_num = 1; char_num = 2; source = "def" };
-      value = Form.Symbol "def"
-    };
-    {
-      metadata = { line_num = 1; char_num = 6; source = "x" };
-      value = Form.Symbol "x"
-    };
-    {
-      metadata = { line_num = 1; char_num = 8; source = "5" };
-      value = Form.Number 5.0
-    }
+let source_form =
+  Source_form.create_list { line_number = 1; char_number = 1 } [
+    Source_form.create_symbol { line_number = 1; char_number = 2 } "def";
+    Source_form.create_symbol { line_number = 1; char_number = 6 } "x";
+    Source_form.create_number { line_number = 1; char_number = 8 } 5.0
   ]
-}
 
-let parsed_value = {
-  Parsed_node.metadata = { line_num = 1; char_num = 1; source };
-  parsed = Parsed_node.Def {
-    name = Frontend.Identifier.from_string "x";
-    body_node = {
-      metadata = { line_num = 1; char_num = 8; source = "5" };
-      parsed = Parsed_node.NumLit 5.0
-    }
-  }
-}
+let semantic_form =
+  Semantic_form.create_def { line_number = 1; char_number = 1 } "x" (
+    Semantic_form.create_number { line_number = 1; char_number = 8 } 5.0
+  )

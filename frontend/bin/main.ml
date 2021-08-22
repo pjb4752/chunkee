@@ -45,7 +45,7 @@ let next_input_line in_channel previous_line_number =
   let line_number = previous_line_number + 1 in
   match read_next_line in_channel with
   | None -> None
-  | Some line -> Some (Frontend.Positional_stream.of_string ~source:"file" ~line_number:line_number line)
+  | Some line -> Some (Frontend.Positional_stream.of_string ~line_number:line_number line)
 
 let compile_file symbol_table filename =
   let next_input_line = next_input_line @@ open_in filename in

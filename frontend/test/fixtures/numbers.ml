@@ -1,22 +1,14 @@
 open Frontend.Ast
-open Frontend.Lexing
-open Frontend.Metadata
+open Frontend.Stream_position
 
-let source = "55"
+module Source_form = Frontend.Source_form
 
-let metadata = { line_num = 1; char_num = 1; source }
+let source_string = "55"
 
-let lexed_value = {
-  Form.metadata = metadata;
-  value = Form.Number 55.0
-}
+let position = { line_number = 1; char_number = 1 }
 
-let parsed_value = {
-  Parsed_node.metadata = metadata;
-  parsed = Parsed_node.NumLit 55.0
-}
+let source_form = Source_form.create_number position 55.0
 
-let resolved_value = {
-  Resolved_node.metadata = metadata;
-  parsed = Resolved_node.NumLit 55.0
-}
+let semantic_form = Semantic_form.create_number position 55.0
+
+let resolved_form = Resolved_form.create_number position 55.0

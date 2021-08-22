@@ -8,7 +8,7 @@ let display text =
 
 let read_stream ?line_number:(line_number=1) message =
   let input = display message |> read_line in
-  Frontend.Positional_stream.of_string ~source:"stdin" ~line_number:line_number input
+  Frontend.Positional_stream.of_string ~line_number:line_number input
 
 let evaluate_forms symbol_table source_parsing_result =
   let evaluate_in_stages symbol_table source_form =

@@ -1,6 +1,6 @@
 type t
 
-val of_string: ?source: string -> ?line_number: int -> string -> t
+val of_string: ?line_number: int -> string -> t
 
 val peek: t -> (Stream_position.t * char option)
 

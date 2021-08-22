@@ -3,11 +3,10 @@ type t = {
   position: Stream_position.t ref;
 }
 
-let of_string ?source:(source="unknown") ?line_number:(line_number=1) s = {
+let of_string ?line_number:(line_number=1) s = {
   char_stream = Stream.of_string s;
   position = ref {
-    Stream_position.source;
-    line_number;
+    Stream_position.line_number;
     char_number = 0;
   }
 }
